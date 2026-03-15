@@ -43,7 +43,7 @@ def get_conn():
 def init_db():
     conn = get_conn()
     c = conn.cursor()
-    # 一般公告
+    # 一般公告表
     c.execute('CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, author TEXT, content TEXT, image_path TEXT, is_deleted INTEGER DEFAULT 0)')
     # ⚠️ 品質異常公告表
     c.execute('''CREATE TABLE IF NOT EXISTS quality_posts (
@@ -55,10 +55,8 @@ def init_db():
                     staff_name TEXT, 
                     image_path TEXT, 
                     is_deleted INTEGER DEFAULT 0)''')
-    # 人員名單
+    # 人員名單表
     c.execute('CREATE TABLE IF NOT EXISTS staff (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)')
-    c.execute("INSERT OR IGNORE INTO staff (name) VALUES ('賴智文')")
-    c.execute("INSERT OR IGNORE INTO staff (name) VALUES ('黃沂澂')")
     conn.commit()
     conn.close()
 
@@ -85,7 +83,7 @@ if menu == "🏠 公佈欄首頁":
     df = pd.read_sql("SELECT * FROM posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
     conn.close()
     
-    if df.empty: st.write("目前尚無公告")
+    if df.empty: st.write("目前尚無一般公告")
     for _, r in df.iterrows():
         with st.container():
             st.markdown(f"**{r['date']} | 發布人：{r['author']}**")
@@ -129,7 +127,7 @@ elif menu == "⚠️ 品質異常公告":
     df = pd.read_sql("SELECT * FROM quality_posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
     conn.close()
     
-    if df.empty: st.write("目前尚無異常紀錄")
+    if df.empty: st.write("目前尚無品質異常紀錄")
     for _, r in df.iterrows():
         with st.expander(f"🔴 [{r['date']}] 製令：{r['order_no']} | 分類：{r['category']}"):
             c1, c2 = st.columns([7, 3])
@@ -138,9 +136,8 @@ elif menu == "⚠️ 品質異常公告":
                 st.error(f"**異常內容：**\n{r['content']}")
             with c2:
                 if r['image_path'] and os.path.exists(r['image_path']):
-                    st.image(Image.open(r['image_path']), caption="現場照片", use_container_width=True)
-                else:
-                    st.write("無照片紀錄")
+                    st.image(Image.open(r['image_path']), caption="異常現場", use_container_width=True)
+                else: st.write("無照片紀錄")
 
 # 4. 📝 撰寫品質公告 (編輯頁面)
 elif menu == "📝 撰寫品質公告":
@@ -148,7 +145,8 @@ elif menu == "📝 撰寫品質公告":
     col1, col2 = st.columns(2)
     with col1:
         order_no = st.text_input("工單/製令編號")
-        q_cat = st.selectbox("異常分類", ["尺寸不符", "外觀瑕疵", "組裝錯誤", "材料問題", "其他"])
+        # 💡 依照您的需求修改分類
+        q_cat = st.selectbox("異常分類", ["零件異常", "外觀異常", "組裝問題", "流程問題", "其他"])
     with col2:
         conn = get_conn()
         s_list = pd.read_sql("SELECT name FROM staff", conn)['name'].tolist()
@@ -173,20 +171,20 @@ elif menu == "📝 撰寫品質公告":
             conn.close()
             sync_to_github(f"Quality Alert: {order_no}")
             st.balloons()
-            st.success("異常紀錄已存檔！")
+            st.success("品質異常紀錄已成功存檔！")
             time.sleep(1.5); st.rerun()
         else: st.warning("請填寫製令編號與異常描述。")
 
-# 5. 📜 所有紀錄 (包含一般與品質)
+# 5. 📜 所有紀錄 (永久保留)
 elif menu == "📜 所有紀錄":
-    st.subheader("📜 全系統歷史紀錄")
+    st.subheader("📜 全系統歷史紀錄 (Log)")
     conn = get_conn()
-    st.write("--- 一般公告 ---")
-    df1 = pd.read_sql("SELECT date, author, content, CASE WHEN is_deleted=1 THEN '已刪除' ELSE '正常' END as 狀態 FROM posts ORDER BY id DESC", conn)
+    st.write("--- 📢 一般公告歷史 (含已刪除) ---")
+    df1 = pd.read_sql("SELECT date, author as 發布人, content as 內容, CASE WHEN is_deleted=1 THEN '❌ 已刪除' ELSE '✅ 顯示中' END as 狀態 FROM posts ORDER BY id DESC", conn)
     st.dataframe(df1, use_container_width=True)
     
-    st.write("--- 品質異常 ---")
-    df2 = pd.read_sql("SELECT date, order_no as 製令, category as 分類, staff_name as 人員, content as 內容 FROM quality_posts ORDER BY id DESC", conn)
+    st.write("--- ⚠️ 品質異常歷史 (含已刪除) ---")
+    df2 = pd.read_sql("SELECT date, order_no as 製令, category as 分類, staff_name as 人員, content as 內容, CASE WHEN is_deleted=1 THEN '❌ 已刪除' ELSE '✅ 顯示中' END as 狀態 FROM quality_posts ORDER BY id DESC", conn)
     st.dataframe(df2, use_container_width=True)
     conn.close()
 
@@ -195,4 +193,60 @@ elif menu == "⚙️ 管理後台":
     st.subheader("🛠️ 管理系統")
     if st.text_input("請輸入管理密碼", type="password") == "0000":
         t1, t2, t3 = st.tabs(["公告管理", "品質紀錄管理", "人員管理"])
-        # ... (後續管理邏輯與之前雷同，省略細節以保持簡潔)
+        with t1:
+            conn = get_conn()
+            df = pd.read_sql("SELECT * FROM posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
+            conn.close()
+            for _, r in df.iterrows():
+                c1, c2, c3 = st.columns([6, 2, 2])
+                c1.write(f"[{r['date']}] {r['content'][:20]}...")
+                with c2.popover("📝 編輯"):
+                    nc = st.text_area("修改內容", value=r['content'], key=f"e_{r['id']}")
+                    if st.button("💾 儲存", key=f"s_{r['id']}"):
+                        conn = get_conn()
+                        conn.execute("UPDATE posts SET content = ? WHERE id = ?", (nc, r['id']))
+                        conn.commit(); conn.close()
+                        sync_to_github("Edit Post")
+                        st.balloons(); st.rerun()
+                if c3.button("🗑️ 刪除", key=f"d_{r['id']}"):
+                    conn = get_conn()
+                    conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (r['id'],))
+                    conn.commit(); conn.close()
+                    sync_to_github("Del Post"); st.rerun()
+        with t2:
+            conn = get_conn()
+            df_q = pd.read_sql("SELECT * FROM quality_posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
+            conn.close()
+            for _, r in df_q.iterrows():
+                c1, c2 = st.columns([8, 2])
+                c1.write(f"[{r['date']}] 製令:{r['order_no']} | 分類:{r['category']}")
+                if c2.button("🗑️ 刪除", key=f"dq_{r['id']}"):
+                    conn = get_conn()
+                    conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],))
+                    conn.commit(); conn.close()
+                    sync_to_github("Del Quality Rec"); st.rerun()
+        with t3:
+            st.write("### 👥 人員名單管理")
+            new_n = st.text_input("請輸入新人員姓名")
+            if st.button("➕ 新增人員"):
+                if new_n:
+                    conn = get_conn()
+                    try:
+                        conn.execute("INSERT INTO staff (name) VALUES (?)", (new_n,))
+                        conn.commit(); conn.close()
+                        sync_to_github(f"Add {new_n}"); st.balloons()
+                        st.success(f"✅ 已新增：{new_n}"); time.sleep(1); st.rerun()
+                    except: conn.close(); st.error("人員已存在")
+                else: st.warning("請輸入姓名")
+            st.markdown("---")
+            conn = get_conn()
+            curr_df = pd.read_sql("SELECT * FROM staff", conn)
+            conn.close()
+            for _, row in curr_df.iterrows():
+                col1, col2 = st.columns([8, 2])
+                col1.write(f"👤 {row['name']}")
+                if col2.button("🗑️ 刪除", key=f"ds_{row['id']}"):
+                    conn = get_conn()
+                    conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],))
+                    conn.commit(); conn.close()
+                    sync_to_github(f"Remove {row['name']}"); st.rerun()
