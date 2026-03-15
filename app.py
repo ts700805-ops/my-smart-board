@@ -10,19 +10,14 @@ from PIL import Image
 # 1. 網頁基本設定
 st.set_page_config(page_title="超慧製造部-雲端公佈欄", page_icon="🏭", layout="wide")
 
-# --- 🚀 雲端保險箱模式：從 Streamlit Secrets 讀取金鑰 ---
+# --- 🚀 安全讀取金鑰 ---
 try:
-    if "MY_TOKEN" in st.secrets:
-        MY_TOKEN = st.secrets["MY_TOKEN"]
-    else:
-        st.error("❌ 找不到金鑰！請至 Streamlit Settings > Secrets 設定 MY_TOKEN")
-        MY_TOKEN = ""
+    MY_TOKEN = st.secrets["MY_TOKEN"] if "MY_TOKEN" in st.secrets else ""
 except Exception:
     MY_TOKEN = ""
 
 GITHUB_REPO = f"https://{MY_TOKEN}@github.com/ts700805-ops/my-smart-board.git"
 IMAGE_FOLDER = "images"
-
 if not os.path.exists(IMAGE_FOLDER):
     os.makedirs(IMAGE_FOLDER)
 
@@ -121,9 +116,29 @@ elif menu == "⚙️ 管理後台":
             df = pd.read_sql("SELECT * FROM posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
             conn.close()
             for _, r in df.iterrows():
-                c1, c2 = st.columns([8, 2])
+                c1, c2, c3 = st.columns([6, 2, 2])
                 c1.write(f"[{r['date']}] {r['content'][:20]}...")
-                if c2.button("🗑️", key=f"d_{r['id']}"):
+                
+                # 編輯功能 (彈出式視窗)
+                with c2.popover("📝 編輯"):
+                    new_content = st.text_area("修改內容", value=r['content'], key=f"edit_txt_{r['id']}")
+                    new_file = st.file_uploader("更換照片 (若不更換請留空)", type=['jpg', 'png', 'jpeg'], key=f"edit_img_{r['id']}")
+                    if st.button("💾 儲存修改", key=f"save_{r['id']}"):
+                        conn = get_conn()
+                        final_path = r['image_path']
+                        if new_file:
+                            final_path = f"{IMAGE_FOLDER}/edit_{datetime.now().strftime('%H%M%S')}_{new_file.name}"
+                            with open(final_path, "wb") as f: f.write(new_file.getbuffer())
+                        conn.execute("UPDATE posts SET content = ?, image_path = ? WHERE id = ?", (new_content, final_path, r['id']))
+                        conn.commit()
+                        conn.close()
+                        sync_to_github(f"Edit Post {r['id']}")
+                        st.success("已更新！")
+                        time.sleep(0.5)
+                        st.rerun()
+
+                # 刪除功能
+                if c3.button("🗑️ 刪除", key=f"d_{r['id']}"):
                     conn = get_conn()
                     conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (r['id'],))
                     conn.commit()
@@ -131,24 +146,21 @@ elif menu == "⚙️ 管理後台":
                     sync_to_github(f"Del {r['id']}")
                     st.rerun()
         with t2:
-            st.write("### 👥 人員名單管理")
+            st.write("### 👥 人員名單")
             conn = get_conn()
-            curr_staff = pd.read_sql("SELECT name FROM staff", conn)
-            st.table(curr_staff)
-            
-            new_n = st.text_input("輸入新人員姓名", key="add_staff_input")
-            if st.button("➕ 確認新增"):
+            curr = pd.read_sql("SELECT name FROM staff", conn)
+            st.table(curr)
+            new_n = st.text_input("輸入新人員姓名")
+            if st.button("➕ 新增"):
                 if new_n:
                     try:
                         conn.execute("INSERT INTO staff (name) VALUES (?)", (new_n,))
                         conn.commit()
                         conn.close()
                         sync_to_github(f"Add {new_n}")
-                        st.success(f"✅ 已成功新增：{new_n}")
+                        st.success(f"已新增：{new_n}")
                         time.sleep(0.5)
-                        st.rerun() # 立即更新螢幕
-                    except:
-                        st.error("❌ 人員已存在於名單中")
-                        conn.close()
+                        st.rerun()
+                    except: st.error("人員已存在")
                 else: st.warning("請輸入姓名")
             else: conn.close()
