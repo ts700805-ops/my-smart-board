@@ -82,7 +82,7 @@ if menu == "🏠 公佈欄首頁":
             st.info(r['content'])
             if r['image_path'] and os.path.exists(r['image_path']):
                 with st.popover("🖼️ 檢視照片"):
-                    st.image(Image.open(r['image_path']), width=300)
+                    st.image(Image.open(r['image_path']), width=300) # 維持 300px 寬度
             st.markdown("---")
 
 elif menu == "✍️ 撰寫新公告":
@@ -114,7 +114,7 @@ elif menu == "⚠️ 品質異常公告":
             st.write(f"**相關人員：** {r['staff_name']}")
             st.error(f"**異常內容：** {r['content']}")
             if r['image_path'] and os.path.exists(r['image_path']):
-                st.image(Image.open(r['image_path']), width=300)
+                st.image(Image.open(r['image_path']), width=300) # 維持縮小尺寸
 
 elif menu == "📝 撰寫品質公告":
     st.subheader("✍️ 記錄品質異常")
@@ -141,7 +141,7 @@ elif menu == "📝 撰寫品質公告":
             conn.commit(); conn.close()
             sync_to_github("New Quality Alert"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5); st.rerun()
 
-elif menu == "📜 所有紀錄": # 💡 依據截圖 image_5fc2ba 找回功能
+elif menu == "📜 所有紀錄": # 💡 依據截圖要求修正的功能
     st.subheader("📜 歷史紀錄查詢")
     conn = get_conn()
     st.markdown("--- 📢 一般公告清單 ---")
@@ -153,7 +153,7 @@ elif menu == "📜 所有紀錄": # 💡 依據截圖 image_5fc2ba 找回功能
     st.dataframe(df_quality, use_container_width=True)
     conn.close()
 
-elif menu == "⚙️ 管理後台": # 維持管理後台功能不變
+elif menu == "⚙️ 管理後台": # 維持功能不亂動
     st.subheader("🛠️ 管理系統")
     if st.text_input("請輸入管理密碼", type="password") == "0000":
         t1, t2, t3 = st.tabs(["公告管理", "品質紀錄管理", "人員管理"])
@@ -179,7 +179,6 @@ elif menu == "⚙️ 管理後台": # 維持管理後台功能不變
             staff_list = pd.read_sql("SELECT name FROM staff", conn)['name'].tolist()
             conn.close()
             cat_options = ["零件異常", "外觀異常", "組裝問題", "流程問題", "其他"]
-            
             for _, r in df_q.iterrows():
                 qc1, qc2, qc3 = st.columns([6, 2, 2])
                 qc1.write(f"[{r['date']}] 製令:{r['order_no']} | 人員:{r['staff_name']}")
@@ -198,15 +197,12 @@ elif menu == "⚙️ 管理後台": # 維持管理後台功能不變
                         if new_img:
                             p = f"{IMAGE_FOLDER}/q_{datetime.now().strftime('%Y%m%d%H%M%S')}_{new_img.name}"
                             with open(p, "wb") as f: f.write(new_img.getbuffer())
-                        conn = get_conn()
-                        conn.execute("UPDATE quality_posts SET order_no=?, category=?, staff_name=?, content=?, image_path=? WHERE id=?", 
-                                     (new_order, new_cat, new_staff, new_content, p, r['id']))
-                        conn.commit(); conn.close()
-                        sync_to_github("Edit Quality"); st.rerun()
+                        conn = get_conn(); conn.execute("UPDATE quality_posts SET order_no=?, category=?, staff_name=?, content=?, image_path=? WHERE id=?", 
+                                     (new_order, new_cat, new_staff, new_content, p, r['id'])); conn.commit(); conn.close(); sync_to_github("Edit Quality"); st.rerun()
                 if qc3.button("🗑️ 刪除", key=f"dq_{r['id']}"):
                     conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality"); st.rerun()
 
-        with t3: # 人員管理不變
+        with t3:
             st.write("### 👥 人員名單管理")
             new_n = st.text_input("輸入新人員姓名")
             if st.button("➕ 新增人員"):
