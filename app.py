@@ -7,7 +7,7 @@ from git import Repo
 from datetime import datetime, timedelta
 from PIL import Image
 
-# 1. 網頁基本設定 (維持原樣)
+# 1. 網頁基本設定
 st.set_page_config(page_title="超慧製造部-雲端公佈欄", page_icon="🏭", layout="wide")
 
 # --- 🚀 安全讀取金鑰 ---
@@ -58,13 +58,12 @@ def init_db():
 
 init_db()
 
-# --- 側邊選單 (優化後的排列：公告在上，編輯與管理在下) ---
+# --- 側邊選單 (公告優先，撰寫/管理移至下方) ---
 with st.sidebar:
     st.markdown("### 👤 目前登入\n## 管理員")
     st.markdown("---")
     
     st.markdown("🔍 **公告瀏覽區 (主要點閱)**")
-    # 將人員最常用的功能放在首位，確保視覺焦點
     menu = st.radio(
         "功能選單",
         [
@@ -79,7 +78,8 @@ with st.sidebar:
         label_visibility="collapsed"
     )
     
-    st.markdown("<br><br><br>", unsafe_allow_html=True) # 增加間距將管理功能往下推
+    # 增加大量空白間距，將下方功能往下推
+    st.markdown("<br>" * 10, unsafe_allow_html=True) 
     st.caption("⚠️ 底部功能僅供管理/記錄使用")
 
 st.title("🏭 <超慧>製造部-雲端公佈欄")
@@ -97,7 +97,8 @@ if menu == "🏠 公佈欄首頁":
             st.info(r['content'])
             if r['image_path'] and os.path.exists(r['image_path']):
                 with st.popover("🖼️ 檢視照片"):
-                    st.image(Image.open(r['image_path']), width=300)
+                    # 調整解析度至 700px
+                    st.image(Image.open(r['image_path']), width=700)
             st.markdown("---")
 
 # 2. 品質異常瀏覽
@@ -110,7 +111,8 @@ elif menu == "⚠️ 品質異常公告":
             st.write(f"**相關人員：** {r['staff_name']}")
             st.error(f"**異常內容：** {r['content']}")
             if r['image_path'] and os.path.exists(r['image_path']):
-                st.image(Image.open(r['image_path']), width=300)
+                # 調整解析度至 700px
+                st.image(Image.open(r['image_path']), width=700)
 
 # 3. 撰寫一般公告
 elif menu == "✍️ 撰寫新公告":
