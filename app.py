@@ -7,7 +7,7 @@ from git import Repo
 from datetime import datetime, timedelta
 from PIL import Image
 
-# 1. 網頁基本設定
+# 1. 網頁基本設定 (維持原樣)
 st.set_page_config(page_title="超慧製造部-雲端公佈欄", page_icon="🏭", layout="wide")
 
 # --- 🚀 安全讀取金鑰 ---
@@ -69,7 +69,7 @@ with st.sidebar:
         [
             "🏠 公佈欄首頁", 
             "⚠️ 品質異常公告",
-            "--------------------", # 視覺分隔線
+            "--------------------", 
             "✍️ 撰寫新公告", 
             "📝 撰寫品質",
             "📜 所有紀錄", 
@@ -78,7 +78,6 @@ with st.sidebar:
         label_visibility="collapsed"
     )
     
-    # 增加大量空白間距，將下方功能往下推
     st.markdown("<br>" * 10, unsafe_allow_html=True) 
     st.caption("⚠️ 底部功能僅供管理/記錄使用")
 
@@ -86,7 +85,7 @@ st.title("🏭 <超慧>製造部-雲端公佈欄")
 
 # --- 頁面邏輯 ---
 
-# 1. 一般公告瀏覽
+# 1. 一般公告瀏覽 (優化畫質)
 if menu == "🏠 公佈欄首頁":
     conn = get_conn()
     df = pd.read_sql("SELECT * FROM posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
@@ -97,11 +96,11 @@ if menu == "🏠 公佈欄首頁":
             st.info(r['content'])
             if r['image_path'] and os.path.exists(r['image_path']):
                 with st.popover("🖼️ 檢視照片"):
-                    # 調整解析度至 700px
-                    st.image(Image.open(r['image_path']), width=700)
+                    # 使用原始品質呈現，不進行二次壓縮
+                    st.image(r['image_path'], use_container_width=True)
             st.markdown("---")
 
-# 2. 品質異常瀏覽
+# 2. 品質異常瀏覽 (優化畫質)
 elif menu == "⚠️ 品質異常公告":
     conn = get_conn()
     df = pd.read_sql("SELECT * FROM quality_posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
@@ -111,8 +110,8 @@ elif menu == "⚠️ 品質異常公告":
             st.write(f"**相關人員：** {r['staff_name']}")
             st.error(f"**異常內容：** {r['content']}")
             if r['image_path'] and os.path.exists(r['image_path']):
-                # 調整解析度至 700px
-                st.image(Image.open(r['image_path']), width=700)
+                # 使用完整寬度渲染以保證文字清晰度
+                st.image(r['image_path'], use_container_width=True)
 
 # 3. 撰寫一般公告
 elif menu == "✍️ 撰寫新公告":
@@ -176,7 +175,7 @@ elif menu == "📜 所有紀錄":
     st.dataframe(df_quality[['date', 'order_no', 'category', 'staff_name', 'content', '狀態']], use_container_width=True)
     conn.close()
 
-# 6. 管理後台
+# 6. 管理後台 (其餘功能不變)
 elif menu == "⚙️ 管理後台":
     st.subheader("🛠️ 管理系統")
     if st.text_input("請輸入管理密碼", type="password") == "0000":
