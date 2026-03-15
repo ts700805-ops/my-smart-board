@@ -7,10 +7,10 @@ from git import Repo
 from datetime import datetime, timedelta
 from PIL import Image
 
-# 1. 基本設定
+# 1. 網頁基本設定
 st.set_page_config(page_title="超慧製造部-雲端公佈欄", page_icon="🏭", layout="wide")
 
-# --- 🚀 金鑰讀取 ---
+# --- 🚀 安全讀取金鑰 ---
 try:
     MY_TOKEN = st.secrets["MY_TOKEN"] if "MY_TOKEN" in st.secrets else ""
 except Exception:
@@ -62,7 +62,6 @@ st.title("🏭 <超慧>製造部-雲端公佈欄")
 
 # --- 介面邏輯 ---
 if menu == "🏠 公佈欄首頁":
-    # 🔍 搜尋功能
     search_query = st.text_input("🔍 搜尋公告 (關鍵字或發布人)", "")
     conn = get_conn()
     q = "SELECT * FROM posts WHERE is_deleted = 0"
@@ -104,7 +103,7 @@ elif menu == "✍️ 撰寫新公告":
             st.success("發布成功！")
             time.sleep(0.5)
             st.rerun()
-        else: st.warning("請輸入內容並上傳照片。")
+        else: st.warning("請填寫內容並上傳照片。")
 
 elif menu == "📜 所有紀錄":
     conn = get_conn()
@@ -125,14 +124,9 @@ elif menu == "⚙️ 管理後台":
                 c1.write(f"[{r['date']}] {r['content'][:20]}...")
                 with c2.popover("📝 編輯"):
                     nc = st.text_area("修改內容", value=r['content'], key=f"et_{r['id']}")
-                    nf = st.file_uploader("更換照片", type=['jpg', 'png', 'jpeg'], key=f"ei_{r['id']}")
                     if st.button("💾 儲存", key=f"s_{r['id']}"):
                         conn = get_conn()
-                        fp = r['image_path']
-                        if nf:
-                            fp = f"{IMAGE_FOLDER}/edit_{datetime.now().strftime('%H%M%S')}_{nf.name}"
-                            with open(fp, "wb") as f: f.write(nf.getbuffer())
-                        conn.execute("UPDATE posts SET content = ?, image_path = ? WHERE id = ?", (nc, fp, r['id']))
+                        conn.execute("UPDATE posts SET content = ? WHERE id = ?", (nc, r['id']))
                         conn.commit()
                         conn.close()
                         sync_to_github(f"Edit {r['id']}")
@@ -147,25 +141,41 @@ elif menu == "⚙️ 管理後台":
         with t2:
             st.write("### 👥 人員名單管理")
             
-            # --- 關鍵修正：每次都先重新連接抓最新名單 ---
-            conn = get_conn()
-            new_n = st.text_input("請輸入新人員姓名", key="staff_input_box")
-            
+            # --- 新增人員區域 ---
+            new_n = st.text_input("請輸入新人員姓名")
             if st.button("➕ 新增人員"):
                 if new_n:
+                    conn = get_conn()
                     try:
                         conn.execute("INSERT INTO staff (name) VALUES (?)", (new_n,))
                         conn.commit()
+                        conn.close()
                         sync_to_github(f"Add {new_n}")
                         st.success(f"✅ 已成功新增：{new_n}")
                         time.sleep(0.5)
-                        st.rerun() # <-- 強制網頁刷新，保證框框內有名稱
+                        st.rerun()
                     except:
-                        st.error("❌ 此人員已在名單中。")
-                else:
-                    st.warning("⚠️ 請輸入姓名。")
+                        conn.close()
+                        st.rerun() # 靜默處理重複，不顯示重複訊息
+                else: st.warning("請輸入姓名")
+
+            st.markdown("---")
             
-            # 確保表格在「新增」動作之後才讀取
-            curr_df = pd.read_sql("SELECT name FROM staff", conn)
-            st.table(curr_df) 
+            # --- 人員清單與刪除按鈕 ---
+            conn = get_conn()
+            curr_df = pd.read_sql("SELECT * FROM staff", conn)
             conn.close()
+            
+            for _, row in curr_df.iterrows():
+                col1, col2 = st.columns([8, 2])
+                col1.write(f"👤 {row['name']}")
+                # 🗑️ 刪除離職人員按鈕
+                if col2.button("🗑️ 刪除", key=f"del_staff_{row['id']}"):
+                    conn = get_conn()
+                    conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],))
+                    conn.commit()
+                    conn.close()
+                    sync_to_github(f"Remove Staff {row['name']}")
+                    st.toast(f"已移除人員：{row['name']}")
+                    time.sleep(0.5)
+                    st.rerun()
