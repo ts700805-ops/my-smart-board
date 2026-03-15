@@ -58,54 +58,30 @@ def init_db():
 
 init_db()
 
-# --- 側邊選單 (重新優化排列與分組) ---
+# --- 側邊選單 (修正後的單一 Radio 邏輯，確保每個都能點選) ---
 with st.sidebar:
     st.markdown("### 👤 目前登入\n## 管理員")
     st.markdown("---")
     
-    st.markdown("🔍 **公告瀏覽區**")
-    menu = st.radio("主要功能", [
-        "🏠 公佈欄首頁", 
-        "⚠️ 品質異常公告"
-    ], label_visibility="collapsed")
-    
-    st.markdown("---")
-    st.markdown("✏️ **資料撰寫區**")
-    menu_write = st.radio("填寫內容", [
-        "✍️ 撰寫新公告", 
-        "📝 撰寫品質"
-    ], label_visibility="collapsed")
-    
-    st.markdown("---")
-    st.markdown("⚙️ **系統管理與歷史**")
-    menu_admin = st.radio("後台功能", [
-        "📜 所有紀錄", 
-        "⚙️ 管理後台"
-    ], label_visibility="collapsed")
-
-    # 整合選單邏輯 (以點選最新項目為主，這裡使用一個隱藏的 state 處理或直接用列表順序)
-    # 簡單的做法是檢查 radio 的值。由於 Streamlit 特性，這裡我們合併處理：
-    current_menu = "🏠 公佈欄首頁"
-    # 此處邏輯為：只要三個選單中非預設的被選中，就切換。為簡化開發，我們維持單一 radio 最保險。
-    # 以下為合併後的安全寫法：
-st.sidebar.empty() # 清除上述嘗試
-
-with st.sidebar:
-    st.markdown("### 👤 目前登入\n## 管理員")
-    st.markdown("---")
-    # 重新編排列表：瀏覽、撰寫、後台
-    menu = st.radio("功能選單", [
-        "🏠 公佈欄首頁", "⚠️ 品質異常公告",
-        "---", # 分隔線
-        "✍️ 撰寫新公告", "📝 撰寫品質",
-        "---", # 分隔線
-        "📜 所有紀錄", "⚙️ 管理後台"
-    ])
+    # 使用單一 Radio 但透過 Markdown 標題手動分組，確保 Streamlit 能正確識別切換
+    st.markdown("🔍 **公告瀏覽區** (人員專用)")
+    menu = st.radio(
+        "功能導覽",
+        [
+            "🏠 公佈欄首頁", "⚠️ 品質異常公告",
+            "撰寫分隔", # 佔位符，待會用來顯示分隔線
+            "✍️ 撰寫新公告", "📝 撰寫品質",
+            "管理分隔", # 佔位符
+            "📜 所有紀錄", "⚙️ 管理後台"
+        ],
+        label_visibility="collapsed"
+    )
 
 st.title("🏭 <超慧>製造部-雲端公佈欄")
 
 # --- 頁面邏輯 ---
 
+# 1. 一般公告瀏覽
 if menu == "🏠 公佈欄首頁":
     conn = get_conn()
     df = pd.read_sql("SELECT * FROM posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
@@ -119,6 +95,7 @@ if menu == "🏠 公佈欄首頁":
                     st.image(Image.open(r['image_path']), width=300)
             st.markdown("---")
 
+# 2. 品質異常瀏覽
 elif menu == "⚠️ 品質異常公告":
     conn = get_conn()
     df = pd.read_sql("SELECT * FROM quality_posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
@@ -130,6 +107,7 @@ elif menu == "⚠️ 品質異常公告":
             if r['image_path'] and os.path.exists(r['image_path']):
                 st.image(Image.open(r['image_path']), width=300)
 
+# 3. 撰寫一般公告
 elif menu == "✍️ 撰寫新公告":
     st.subheader("📝 發布新訊息")
     conn = get_conn()
@@ -150,6 +128,7 @@ elif menu == "✍️ 撰寫新公告":
             conn.commit(); conn.close()
             sync_to_github("New Post"); st.balloons(); st.success("發布成功！"); time.sleep(1.5); st.rerun()
 
+# 4. 撰寫品質 (標題已簡化)
 elif menu == "📝 撰寫品質":
     st.subheader("✍️ 記錄品質異常")
     col1, col2 = st.columns(2)
@@ -175,6 +154,7 @@ elif menu == "📝 撰寫品質":
             conn.commit(); conn.close()
             sync_to_github("New Quality Alert"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5); st.rerun()
 
+# 5. 所有紀錄 (歷史查詢)
 elif menu == "📜 所有紀錄":
     st.subheader("📜 歷史紀錄查詢 (含已刪除項目)")
     conn = get_conn()
@@ -189,6 +169,7 @@ elif menu == "📜 所有紀錄":
     st.dataframe(df_quality[['date', 'order_no', 'category', 'staff_name', 'content', '狀態']], use_container_width=True)
     conn.close()
 
+# 6. 管理後台 (含密碼保護與 Popover 編輯)
 elif menu == "⚙️ 管理後台":
     st.subheader("🛠️ 管理系統")
     if st.text_input("請輸入管理密碼", type="password") == "0000":
@@ -257,3 +238,7 @@ elif menu == "⚙️ 管理後台":
                 col1.write(f"👤 {row['name']}")
                 if col2.button("🗑️ 刪除人員", key=f"ds_{row['id']}"):
                     conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff"); st.rerun()
+
+# 處理分隔線顯示與防呆跳轉
+else:
+    st.info("請點選左側選單的功能項以開始使用。")
