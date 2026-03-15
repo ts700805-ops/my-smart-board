@@ -82,7 +82,7 @@ if menu == "🏠 公佈欄首頁":
             st.info(r['content'])
             if r['image_path'] and os.path.exists(r['image_path']):
                 with st.popover("🖼️ 檢視照片"):
-                    st.image(Image.open(r['image_path']), width=300) # 維持 300px 寬度
+                    st.image(Image.open(r['image_path']), width=300)
             st.markdown("---")
 
 elif menu == "✍️ 撰寫新公告":
@@ -114,7 +114,7 @@ elif menu == "⚠️ 品質異常公告":
             st.write(f"**相關人員：** {r['staff_name']}")
             st.error(f"**異常內容：** {r['content']}")
             if r['image_path'] and os.path.exists(r['image_path']):
-                st.image(Image.open(r['image_path']), width=300) # 維持縮小尺寸
+                st.image(Image.open(r['image_path']), width=300)
 
 elif menu == "📝 撰寫品質公告":
     st.subheader("✍️ 記錄品質異常")
@@ -141,19 +141,23 @@ elif menu == "📝 撰寫品質公告":
             conn.commit(); conn.close()
             sync_to_github("New Quality Alert"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5); st.rerun()
 
-elif menu == "📜 所有紀錄": # 💡 依據截圖要求修正的功能
-    st.subheader("📜 歷史紀錄查詢")
+elif menu == "📜 所有紀錄": # 💡 依據要求修正：顯示包含刪除的所有紀錄
+    st.subheader("📜 歷史紀錄查詢 (含已刪除項目)")
     conn = get_conn()
-    st.markdown("--- 📢 一般公告清單 ---")
-    df_posts = pd.read_sql("SELECT date, author, content FROM posts WHERE is_deleted=0 ORDER BY id DESC", conn)
-    st.dataframe(df_posts, use_container_width=True)
     
-    st.markdown("--- ⚠️ 品質異常清單 ---")
-    df_quality = pd.read_sql("SELECT date, order_no, category, staff_name, content FROM quality_posts WHERE is_deleted=0 ORDER BY id DESC", conn)
-    st.dataframe(df_quality, use_container_width=True)
+    st.markdown("--- 📢 一般公告清單 (全部歷史) ---")
+    df_posts = pd.read_sql("SELECT date, author, content, is_deleted FROM posts ORDER BY id DESC", conn)
+    # 將 is_deleted 轉為好讀文字
+    df_posts['狀態'] = df_posts['is_deleted'].apply(lambda x: "正常" if x == 0 else "❌ 已刪除")
+    st.dataframe(df_posts[['date', 'author', 'content', '狀態']], use_container_width=True)
+    
+    st.markdown("--- ⚠️ 品質異常清單 (全部歷史) ---")
+    df_quality = pd.read_sql("SELECT date, order_no, category, staff_name, content, is_deleted FROM quality_posts ORDER BY id DESC", conn)
+    df_quality['狀態'] = df_quality['is_deleted'].apply(lambda x: "正常" if x == 0 else "❌ 已刪除")
+    st.dataframe(df_quality[['date', 'order_no', 'category', 'staff_name', 'content', '狀態']], use_container_width=True)
     conn.close()
 
-elif menu == "⚙️ 管理後台": # 維持功能不亂動
+elif menu == "⚙️ 管理後台": # 其他功能確認 OK 不亂動
     st.subheader("🛠️ 管理系統")
     if st.text_input("請輸入管理密碼", type="password") == "0000":
         t1, t2, t3 = st.tabs(["公告管理", "品質紀錄管理", "人員管理"])
