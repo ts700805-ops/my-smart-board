@@ -7,7 +7,7 @@ from git import Repo
 from datetime import datetime, timedelta
 from PIL import Image
 
-# 1. 網頁基本設定
+# 1. 網頁基本設定 (維持原樣)
 st.set_page_config(page_title="超慧製造部-雲端公佈欄", page_icon="🏭", layout="wide")
 
 # --- 🚀 安全讀取金鑰 ---
@@ -82,7 +82,7 @@ if menu == "🏠 公佈欄首頁":
             st.info(r['content'])
             if r['image_path'] and os.path.exists(r['image_path']):
                 with st.popover("🖼️ 檢視照片"):
-                    st.image(Image.open(r['image_path']), width=300) # 💡 固定縮小寬度
+                    st.image(Image.open(r['image_path']), width=300)
             st.markdown("---")
 
 elif menu == "✍️ 撰寫新公告":
@@ -114,7 +114,7 @@ elif menu == "⚠️ 品質異常公告":
             st.write(f"**相關人員：** {r['staff_name']}")
             st.error(f"**異常內容：** {r['content']}")
             if r['image_path'] and os.path.exists(r['image_path']):
-                st.image(Image.open(r['image_path']), width=300) # 💡 固定縮小寬度
+                st.image(Image.open(r['image_path']), width=300)
 
 elif menu == "📝 撰寫品質公告":
     st.subheader("✍️ 記錄品質異常")
@@ -141,16 +141,19 @@ elif menu == "📝 撰寫品質公告":
             conn.commit(); conn.close()
             sync_to_github("New Quality Alert"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5); st.rerun()
 
-elif menu == "📜 所有紀錄": # 💡 找回歷史紀錄功能
+elif menu == "📜 所有紀錄": # 💡 依據截圖 image_5fc2ba 找回功能
     st.subheader("📜 歷史紀錄查詢")
     conn = get_conn()
-    st.write("--- 📢 一般公告清單 ---")
-    st.dataframe(pd.read_sql("SELECT date, author, content FROM posts WHERE is_deleted=0 ORDER BY id DESC", conn), use_container_width=True)
-    st.write("--- ⚠️ 品質異常清單 ---")
-    st.dataframe(pd.read_sql("SELECT date, order_no, category, staff_name, content FROM quality_posts WHERE is_deleted=0 ORDER BY id DESC", conn), use_container_width=True)
+    st.markdown("--- 📢 一般公告清單 ---")
+    df_posts = pd.read_sql("SELECT date, author, content FROM posts WHERE is_deleted=0 ORDER BY id DESC", conn)
+    st.dataframe(df_posts, use_container_width=True)
+    
+    st.markdown("--- ⚠️ 品質異常清單 ---")
+    df_quality = pd.read_sql("SELECT date, order_no, category, staff_name, content FROM quality_posts WHERE is_deleted=0 ORDER BY id DESC", conn)
+    st.dataframe(df_quality, use_container_width=True)
     conn.close()
 
-elif menu == "⚙️ 管理後台":
+elif menu == "⚙️ 管理後台": # 維持管理後台功能不變
     st.subheader("🛠️ 管理系統")
     if st.text_input("請輸入管理密碼", type="password") == "0000":
         t1, t2, t3 = st.tabs(["公告管理", "品質紀錄管理", "人員管理"])
@@ -180,7 +183,6 @@ elif menu == "⚙️ 管理後台":
             for _, r in df_q.iterrows():
                 qc1, qc2, qc3 = st.columns([6, 2, 2])
                 qc1.write(f"[{r['date']}] 製令:{r['order_no']} | 人員:{r['staff_name']}")
-                
                 with qc2.popover("📝 編輯"):
                     new_order = st.text_input("製令編號", value=r['order_no'], key=f"uo_{r['id']}")
                     try: curr_cat_idx = cat_options.index(r['category'])
@@ -190,10 +192,7 @@ elif menu == "⚙️ 管理後台":
                     except: curr_staff_idx = 0
                     new_staff = st.selectbox("人員", staff_list, index=curr_staff_idx, key=f"us_{r['id']}")
                     new_content = st.text_area("內容", value=r['content'], key=f"ucont_{r['id']}")
-                    
-                    # 💡 品質異常編輯新增照片修改功能
                     new_img = st.file_uploader("🖼️ 更新照片 (不選則保留原圖)", type=['jpg', 'png', 'jpeg'], key=f"uimg_{r['id']}")
-                    
                     if st.button("💾 儲存修改", key=f"save_q_{r['id']}"):
                         p = r['image_path']
                         if new_img:
@@ -203,12 +202,11 @@ elif menu == "⚙️ 管理後台":
                         conn.execute("UPDATE quality_posts SET order_no=?, category=?, staff_name=?, content=?, image_path=? WHERE id=?", 
                                      (new_order, new_cat, new_staff, new_content, p, r['id']))
                         conn.commit(); conn.close()
-                        sync_to_github("Edit Quality Photo/Content"); st.rerun()
-                
+                        sync_to_github("Edit Quality"); st.rerun()
                 if qc3.button("🗑️ 刪除", key=f"dq_{r['id']}"):
                     conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality"); st.rerun()
 
-        with t3:
+        with t3: # 人員管理不變
             st.write("### 👥 人員名單管理")
             new_n = st.text_input("輸入新人員姓名")
             if st.button("➕ 新增人員"):
