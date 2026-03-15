@@ -77,6 +77,7 @@ if menu == "🏠 公佈欄首頁":
         with st.container():
             st.markdown(f"**{r['date']} | 發布人：{r['author']}**")
             st.info(r['content'])
+            # 💡 只有當有照片路徑且檔案存在時，才顯示檢視照片按鈕
             if r['image_path'] and os.path.exists(r['image_path']):
                 with st.popover("🖼️ 檢視照片"):
                     st.image(Image.open(r['image_path']), use_container_width=True)
@@ -89,21 +90,26 @@ elif menu == "✍️ 撰寫新公告":
     conn.close()
     author = st.selectbox("發布人", s_df['name'].tolist())
     msg = st.text_area("公告內容")
-    file = st.file_uploader("🖼️ 上傳照片", type=['jpg', 'png', 'jpeg'])
+    file = st.file_uploader("🖼️ 上傳照片 (選填)", type=['jpg', 'png', 'jpeg'])
+    
     if st.button("🚀 立即發布"):
-        if msg and file:
-            p = f"{IMAGE_FOLDER}/{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.name}"
-            with open(p, "wb") as f: f.write(file.getbuffer())
+        if msg:  # 💡 修正：只要有填寫文字即可發布
+            p = ""
+            if file: # 如果有上傳照片才儲存照片
+                p = f"{IMAGE_FOLDER}/{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.name}"
+                with open(p, "wb") as f: f.write(file.getbuffer())
+            
             conn = get_conn()
             t = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
             conn.execute("INSERT INTO posts (date, author, content, image_path, is_deleted) VALUES (?, ?, ?, ?, 0)", (t, author, msg, p))
             conn.commit()
             conn.close()
             sync_to_github(f"Post by {author}")
-            st.success("發布成功！")
+            st.success("公告發布成功！")
             time.sleep(0.5)
             st.rerun()
-        else: st.warning("請填寫內容並上傳照片。")
+        else:
+            st.warning("⚠️ 請輸入公告內容再發布。")
 
 elif menu == "📜 所有紀錄":
     conn = get_conn()
@@ -140,8 +146,6 @@ elif menu == "⚙️ 管理後台":
                     st.rerun()
         with t2:
             st.write("### 👥 人員名單管理")
-            
-            # --- 新增人員區域 ---
             new_n = st.text_input("請輸入新人員姓名")
             if st.button("➕ 新增人員"):
                 if new_n:
@@ -156,20 +160,15 @@ elif menu == "⚙️ 管理後台":
                         st.rerun()
                     except:
                         conn.close()
-                        st.rerun() # 靜默處理重複，不顯示重複訊息
+                        st.rerun()
                 else: st.warning("請輸入姓名")
-
             st.markdown("---")
-            
-            # --- 人員清單與刪除按鈕 ---
             conn = get_conn()
             curr_df = pd.read_sql("SELECT * FROM staff", conn)
             conn.close()
-            
             for _, row in curr_df.iterrows():
                 col1, col2 = st.columns([8, 2])
                 col1.write(f"👤 {row['name']}")
-                # 🗑️ 刪除離職人員按鈕
                 if col2.button("🗑️ 刪除", key=f"del_staff_{row['id']}"):
                     conn = get_conn()
                     conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],))
