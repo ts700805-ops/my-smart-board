@@ -58,13 +58,15 @@ def init_db():
 
 init_db()
 
-# --- 側邊選單 ---
+# --- 側邊選單 (重新排列：顯示與編輯分組) ---
 with st.sidebar:
     st.markdown("### 👤 目前登入\n## 管理員")
     st.markdown("---")
     menu = st.radio("功能選單", [
         "🏠 公佈欄首頁", "✍️ 撰寫新公告", 
+        "---",
         "⚠️ 品質異常公告", "📝 撰寫品質公告",
+        "---",
         "📜 所有紀錄", "⚙️ 管理後台"
     ])
 
@@ -141,13 +143,11 @@ elif menu == "📝 撰寫品質公告":
             conn.commit(); conn.close()
             sync_to_github("New Quality Alert"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5); st.rerun()
 
-elif menu == "📜 所有紀錄": # 💡 依據要求修正：顯示包含刪除的所有紀錄
+elif menu == "📜 所有紀錄":
     st.subheader("📜 歷史紀錄查詢 (含已刪除項目)")
     conn = get_conn()
-    
     st.markdown("--- 📢 一般公告清單 (全部歷史) ---")
     df_posts = pd.read_sql("SELECT date, author, content, is_deleted FROM posts ORDER BY id DESC", conn)
-    # 將 is_deleted 轉為好讀文字
     df_posts['狀態'] = df_posts['is_deleted'].apply(lambda x: "正常" if x == 0 else "❌ 已刪除")
     st.dataframe(df_posts[['date', 'author', 'content', '狀態']], use_container_width=True)
     
@@ -157,7 +157,7 @@ elif menu == "📜 所有紀錄": # 💡 依據要求修正：顯示包含刪除
     st.dataframe(df_quality[['date', 'order_no', 'category', 'staff_name', 'content', '狀態']], use_container_width=True)
     conn.close()
 
-elif menu == "⚙️ 管理後台": # 其他功能確認 OK 不亂動
+elif menu == "⚙️ 管理後台":
     st.subheader("🛠️ 管理系統")
     if st.text_input("請輸入管理密碼", type="password") == "0000":
         t1, t2, t3 = st.tabs(["公告管理", "品質紀錄管理", "人員管理"])
