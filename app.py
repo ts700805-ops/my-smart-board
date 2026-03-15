@@ -7,7 +7,7 @@ from git import Repo
 from datetime import datetime, timedelta
 from PIL import Image
 
-# 1. 網頁基本設定 (標題已修改為製造部)
+# 1. 網頁基本設定
 st.set_page_config(page_title="超慧製造部-雲端公佈欄", page_icon="🏭", layout="wide")
 
 # --- 🚀 安全修改：讀取雲端金鑰 ---
@@ -15,13 +15,12 @@ try:
     if "MY_TOKEN" in st.secrets:
         MY_TOKEN = st.secrets["MY_TOKEN"]
     else:
-        st.error("❌ 找不到雲端金鑰！請在 Streamlit Settings > Secrets 設定 MY_TOKEN。")
+        st.error("❌ 找不到雲端金鑰！")
         MY_TOKEN = ""
-except Exception as e:
-    st.error(f"讀取金鑰失敗: {e}")
+except Exception:
     MY_TOKEN = ""
 
-GITHUB_REPO = f"https://{MY_TOKEN}@github.com/ts700805-ops/my-smart-board.git"
+GITHUB_REPO = f"https://{MY_TOKEN}@github.com/ts700805-ops/my-bulletin-board.git"
 IMAGE_FOLDER = "images"
 
 if not os.path.exists(IMAGE_FOLDER):
@@ -29,22 +28,19 @@ if not os.path.exists(IMAGE_FOLDER):
 
 # --- 標準同步功能 ---
 def sync_to_github(commit_msg="Update"):
-    if not MY_TOKEN:
-        return
+    if not MY_TOKEN: return
     try:
         os.environ["GIT_ASKPASS"] = "echo"
         os.environ["GIT_TERMINAL_PROMPT"] = "0"
         repo = Repo(".")
-        if 'origin' in repo.remotes:
-            repo.delete_remote('origin')
+        if 'origin' in repo.remotes: repo.delete_remote('origin')
         origin = repo.create_remote('origin', GITHUB_REPO)
         repo.git.add("--all") 
         tw_now = (datetime.utcnow() + timedelta(hours=8)).strftime('%m/%d %H:%M')
         repo.index.commit(f"{commit_msg} - {tw_now}")
         origin.push(refspec='main:main', force=True)
-        st.toast("✅ GitHub 同步備份成功")
-    except:
-        pass # 靜默處理同步問題，避免干擾網頁顯示
+        st.toast("✅ GitHub 同步成功")
+    except: pass
 
 # --- 資料庫工具 ---
 def get_db_conn():
@@ -68,7 +64,7 @@ init_db()
 
 # --- 側邊選單 ---
 with st.sidebar:
-    st.markdown("### 👤 目前狀態\n## 管理模式")
+    st.markdown("### 👤 目前狀態\n## 管理員模式")
     st.markdown("---")
     menu = st.radio("功能選單", ["🏠 公佈欄首頁", "✍️ 撰寫新公告", "📜 所有公佈歷史紀錄", "⚙️ 管理後台"])
 
@@ -99,7 +95,6 @@ elif menu == "✍️ 撰寫新公告":
     staff_df = pd.read_sql("SELECT name FROM staff", conn)
     conn.close()
     author_list = staff_df['name'].tolist()
-    
     author = st.selectbox("發布人", author_list)
     msg = st.text_area("公告內容", placeholder="請輸入內容...")
     file = st.file_uploader("🖼️ 上傳照片 (必填)", type=['jpg', 'png', 'jpeg'])
@@ -107,12 +102,10 @@ elif menu == "✍️ 撰寫新公告":
     if st.button("🚀 立即發布"):
         if msg and file:
             img_p = f"{IMAGE_FOLDER}/{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.name}"
-            with open(img_p, "wb") as f:
-                f.write(file.getbuffer())
+            with open(img_p, "wb") as f: f.write(file.getbuffer())
             conn = get_db_conn()
             tw_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
-            conn.execute("INSERT INTO posts (date, author, content, image_path, is_deleted) VALUES (?, ?, ?, ?, 0)", 
-                         (tw_time, author, msg, img_p))
+            conn.execute("INSERT INTO posts (date, author, content, image_path, is_deleted) VALUES (?, ?, ?, ?, 0)", (tw_time, author, msg, img_p))
             conn.commit()
             conn.close()
             sync_to_github(f"Post by {author}")
@@ -132,14 +125,9 @@ elif menu == "📜 所有公佈歷史紀錄":
 elif menu == "⚙️ 管理後台":
     st.subheader("🛠️ 管理系統")
     pwd = st.text_input("請輸入管理密碼", type="password")
-    
     if pwd == "0000":
-        tab1, tab2 = st.tabs(["公告管理", "人員管理"])
-        with tab1:
+        t1, t2 = st.tabs(["公告管理", "人員管理"])
+        with t1:
             conn = get_db_conn()
             df = pd.read_sql("SELECT * FROM posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
-            conn.close()
-            for _, row in df.iterrows():
-                col1, col2 = st.columns([8, 2])
-                col1.write(f"[{row['date']}] {row['content'][:30]}...")
-                if col2.button("🗑️
+            conn.
