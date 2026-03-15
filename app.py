@@ -104,18 +104,18 @@ elif menu == "✍️ 撰寫新公告":
             conn.commit()
             conn.close()
             sync_to_github(f"Post by {author}")
-            
-            # 🎈 這裡加入氣球特效
             st.balloons()
             st.success("公告發布成功！")
-            time.sleep(2) # 稍微多留一點時間讓使用者看氣球
+            time.sleep(2)
             st.rerun()
         else:
             st.warning("⚠️ 請輸入公告內容再發布。")
 
 elif menu == "📜 所有紀錄":
+    st.subheader("📜 歷史公告紀錄 (含已刪除)")
     conn = get_conn()
-    df = pd.read_sql("SELECT date, author, content FROM posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
+    # 💡 修正：移除 WHERE is_deleted = 0，顯示所有紀錄
+    df = pd.read_sql("SELECT date, author, content, CASE WHEN is_deleted = 1 THEN '已刪除' ELSE '正常顯示' END as 狀態 FROM posts ORDER BY id DESC", conn)
     conn.close()
     st.dataframe(df, use_container_width=True)
 
@@ -138,7 +138,7 @@ elif menu == "⚙️ 管理後台":
                         conn.commit()
                         conn.close()
                         sync_to_github(f"Edit {r['id']}")
-                        st.balloons() # 編輯成功也噴氣球
+                        st.balloons()
                         st.rerun()
                 if c3.button("🗑️ 刪除", key=f"d_{r['id']}"):
                     conn = get_conn()
@@ -158,7 +158,7 @@ elif menu == "⚙️ 管理後台":
                         conn.commit()
                         conn.close()
                         sync_to_github(f"Add {new_n}")
-                        st.balloons() # 新增人員成功也噴氣球
+                        st.balloons()
                         st.success(f"✅ 已成功新增：{new_n}")
                         time.sleep(1)
                         st.rerun()
