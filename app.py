@@ -58,7 +58,7 @@ def init_db():
 
 init_db()
 
-# --- 側邊選單 (公告優先，撰寫/管理移至下方) ---
+# --- 側邊選單 (公告優先，操作功能移至下方) ---
 with st.sidebar:
     st.markdown("### 👤 目前登入\n## 管理員")
     st.markdown("---")
@@ -85,7 +85,7 @@ st.title("🏭 <超慧>製造部-雲端公佈欄")
 
 # --- 頁面邏輯 ---
 
-# 1. 一般公告瀏覽 (優化畫質)
+# 1. 一般公告瀏覽 (僅此處優化畫質)
 if menu == "🏠 公佈欄首頁":
     conn = get_conn()
     df = pd.read_sql("SELECT * FROM posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
@@ -96,11 +96,11 @@ if menu == "🏠 公佈欄首頁":
             st.info(r['content'])
             if r['image_path'] and os.path.exists(r['image_path']):
                 with st.popover("🖼️ 檢視照片"):
-                    # 使用原始品質呈現，不進行二次壓縮
+                    # 僅在此處讓人員看得更清楚，使用容器寬度渲染
                     st.image(r['image_path'], use_container_width=True)
             st.markdown("---")
 
-# 2. 品質異常瀏覽 (優化畫質)
+# 2. 品質異常瀏覽 (改回原本樣式，不准變動)
 elif menu == "⚠️ 品質異常公告":
     conn = get_conn()
     df = pd.read_sql("SELECT * FROM quality_posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
@@ -110,8 +110,8 @@ elif menu == "⚠️ 品質異常公告":
             st.write(f"**相關人員：** {r['staff_name']}")
             st.error(f"**異常內容：** {r['content']}")
             if r['image_path'] and os.path.exists(r['image_path']):
-                # 使用完整寬度渲染以保證文字清晰度
-                st.image(r['image_path'], use_container_width=True)
+                # 改回您原本要求的樣式，寬度固定 300px
+                st.image(Image.open(r['image_path']), width=300)
 
 # 3. 撰寫一般公告
 elif menu == "✍️ 撰寫新公告":
@@ -175,7 +175,7 @@ elif menu == "📜 所有紀錄":
     st.dataframe(df_quality[['date', 'order_no', 'category', 'staff_name', 'content', '狀態']], use_container_width=True)
     conn.close()
 
-# 6. 管理後台 (其餘功能不變)
+# 6. 管理後台
 elif menu == "⚙️ 管理後台":
     st.subheader("🛠️ 管理系統")
     if st.text_input("請輸入管理密碼", type="password") == "0000":
