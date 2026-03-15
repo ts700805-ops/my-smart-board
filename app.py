@@ -21,7 +21,7 @@ except Exception as e:
     st.error(f"讀取金鑰失敗: {e}")
     MY_TOKEN = ""
 
-GITHUB_REPO = f"https://{MY_TOKEN}@github.com/ts700805-ops/my-bulletin-board.git"
+GITHUB_REPO = f"https://{MY_TOKEN}@github.com/ts700805-ops/my-smart-board.git"
 IMAGE_FOLDER = "images"
 
 if not os.path.exists(IMAGE_FOLDER):
@@ -59,7 +59,7 @@ def init_db():
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                   date TEXT, author TEXT, content TEXT, 
                   image_path TEXT, is_deleted INTEGER DEFAULT 0)''')
-    # 新增：建立人員名單表
+    # 建立人員名單表
     c.execute('''CREATE TABLE IF NOT EXISTS staff 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)''')
     
@@ -77,7 +77,7 @@ with st.sidebar:
     st.markdown("---")
     menu = st.radio("功能選單", ["🏠 公佈欄首頁", "✍️ 撰寫新公告", "📜 所有公佈歷史紀錄", "⚙️ 管理後台"])
 
-# 1. 修改標題為「製造部」
+# 修改標題為「製造部」
 st.title("🏭 <超慧>製造部-雲端公佈欄")
 
 # --- 介面邏輯 ---
@@ -100,7 +100,7 @@ if menu == "🏠 公佈欄首頁":
 elif menu == "✍️ 撰寫新公告":
     st.subheader("📝 發布新訊息")
     
-    # 2. 發布人員改成從資料庫抓取的下拉式選單
+    # 發布人員從資料庫抓取
     conn = get_db_conn()
     staff_df = pd.read_sql("SELECT name FROM staff", conn)
     conn.close()
@@ -138,7 +138,7 @@ elif menu == "📜 所有公佈歷史紀錄":
 elif menu == "⚙️ 管理後台":
     st.subheader("🛠️ 管理系統")
     
-    # 3. 後台輸入密碼鎖
+    # 後台輸入密碼鎖
     pwd = st.text_input("請輸入管理密碼", type="password")
     
     if pwd == "0000":
@@ -147,36 +147,4 @@ elif menu == "⚙️ 管理後台":
             df = pd.read_sql("SELECT * FROM posts WHERE is_deleted = 0 ORDER BY id DESC", get_db_conn())
             for _, row in df.iterrows():
                 col1, col2 = st.columns([8, 2])
-                col1.write(f"[{row['date']}] {row['content'][:30]}...")
-                if col2.button("🗑️ 刪除", key=f"del_{row['id']}"):
-                    conn = get_db_conn()
-                    conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (row['id'],))
-                    conn.commit()
-                    conn.close()
-                    sync_to_github(f"Delete Post {row['id']}")
-                    st.rerun()
-        with tab2:
-            st.write("### 👥 人員名單管理")
-            # 顯示目前名單
-            conn = get_db_conn()
-            current_staff = pd.read_sql("SELECT * FROM staff", conn)
-            st.dataframe(current_staff[['name']], use_container_width=True)
-            
-            # 新增人員功能
-            new_name = st.text_input("請輸入新人員姓名")
-            if st.button("➕ 新增人員"):
-                if new_name:
-                    try:
-                        conn.execute("INSERT INTO staff (name) VALUES (?)", (new_name,))
-                        conn.commit()
-                        sync_to_github(f"Add staff: {new_name}")
-                        st.success(f"已成功新增：{new_name}")
-                        time.sleep(1)
-                        st.rerun()
-                    except:
-                        st.error("此人員已在名單中。")
-                else:
-                    st.warning("請輸入姓名。")
-            conn.close()
-    elif pwd != "":
-        st.error("密碼錯誤，請重新輸入。")
+                col1.write
