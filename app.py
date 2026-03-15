@@ -70,7 +70,7 @@ with st.sidebar:
 
 st.title("🏭 <超慧>製造部-雲端公佈欄")
 
-# --- 頁面邏輯 ---
+# --- 頁面邏輯 (首頁/撰寫等功能均保持不變) ---
 
 if menu == "🏠 公佈欄首頁":
     conn = get_conn()
@@ -144,9 +144,9 @@ elif menu == "📝 撰寫品質公告":
 elif menu == "📜 所有紀錄":
     conn = get_conn()
     st.write("--- 📢 一般公告 ---")
-    st.dataframe(pd.read_sql("SELECT date, author, content, CASE WHEN is_deleted=1 THEN '❌ 已刪除' ELSE '✅ 顯示中' END as 狀態 FROM posts ORDER BY id DESC", conn), use_container_width=True)
+    st.dataframe(pd.read_sql("SELECT date, author, content FROM posts WHERE is_deleted=0 ORDER BY id DESC", conn), use_container_width=True)
     st.write("--- ⚠️ 品質異常 ---")
-    st.dataframe(pd.read_sql("SELECT date, order_no as 製令, category as 分類, staff_name as 人員, content as 內容, CASE WHEN is_deleted=1 THEN '❌ 已刪除' ELSE '✅ 顯示中' END as 狀態 FROM quality_posts ORDER BY id DESC", conn), use_container_width=True)
+    st.dataframe(pd.read_sql("SELECT date, order_no, category, staff_name, content FROM quality_posts WHERE is_deleted=0 ORDER BY id DESC", conn), use_container_width=True)
     conn.close()
 
 elif menu == "⚙️ 管理後台":
@@ -165,11 +165,11 @@ elif menu == "⚙️ 管理後台":
                     nc = st.text_area("修改內容", value=r['content'], key=f"ep_{r['id']}")
                     if st.button("💾 儲存", key=f"sp_{r['id']}"):
                         conn = get_conn(); conn.execute("UPDATE posts SET content = ? WHERE id = ?", (nc, r['id'])); conn.commit(); conn.close()
-                        sync_to_github("Edit Post"); st.balloons(); st.rerun()
+                        sync_to_github("Edit Post"); st.rerun()
                 if c3.button("🗑️ 刪除", key=f"dp_{r['id']}"):
                     conn = get_conn(); conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Post"); st.rerun()
 
-        with t2: # 💡 這裡已修正截圖中的報錯問題
+        with t2: # 💡 已優化：恢復小格佈局
             conn = get_conn()
             df_q = pd.read_sql("SELECT * FROM quality_posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
             staff_list = pd.read_sql("SELECT name FROM staff", conn)['name'].tolist()
@@ -179,37 +179,31 @@ elif menu == "⚙️ 管理後台":
             
             for _, r in df_q.iterrows():
                 qc1, qc2, qc3 = st.columns([6, 2, 2])
-                qc1.write(f"[{r['date']}] 製令:{r['order_no']} | 分類:{r['category']}")
+                qc1.write(f"[{r['date']}] 製令:{r['order_no']} | 人員:{r['staff_name']}")
                 
-                with qc2.popover("📝 編輯紀錄"):
-                    new_order = st.text_input("修改製令編號", value=r['order_no'], key=f"uo_{r['id']}")
+                # 📝 編輯小按鈕與彈出視窗
+                with qc2.popover("📝 編輯"):
+                    new_order = st.text_input("製令編號", value=r['order_no'], key=f"uo_{r['id']}")
                     
-                    # 💡 修正點：使用安全的方式計算 index，避免 ValueError
-                    try:
-                        curr_cat_idx = cat_options.index(r['category'])
-                    except ValueError:
-                        curr_cat_idx = 0 # 如果舊資料分類不在新選單內，預設選第一個
+                    try: curr_cat_idx = cat_options.index(r['category'])
+                    except: curr_cat_idx = 0
+                    new_cat = st.selectbox("分類", cat_options, index=curr_cat_idx, key=f"uc_{r['id']}")
                     
-                    new_cat = st.selectbox("修改分類", cat_options, index=curr_cat_idx, key=f"uc_{r['id']}")
+                    try: curr_staff_idx = staff_list.index(r['staff_name'])
+                    except: curr_staff_idx = 0
+                    new_staff = st.selectbox("人員", staff_list, index=curr_staff_idx, key=f"us_{r['id']}")
                     
-                    # 💡 修正點：同樣安全處理人員索引
-                    try:
-                        curr_staff_idx = staff_list.index(r['staff_name'])
-                    except ValueError:
-                        curr_staff_idx = 0
-                        
-                    new_staff = st.selectbox("修改人員", staff_list, index=curr_staff_idx, key=f"us_{r['id']}")
-                    new_content = st.text_area("修改異常描述", value=r['content'], key=f"ucont_{r['id']}")
+                    new_content = st.text_area("內容", value=r['content'], key=f"ucont_{r['id']}")
                     
-                    if st.button("💾 確認儲存修改", key=f"save_q_{r['id']}"):
+                    if st.button("💾 儲存修改", key=f"save_q_{r['id']}"):
                         conn = get_conn()
                         conn.execute("UPDATE quality_posts SET order_no=?, category=?, staff_name=?, content=? WHERE id=?", 
                                      (new_order, new_cat, new_staff, new_content, r['id']))
                         conn.commit(); conn.close()
-                        sync_to_github(f"Update Quality: {new_order}"); st.balloons(); st.rerun()
+                        sync_to_github("Edit Quality"); st.rerun()
                 
                 if qc3.button("🗑️ 刪除", key=f"dq_{r['id']}"):
-                    conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality Rec"); st.rerun()
+                    conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality"); st.rerun()
 
         with t3:
             st.write("### 👥 人員名單管理")
@@ -219,7 +213,7 @@ elif menu == "⚙️ 管理後台":
                     conn = get_conn()
                     try:
                         conn.execute("INSERT INTO staff (name) VALUES (?)", (new_n,))
-                        conn.commit(); conn.close(); sync_to_github(f"Add {new_n}"); st.balloons(); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github(f"Add {new_n}"); st.rerun()
                     except: conn.close(); st.error("人員已存在")
             st.markdown("---")
             conn = get_conn()
