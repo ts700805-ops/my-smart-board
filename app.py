@@ -58,7 +58,7 @@ def init_db():
 
 init_db()
 
-# --- 側邊選單 (公告優先，操作功能移至下方) ---
+# --- 側邊選單 ---
 with st.sidebar:
     st.markdown("### 👤 目前登入\n## 管理員")
     st.markdown("---")
@@ -68,7 +68,7 @@ with st.sidebar:
         "功能選單",
         [
             "🏠 公佈欄首頁", 
-            "⚠️ 品質異常公告",
+            "⚠️ 品質異常首頁",
             "--------------------", 
             "✍️ 撰寫新公告", 
             "📝 撰寫品質",
@@ -85,32 +85,41 @@ st.title("🏭 <超慧>製造部-雲端公佈欄")
 
 # --- 頁面邏輯 ---
 
-# 1. 一般公告瀏覽 (僅此處優化畫質)
+# 1. 一般公佈欄首頁 (恢復搜尋 + 優化畫質)
 if menu == "🏠 公佈欄首頁":
+    search_q = st.text_input("🔍 搜尋公告內容或發布人", "")
     conn = get_conn()
-    df = pd.read_sql("SELECT * FROM posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
+    query = "SELECT * FROM posts WHERE is_deleted = 0"
+    if search_q:
+        query += f" AND (content LIKE '%{search_q}%' OR author LIKE '%{search_q}%')"
+    df = pd.read_sql(f"{query} ORDER BY id DESC", conn)
     conn.close()
+    
     for _, r in df.iterrows():
         with st.container():
             st.markdown(f"**{r['date']} | 發布人：{r['author']}**")
             st.info(r['content'])
             if r['image_path'] and os.path.exists(r['image_path']):
                 with st.popover("🖼️ 檢視照片"):
-                    # 僅在此處讓人員看得更清楚，使用容器寬度渲染
                     st.image(r['image_path'], use_container_width=True)
             st.markdown("---")
 
-# 2. 品質異常瀏覽 (改回原本樣式，不准變動)
-elif menu == "⚠️ 品質異常公告":
+# 2. 品質異常首頁 (更名 + 恢復搜尋 + 維持 300px)
+elif menu == "⚠️ 品質異常首頁":
+    st.subheader("⚠️ 品質異常管理首頁")
+    search_q = st.text_input("🔍 搜尋製令、人員或異常內容", "")
     conn = get_conn()
-    df = pd.read_sql("SELECT * FROM quality_posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
+    query = "SELECT * FROM quality_posts WHERE is_deleted = 0"
+    if search_q:
+        query += f" AND (order_no LIKE '%{search_q}%' OR content LIKE '%{search_q}%' OR staff_name LIKE '%{search_q}%' OR category LIKE '%{search_q}%')"
+    df = pd.read_sql(f"{query} ORDER BY id DESC", conn)
     conn.close()
+    
     for _, r in df.iterrows():
         with st.expander(f"🔴 [{r['date']}] 製令：{r['order_no']} | 分類：{r['category']}"):
             st.write(f"**相關人員：** {r['staff_name']}")
             st.error(f"**異常內容：** {r['content']}")
             if r['image_path'] and os.path.exists(r['image_path']):
-                # 改回您原本要求的樣式，寬度固定 300px
                 st.image(Image.open(r['image_path']), width=300)
 
 # 3. 撰寫一般公告
