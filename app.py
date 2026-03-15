@@ -58,15 +58,47 @@ def init_db():
 
 init_db()
 
-# --- 側邊選單 (重新排列：顯示與編輯分組) ---
+# --- 側邊選單 (重新優化排列與分組) ---
 with st.sidebar:
     st.markdown("### 👤 目前登入\n## 管理員")
     st.markdown("---")
+    
+    st.markdown("🔍 **公告瀏覽區**")
+    menu = st.radio("主要功能", [
+        "🏠 公佈欄首頁", 
+        "⚠️ 品質異常公告"
+    ], label_visibility="collapsed")
+    
+    st.markdown("---")
+    st.markdown("✏️ **資料撰寫區**")
+    menu_write = st.radio("填寫內容", [
+        "✍️ 撰寫新公告", 
+        "📝 撰寫品質"
+    ], label_visibility="collapsed")
+    
+    st.markdown("---")
+    st.markdown("⚙️ **系統管理與歷史**")
+    menu_admin = st.radio("後台功能", [
+        "📜 所有紀錄", 
+        "⚙️ 管理後台"
+    ], label_visibility="collapsed")
+
+    # 整合選單邏輯 (以點選最新項目為主，這裡使用一個隱藏的 state 處理或直接用列表順序)
+    # 簡單的做法是檢查 radio 的值。由於 Streamlit 特性，這裡我們合併處理：
+    current_menu = "🏠 公佈欄首頁"
+    # 此處邏輯為：只要三個選單中非預設的被選中，就切換。為簡化開發，我們維持單一 radio 最保險。
+    # 以下為合併後的安全寫法：
+st.sidebar.empty() # 清除上述嘗試
+
+with st.sidebar:
+    st.markdown("### 👤 目前登入\n## 管理員")
+    st.markdown("---")
+    # 重新編排列表：瀏覽、撰寫、後台
     menu = st.radio("功能選單", [
-        "🏠 公佈欄首頁", "✍️ 撰寫新公告", 
-        "---",
-        "⚠️ 品質異常公告", "📝 撰寫品質公告",
-        "---",
+        "🏠 公佈欄首頁", "⚠️ 品質異常公告",
+        "---", # 分隔線
+        "✍️ 撰寫新公告", "📝 撰寫品質",
+        "---", # 分隔線
         "📜 所有紀錄", "⚙️ 管理後台"
     ])
 
@@ -86,6 +118,17 @@ if menu == "🏠 公佈欄首頁":
                 with st.popover("🖼️ 檢視照片"):
                     st.image(Image.open(r['image_path']), width=300)
             st.markdown("---")
+
+elif menu == "⚠️ 品質異常公告":
+    conn = get_conn()
+    df = pd.read_sql("SELECT * FROM quality_posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
+    conn.close()
+    for _, r in df.iterrows():
+        with st.expander(f"🔴 [{r['date']}] 製令：{r['order_no']} | 分類：{r['category']}"):
+            st.write(f"**相關人員：** {r['staff_name']}")
+            st.error(f"**異常內容：** {r['content']}")
+            if r['image_path'] and os.path.exists(r['image_path']):
+                st.image(Image.open(r['image_path']), width=300)
 
 elif menu == "✍️ 撰寫新公告":
     st.subheader("📝 發布新訊息")
@@ -107,18 +150,7 @@ elif menu == "✍️ 撰寫新公告":
             conn.commit(); conn.close()
             sync_to_github("New Post"); st.balloons(); st.success("發布成功！"); time.sleep(1.5); st.rerun()
 
-elif menu == "⚠️ 品質異常公告":
-    conn = get_conn()
-    df = pd.read_sql("SELECT * FROM quality_posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
-    conn.close()
-    for _, r in df.iterrows():
-        with st.expander(f"🔴 [{r['date']}] 製令：{r['order_no']} | 分類：{r['category']}"):
-            st.write(f"**相關人員：** {r['staff_name']}")
-            st.error(f"**異常內容：** {r['content']}")
-            if r['image_path'] and os.path.exists(r['image_path']):
-                st.image(Image.open(r['image_path']), width=300)
-
-elif menu == "📝 撰寫品質公告":
+elif menu == "📝 撰寫品質":
     st.subheader("✍️ 記錄品質異常")
     col1, col2 = st.columns(2)
     with col1:
