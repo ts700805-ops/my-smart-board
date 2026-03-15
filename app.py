@@ -77,7 +77,6 @@ if menu == "🏠 公佈欄首頁":
         with st.container():
             st.markdown(f"**{r['date']} | 發布人：{r['author']}**")
             st.info(r['content'])
-            # 💡 只有當有照片路徑且檔案存在時，才顯示檢視照片按鈕
             if r['image_path'] and os.path.exists(r['image_path']):
                 with st.popover("🖼️ 檢視照片"):
                     st.image(Image.open(r['image_path']), use_container_width=True)
@@ -93,9 +92,9 @@ elif menu == "✍️ 撰寫新公告":
     file = st.file_uploader("🖼️ 上傳照片 (選填)", type=['jpg', 'png', 'jpeg'])
     
     if st.button("🚀 立即發布"):
-        if msg:  # 💡 修正：只要有填寫文字即可發布
+        if msg:
             p = ""
-            if file: # 如果有上傳照片才儲存照片
+            if file:
                 p = f"{IMAGE_FOLDER}/{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.name}"
                 with open(p, "wb") as f: f.write(file.getbuffer())
             
@@ -105,8 +104,11 @@ elif menu == "✍️ 撰寫新公告":
             conn.commit()
             conn.close()
             sync_to_github(f"Post by {author}")
+            
+            # 🎈 這裡加入氣球特效
+            st.balloons()
             st.success("公告發布成功！")
-            time.sleep(0.5)
+            time.sleep(2) # 稍微多留一點時間讓使用者看氣球
             st.rerun()
         else:
             st.warning("⚠️ 請輸入公告內容再發布。")
@@ -136,6 +138,7 @@ elif menu == "⚙️ 管理後台":
                         conn.commit()
                         conn.close()
                         sync_to_github(f"Edit {r['id']}")
+                        st.balloons() # 編輯成功也噴氣球
                         st.rerun()
                 if c3.button("🗑️ 刪除", key=f"d_{r['id']}"):
                     conn = get_conn()
@@ -155,8 +158,9 @@ elif menu == "⚙️ 管理後台":
                         conn.commit()
                         conn.close()
                         sync_to_github(f"Add {new_n}")
+                        st.balloons() # 新增人員成功也噴氣球
                         st.success(f"✅ 已成功新增：{new_n}")
-                        time.sleep(0.5)
+                        time.sleep(1)
                         st.rerun()
                     except:
                         conn.close()
