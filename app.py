@@ -58,24 +58,29 @@ def init_db():
 
 init_db()
 
-# --- 側邊選單 (修正後的單一 Radio 邏輯，確保每個都能點選) ---
+# --- 側邊選單 (優化後的排列：公告在上，編輯與管理在下) ---
 with st.sidebar:
     st.markdown("### 👤 目前登入\n## 管理員")
     st.markdown("---")
     
-    # 使用單一 Radio 但透過 Markdown 標題手動分組，確保 Streamlit 能正確識別切換
-    st.markdown("🔍 **公告瀏覽區** (人員專用)")
+    st.markdown("🔍 **公告瀏覽區 (主要點閱)**")
+    # 將人員最常用的功能放在首位，確保視覺焦點
     menu = st.radio(
-        "功能導覽",
+        "功能選單",
         [
-            "🏠 公佈欄首頁", "⚠️ 品質異常公告",
-            "撰寫分隔", # 佔位符，待會用來顯示分隔線
-            "✍️ 撰寫新公告", "📝 撰寫品質",
-            "管理分隔", # 佔位符
-            "📜 所有紀錄", "⚙️ 管理後台"
+            "🏠 公佈欄首頁", 
+            "⚠️ 品質異常公告",
+            "--------------------", # 視覺分隔線
+            "✍️ 撰寫新公告", 
+            "📝 撰寫品質",
+            "📜 所有紀錄", 
+            "⚙️ 管理後台"
         ],
         label_visibility="collapsed"
     )
+    
+    st.markdown("<br><br><br>", unsafe_allow_html=True) # 增加間距將管理功能往下推
+    st.caption("⚠️ 底部功能僅供管理/記錄使用")
 
 st.title("🏭 <超慧>製造部-雲端公佈欄")
 
@@ -128,7 +133,7 @@ elif menu == "✍️ 撰寫新公告":
             conn.commit(); conn.close()
             sync_to_github("New Post"); st.balloons(); st.success("發布成功！"); time.sleep(1.5); st.rerun()
 
-# 4. 撰寫品質 (標題已簡化)
+# 4. 撰寫品質
 elif menu == "📝 撰寫品質":
     st.subheader("✍️ 記錄品質異常")
     col1, col2 = st.columns(2)
@@ -154,7 +159,7 @@ elif menu == "📝 撰寫品質":
             conn.commit(); conn.close()
             sync_to_github("New Quality Alert"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5); st.rerun()
 
-# 5. 所有紀錄 (歷史查詢)
+# 5. 所有紀錄
 elif menu == "📜 所有紀錄":
     st.subheader("📜 歷史紀錄查詢 (含已刪除項目)")
     conn = get_conn()
@@ -169,7 +174,7 @@ elif menu == "📜 所有紀錄":
     st.dataframe(df_quality[['date', 'order_no', 'category', 'staff_name', 'content', '狀態']], use_container_width=True)
     conn.close()
 
-# 6. 管理後台 (含密碼保護與 Popover 編輯)
+# 6. 管理後台
 elif menu == "⚙️ 管理後台":
     st.subheader("🛠️ 管理系統")
     if st.text_input("請輸入管理密碼", type="password") == "0000":
@@ -238,7 +243,3 @@ elif menu == "⚙️ 管理後台":
                 col1.write(f"👤 {row['name']}")
                 if col2.button("🗑️ 刪除人員", key=f"ds_{row['id']}"):
                     conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff"); st.rerun()
-
-# 處理分隔線顯示與防呆跳轉
-else:
-    st.info("請點選左側選單的功能項以開始使用。")
