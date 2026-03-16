@@ -58,7 +58,7 @@ def init_db():
 
 init_db()
 
-# --- 側邊選單 (公告優先，撰寫/管理移至下方) ---
+# --- 側邊選單 ---
 with st.sidebar:
     st.markdown("### 👤 目前登入\n## 管理員")
     st.markdown("---")
@@ -68,10 +68,10 @@ with st.sidebar:
         "功能選單",
         [
             "🏠 公佈欄首頁", 
-            "⚠️ 品質異常公告",
+            "⚠️ 品質異常首頁",
             "--------------------", 
             "✍️ 撰寫新公告", 
-            "📝 撰寫品質公告",
+            "📝 撰寫品質",
             "📜 所有紀錄", 
             "⚙️ 管理後台"
         ],
@@ -85,34 +85,43 @@ st.title("🏭 <超慧>製造部-雲端公佈欄")
 
 # --- 頁面邏輯 ---
 
-# 1. 一般公告瀏覽 (僅此處優化畫質)
+# 1. 一般公佈欄首頁
 if menu == "🏠 公佈欄首頁":
+    search_q = st.text_input("🔍 搜尋公告內容或發布人", "")
     conn = get_conn()
-    df = pd.read_sql("SELECT * FROM posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
+    query = "SELECT * FROM posts WHERE is_deleted = 0"
+    if search_q:
+        query += f" AND (content LIKE '%{search_q}%' OR author LIKE '%{search_q}%')"
+    df = pd.read_sql(f"{query} ORDER BY id DESC", conn)
     conn.close()
+    
     for _, r in df.iterrows():
         with st.container():
             st.markdown(f"**{r['date']} | 發布人：{r['author']}**")
             st.info(r['content'])
             if r['image_path'] and os.path.exists(r['image_path']):
                 with st.popover("🖼️ 檢視照片"):
-                    # 使用原始品質呈現，不進行二次壓縮
-                    # st.image(Image.open(r['image_path']), use_container_width=True) # 原設定
-                    st.image(r['image_path'], width=1024) # 💡 設定大寬度顯示，實現高清效果
+                    st.image(r['image_path'], use_container_width=True)
             st.markdown("---")
 
-# 2. 品質異常瀏覽 (改回原本樣式，不准變動)
-elif menu == "⚠️ 品質異常公告":
+# 2. 品質異常首頁 (修正：照片解析度提高並放大尺寸)
+elif menu == "⚠️ 品質異常首頁":
+    st.subheader("⚠️ 品質異常管理首頁")
+    search_q = st.text_input("🔍 搜尋製令、人員或異常內容", "")
     conn = get_conn()
-    df = pd.read_sql("SELECT * FROM quality_posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
+    query = "SELECT * FROM quality_posts WHERE is_deleted = 0"
+    if search_q:
+        query += f" AND (order_no LIKE '%{search_q}%' OR content LIKE '%{search_q}%' OR staff_name LIKE '%{search_q}%' OR category LIKE '%{search_q}%')"
+    df = pd.read_sql(f"{query} ORDER BY id DESC", conn)
     conn.close()
+    
     for _, r in df.iterrows():
-        with st.expander(f"🔴 [{r['date']}] 製令：{r['order_no']} | 分類：{r['category']}"):
+        with st.expander(f"🔴 [{r['date']}] 製令：{r['order_no']} | 分類：{r['category']}", expanded=True):
             st.write(f"**相關人員：** {r['staff_name']}")
             st.error(f"**異常內容：** {r['content']}")
             if r['image_path'] and os.path.exists(r['image_path']):
-                # 改回您原本要求的樣式，寬度固定 300px
-                st.image(Image.open(r['image_path']), width=300)
+                # 💡 依照您的要求，將框選位置的照片解析度提高並放大尺寸至 800
+                st.image(r['image_path'], width=800)
 
 # 3. 撰寫一般公告
 elif menu == "✍️ 撰寫新公告":
@@ -135,8 +144,8 @@ elif menu == "✍️ 撰寫新公告":
             conn.commit(); conn.close()
             sync_to_github("New Post"); st.balloons(); st.success("發布成功！"); time.sleep(1.5); st.rerun()
 
-# 4. 撰寫品質公告
-elif menu == "📝 撰寫品質公告":
+# 4. 撰寫品質
+elif menu == "📝 撰寫品質":
     st.subheader("✍️ 記錄品質異常")
     col1, col2 = st.columns(2)
     with col1:
@@ -176,7 +185,7 @@ elif menu == "📜 所有紀錄":
     st.dataframe(df_quality[['date', 'order_no', 'category', 'staff_name', 'content', '狀態']], use_container_width=True)
     conn.close()
 
-# 6. 管理後台 (💡 優化品質紀錄編輯頁面的圖片清晰度)
+# 6. 管理後台
 elif menu == "⚙️ 管理後台":
     st.subheader("🛠️ 管理系統")
     if st.text_input("請輸入管理密碼", type="password") == "0000":
@@ -206,8 +215,6 @@ elif menu == "⚙️ 管理後台":
             for _, r in df_q.iterrows():
                 qc1, qc2, qc3 = st.columns([6, 2, 2])
                 qc1.write(f"[{r['date']}] 製令:{r['order_no']} | 人員:{r['staff_name']}")
-                
-                # 📝 品質紀錄管理編輯按鈕與彈出視窗
                 with qc2.popover("📝 編輯"):
                     new_order = st.text_input("製令編號", value=r['order_no'], key=f"uo_{r['id']}")
                     try: curr_cat_idx = cat_options.index(r['category'])
@@ -218,24 +225,15 @@ elif menu == "⚙️ 管理後台":
                     new_staff = st.selectbox("人員", staff_list, index=curr_staff_idx, key=f"us_{r['id']}")
                     new_content = st.text_area("內容", value=r['content'], key=f"ucont_{r['id']}")
                     new_img = st.file_uploader("🖼️ 更新照片 (不選則保留原圖)", type=['jpg', 'png', 'jpeg'], key=f"uimg_{r['id']}")
-                    
-                    # 💡 這裡已優化：設定大寬度以呈現高清照片
-                    if r['image_path'] and os.path.exists(r['image_path']):
-                        st.markdown("---")
-                        st.markdown("**目前異常照片**：")
-                        # 將 use_container_width 改為設定較大的 width
-                        st.image(Image.open(r['image_path']), width=1024) 
-                    
                     if st.button("💾 儲存修改", key=f"save_q_{r['id']}"):
                         p = r['image_path']
                         if new_img:
                             p = f"{IMAGE_FOLDER}/q_{datetime.now().strftime('%Y%m%d%H%M%S')}_{new_img.name}"
                             with open(p, "wb") as f: f.write(new_img.getbuffer())
                         conn = get_conn(); conn.execute("UPDATE quality_posts SET order_no=?, category=?, staff_name=?, content=?, image_path=? WHERE id=?", 
-                                     (new_order, new_cat, new_staff, new_content, p, r['id'])); conn.commit(); conn.close(); sync_to_github("Edit Quality Content"); st.rerun()
-                
+                                     (new_order, new_cat, new_staff, new_content, p, r['id'])); conn.commit(); conn.close(); sync_to_github("Edit Quality"); st.rerun()
                 if qc3.button("🗑️ 刪除", key=f"dq_{r['id']}"):
-                    conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality Rec"); st.rerun()
+                    conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality"); st.rerun()
 
         with t3:
             st.write("### 👥 人員名單管理")
@@ -255,4 +253,4 @@ elif menu == "⚙️ 管理後台":
                 col1, col2 = st.columns([8, 2])
                 col1.write(f"👤 {row['name']}")
                 if col2.button("🗑️ 刪除人員", key=f"ds_{row['id']}"):
-                    conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff Person"); st.rerun()
+                    conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff"); st.rerun()
