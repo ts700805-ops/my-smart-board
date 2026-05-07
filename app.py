@@ -54,6 +54,15 @@ def init_db():
                     image_path TEXT, 
                     is_deleted INTEGER DEFAULT 0)''')
     c.execute('CREATE TABLE IF NOT EXISTS staff (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)')
+    
+    # 新增：製造部待處理事項資料表
+    c.execute('''CREATE TABLE IF NOT EXISTS pending_tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date TEXT,
+                    order_no TEXT,
+                    task_content TEXT,
+                    status TEXT DEFAULT '待處理',
+                    complete_date TEXT)''')
     conn.commit(); conn.close()
 
 init_db()
@@ -69,6 +78,7 @@ with st.sidebar:
         [
             "🏠 公佈欄首頁", 
             "⚠️ 品質異常首頁",
+            "🛠️ 製造部待處理清單", # 新增頁面選項
             "--------------------", 
             "✍️ 撰寫新公告", 
             "📝 撰寫品質",
@@ -85,7 +95,7 @@ st.title("🏭 <超慧>製造部-雲端公佈欄")
 
 # --- 頁面邏輯 ---
 
-# 1. 一般公佈欄首頁
+# 1. 一般公佈欄首頁 (維持原樣)
 if menu == "🏠 公佈欄首頁":
     search_q = st.text_input("🔍 搜尋公告內容或發布人", "")
     conn = get_conn()
@@ -104,10 +114,10 @@ if menu == "🏠 公佈欄首頁":
                     st.image(r['image_path'], use_container_width=True)
             st.markdown("---")
 
-# 2. 品質異常首頁 (修正：照片解析度提高並放大尺寸)
+# 2. 品質異常首頁 (維持原樣)
 elif menu == "⚠️ 品質異常首頁":
     st.subheader("⚠️ 品質異常管理首頁")
-    search_q = st.text_input("🔍 搜尋製令、人員或異常內容", "")
+    search_q = st.text_input("🔍 搜尋製令、人員 or 異常內容", "")
     conn = get_conn()
     query = "SELECT * FROM quality_posts WHERE is_deleted = 0"
     if search_q:
@@ -120,10 +130,21 @@ elif menu == "⚠️ 品質異常首頁":
             st.write(f"**相關人員：** {r['staff_name']}")
             st.error(f"**異常內容：** {r['content']}")
             if r['image_path'] and os.path.exists(r['image_path']):
-                # 💡 依照您的要求，將框選位置的照片解析度提高並放大尺寸至 800
                 st.image(r['image_path'], width=800)
 
-# 3. 撰寫一般公告
+# 3. 新增頁面：製造部待處理事項清單
+elif menu == "🛠️ 製造部待處理清單":
+    st.subheader("🛠️ 製造部待處理事項清單")
+    conn = get_conn()
+    df_task = pd.read_sql("SELECT date, order_no, task_content FROM pending_tasks WHERE status = '待處理' ORDER BY date ASC", conn)
+    conn.close()
+    
+    if df_task.empty:
+        st.success("目前暫無待處理事項！")
+    else:
+        st.table(df_task)
+
+# 4. 撰寫一般公告 (維持原樣)
 elif menu == "✍️ 撰寫新公告":
     st.subheader("📝 發布新訊息")
     conn = get_conn()
@@ -144,7 +165,7 @@ elif menu == "✍️ 撰寫新公告":
             conn.commit(); conn.close()
             sync_to_github("New Post"); st.balloons(); st.success("發布成功！"); time.sleep(1.5); st.rerun()
 
-# 4. 撰寫品質
+# 5. 撰寫品質 (維持原樣)
 elif menu == "📝 撰寫品質":
     st.subheader("✍️ 記錄品質異常")
     col1, col2 = st.columns(2)
@@ -170,10 +191,15 @@ elif menu == "📝 撰寫品質":
             conn.commit(); conn.close()
             sync_to_github("New Quality Alert"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5); st.rerun()
 
-# 5. 所有紀錄
+# 6. 所有紀錄 (更新：新增待處理清單歷史)
 elif menu == "📜 所有紀錄":
-    st.subheader("📜 歷史紀錄查詢 (含已刪除項目)")
+    st.subheader("📜 歷史紀錄查詢")
     conn = get_conn()
+    
+    st.markdown("--- 🛠️ 待處理事項紀錄 (含已完成) ---")
+    df_history_task = pd.read_sql("SELECT date, order_no, task_content, status, complete_date FROM pending_tasks ORDER BY id DESC", conn)
+    st.dataframe(df_history_task, use_container_width=True)
+
     st.markdown("--- 📢 一般公告清單 (全部歷史) ---")
     df_posts = pd.read_sql("SELECT date, author, content, is_deleted FROM posts ORDER BY id DESC", conn)
     df_posts['狀態'] = df_posts['is_deleted'].apply(lambda x: "正常" if x == 0 else "❌ 已刪除")
@@ -185,13 +211,13 @@ elif menu == "📜 所有紀錄":
     st.dataframe(df_quality[['date', 'order_no', 'category', 'staff_name', 'content', '狀態']], use_container_width=True)
     conn.close()
 
-# 6. 管理後台
+# 7. 管理後台 (更新：新增待處理清單管理活頁)
 elif menu == "⚙️ 管理後台":
     st.subheader("🛠️ 管理系統")
     if st.text_input("請輸入管理密碼", type="password") == "0000":
-        t1, t2, t3 = st.tabs(["公告管理", "品質紀錄管理", "人員管理"])
+        t1, t2, t3, t4 = st.tabs(["公告管理", "品質紀錄管理", "人員管理", "待處理事項管理"])
         
-        with t1:
+        with t1: # (維持原樣)
             conn = get_conn()
             df = pd.read_sql("SELECT * FROM posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
             conn.close()
@@ -206,7 +232,7 @@ elif menu == "⚙️ 管理後台":
                 if c3.button("🗑️ 刪除", key=f"dp_{r['id']}"):
                     conn = get_conn(); conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Post"); st.rerun()
 
-        with t2:
+        with t2: # (維持原樣)
             conn = get_conn()
             df_q = pd.read_sql("SELECT * FROM quality_posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
             staff_list = pd.read_sql("SELECT name FROM staff", conn)['name'].tolist()
@@ -235,7 +261,7 @@ elif menu == "⚙️ 管理後台":
                 if qc3.button("🗑️ 刪除", key=f"dq_{r['id']}"):
                     conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality"); st.rerun()
 
-        with t3:
+        with t3: # (維持原樣)
             st.write("### 👥 人員名單管理")
             new_n = st.text_input("輸入新人員姓名")
             if st.button("➕ 新增人員"):
@@ -254,3 +280,31 @@ elif menu == "⚙️ 管理後台":
                 col1.write(f"👤 {row['name']}")
                 if col2.button("🗑️ 刪除人員", key=f"ds_{row['id']}"):
                     conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff"); st.rerun()
+
+        with t4: # 新增：待處理事項管理
+            st.write("### 📝 新增待處理事項")
+            with st.form("task_form", clear_on_submit=True):
+                col_a, col_b = st.columns(2)
+                t_date = col_a.date_input("日期")
+                t_order = col_b.text_input("製令編號")
+                t_msg = st.text_area("待處理項目內容")
+                if st.form_submit_button("➕ 新增到清單"):
+                    if t_order and t_msg:
+                        conn = get_conn()
+                        conn.execute("INSERT INTO pending_tasks (date, order_no, task_content) VALUES (?, ?, ?)", 
+                                     (str(t_date), t_order, t_msg))
+                        conn.commit(); conn.close(); sync_to_github("Add Task"); st.rerun()
+
+            st.markdown("---")
+            st.write("### ⏳ 目前待處理清單")
+            conn = get_conn()
+            active_tasks = pd.read_sql("SELECT * FROM pending_tasks WHERE status = '待處理' ORDER BY date ASC", conn)
+            conn.close()
+            for _, task in active_tasks.iterrows():
+                tc1, tc2 = st.columns([8, 2])
+                tc1.warning(f"📅 {task['date']} | 製令: {task['order_no']} \n\n內容: {task['task_content']}")
+                if tc2.button("✅ 完成", key=f"finish_{task['id']}"):
+                    now_t = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
+                    conn = get_conn()
+                    conn.execute("UPDATE pending_tasks SET status='已完成', complete_date=? WHERE id=?", (now_t, task['id']))
+                    conn.commit(); conn.close(); sync_to_github("Finish Task"); st.rerun()
