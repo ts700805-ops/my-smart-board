@@ -211,7 +211,7 @@ elif menu == "📜 所有紀錄":
     st.dataframe(df_quality[['date', 'order_no', 'category', 'staff_name', 'content', '狀態']], use_container_width=True)
     conn.close()
 
-# 7. 管理後台 (更新：新增待處理清單管理活頁)
+# 7. 管理後台
 elif menu == "⚙️ 管理後台":
     st.subheader("🛠️ 管理系統")
     if st.text_input("請輸入管理密碼", type="password") == "0000":
@@ -281,7 +281,7 @@ elif menu == "⚙️ 管理後台":
                 if col2.button("🗑️ 刪除人員", key=f"ds_{row['id']}"):
                     conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff"); st.rerun()
 
-        with t4: # 新增：待處理事項管理
+        with t4: # 新增：待處理事項管理 (加入編輯功能)
             st.write("### 📝 新增待處理事項")
             with st.form("task_form", clear_on_submit=True):
                 col_a, col_b = st.columns(2)
@@ -301,9 +301,29 @@ elif menu == "⚙️ 管理後台":
             active_tasks = pd.read_sql("SELECT * FROM pending_tasks WHERE status = '待處理' ORDER BY date ASC", conn)
             conn.close()
             for _, task in active_tasks.iterrows():
-                tc1, tc2 = st.columns([8, 2])
+                # 修改欄位比例以放入編輯按鈕
+                tc1, tc2, tc3 = st.columns([6, 2, 2])
                 tc1.warning(f"📅 {task['date']} | 製令: {task['order_no']} \n\n內容: {task['task_content']}")
-                if tc2.button("✅ 完成", key=f"finish_{task['id']}"):
+                
+                # 新增的編輯按鈕
+                with tc2.popover("📝 編輯"):
+                    try:
+                        curr_d = datetime.strptime(task['date'], '%Y-%m-%d')
+                    except:
+                        curr_d = datetime.now()
+                    
+                    e_date = st.date_input("修改日期", value=curr_d, key=f"edt_{task['id']}")
+                    e_order = st.text_input("修改製令", value=task['order_no'], key=f"eord_{task['id']}")
+                    e_task = st.text_area("修改內容", value=task['task_content'], key=f"etxt_{task['id']}")
+                    
+                    if st.button("💾 儲存修改", key=f"esv_{task['id']}"):
+                        conn = get_conn()
+                        conn.execute("UPDATE pending_tasks SET date=?, order_no=?, task_content=? WHERE id=?", 
+                                     (str(e_date), e_order, e_task, task['id']))
+                        conn.commit(); conn.close(); sync_to_github("Edit Task"); st.rerun()
+
+                # 原有的完成按鈕
+                if tc3.button("✅ 完成", key=f"finish_{task['id']}"):
                     now_t = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
                     conn = get_conn()
                     conn.execute("UPDATE pending_tasks SET status='已完成', complete_date=? WHERE id=?", (now_t, task['id']))
