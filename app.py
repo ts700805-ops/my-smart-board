@@ -11,97 +11,104 @@ import streamlit as st
 import base64
 from PIL import Image
 
-# 1. 網頁基本設定 (更新了 Page Icon 為綠葉)
+import streamlit as st
+import base64
+from PIL import Image
+
+# =========================================================
+# 1. 網頁基本設定 (全域唯一配置，確保最上方不重疊)
+# =========================================================
 st.set_page_config(
     page_title="超慧製造部-雲端公佈欄", 
     page_icon="🍃", 
     layout="wide"
 )
 
-# --- 🖼️ 處理圖片背景轉為 Base64 (為了能在 CSS 中使用) ---
+# --- 🖼️ 處理圖片背景轉為 Base64 (安全不卡死機制) ---
 def get_base64_image(image_path):
-    with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode()
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except:
+        return ""
 
-# 假設圖片檔名為 duanwu_bg.jpg
-try:
-    img_base64 = get_base64_image("duanwu_bg.jpg")
-except:
-    img_base64 = ""
+# 讀取您的端午美圖
+img_base64 = get_base64_image("image_b13023.jpg")
 
-# --- 🎋 端午節節慶氣氛 CSS 設計 ---
-st.markdown(f"""
+# --- 🎋 端午節高質感節慶氣氛 CSS 注入 ---
+st.markdown("""
     <style>
-    /* 全域背景顏色：淡淡的竹青色 */
-    .stApp {{
-        background-color: #F0F9F1;
-    }}
+    /* 全域背景顏色：淡淡的優雅竹青色 */
+    .stApp {
+        background-color: #F2F8F3 !important;
+    }
 
-    /* 頂部導航列裝飾顏色：深翠綠 */
-    header[data-testid="stHeader"] {{
+    /* 頂部導航列細條裝飾顏色：深翠綠 */
+    header[data-testid="stHeader"] {
         background-color: #1E4D2B !important;
-        border-bottom: 3px solid #D4AF37; /* 金黃色點綴 */
-    }}
+        border-bottom: 3px solid #D4AF37 !important;
+    }
 
-    /* 側邊欄風格：深色翠綠底 */
-    [data-testid="stSidebar"] {{
-        background-color: #2E5A39 !important;
-    }}
+    /* 側邊欄風格：高質感深色竹綠底 */
+    [data-testid="stSidebar"] {
+        background-color: #1F3E29 !important;
+    }
     
-    /* 側邊欄文字顏色 */
-    [data-testid="stSidebar"] *, [data-testid="stSidebar"] span, [data-testid="stSidebar"] p {{
+    /* 確保側邊欄文字、選單全部清晰呈現白色 */
+    [data-testid="stSidebar"] *, [data-testid="stSidebar"] span, [data-testid="stSidebar"] p {
         color: #FFFFFF !important;
-    }}
+    }
 
-    /* 標題與副標題字體顏色 */
-    h1, h2, h3 {{
+    /* 網頁主標題與各級標題字體顏色統一為深翠綠 */
+    h1, h2, h3 {
         color: #1E4D2B !important;
         font-family: "Microsoft JhengHei", sans-serif;
-    }}
+    }
 
-    /* 圓角任務卡片設計 */
-    .stAlert {{
-        border-radius: 15px;
-        border: 1px solid #D1E7D5;
-        background-color: #FFFFFF;
-        box-shadow: 2px 2px 10px rgba(0,0,0,0.05);
-    }}
-
-    /* 按鈕風格：節慶金黃 */
-    .stButton>button {{
-        background-color: #D4AF37 !important;
-        color: #1E4D2B !important;
-        border-radius: 8px !important;
-        font-weight: bold !important;
-        border: none !important;
-    }}
+    /* 提示卡片與容器圓角美化 */
+    .stAlert, div[data-testid="stImageFilterBackground"] {
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 🏠 側邊欄：放入您的端午節賀圖 ---
+# =========================================================
+# 🏠 側邊欄配置：完美融入您的「端午安康」精美賀圖
+# =========================================================
 with st.sidebar:
-    # 顯示賀圖
+    # 完美渲染您的節慶照片
     try:
-        festive_img = Image.open("duanwu_bg.jpg")
+        festive_img = Image.open("image_b13023.jpg")
         st.image(festive_img, use_container_width=True)
     except:
-        st.warning("⚠️ 請確認 duanwu_bg.jpg 已放在程式夾中")
+        st.caption("🍃 端午安康 · 萬事包中 🍃")
     
-    st.markdown("---")
-    st.markdown("### 🐲 端午節期間公告")
-    st.caption("製造部祝全體同仁：端午安康，事事包中！")
+    st.markdown("<hr style='border-color: rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
+    st.markdown("### 🐲 製造部端午公告")
+    st.caption("製造部祝全體同仁：端午佳節愉快，平安順心！")
 
-# --- 🚀 主頁標題區 ---
-# 在主頁面最上方也放一個小的裝飾標題
-c1, c2 = st.columns([1, 4])
-with c1:
-    st.write("") # 留空
-with c2:
-    st.title("🏭 <超慧>製造部-雲端公佈欄")
-    st.markdown("##### 🍃 **齊心協力 ‧ 粽志成城** ｜ 專業與節慶同步，效率與安康共存")
+# =========================================================
+# 🚀 唯一主頁標題區 (💡 修正：請刪除您後方原有的舊 st.title 程式碼)
+# =========================================================
+# 這裡採用單一集中化管理，下方就不會再蹦出多餘的工廠圖標標題囉！
+st.markdown("""
+    <div style="padding: 10px 0px 20px 0px;">
+        <h1 style="margin: 0; padding: 0; display: flex; align-items: center; font-size: 32px;">
+            🏭 &lt;超慧&gt;製造部-雲端公佈欄
+        </h1>
+        <p style="margin: 5px 0 0 0; color: #3A7D44; font-size: 15px; font-weight: 500;">
+            🍃 <b>齊心協力 ‧ 粽志成城</b> ｜ 專業與節慶同步，效率與安康共存
+        </p>
+    </div>
+""", unsafe_allow_html=True)
 
-# ... 接下來接您原本的 menu 判斷與其餘程式碼 ...
-
+st.markdown("---")
+# ---------------------------------------------------------
+# 後續請直接銜接您原有的： if menu == "公佈欄首頁": ... 等判斷邏輯
+# ⚠️ 請特別注意：檢查您後方的頁面內，有沒有也寫了 st.title("🏭 <超慧>製造部-雲端公佈欄")，
+# 如果有，請將該行刪除，畫面就不會再重疊了！
+# ---------------------------------------------------------
 
 
 # --- 🚀 安全讀取金鑰 ---
