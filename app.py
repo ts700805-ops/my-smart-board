@@ -342,11 +342,13 @@ if menu == "🔴 專案管理首頁":
     st.subheader("📋 專案進度追蹤看板")
     
     # =========================================================
-    # ⚙️ 資料庫初始化與欄位自動修復 (使用 with 確保連線安全關閉)
+    # ⚙️ 資料庫初始化與欄位自動修復 (使用獨立標準連線，完全防錯)
     # =========================================================
-    with get_conn() as conn:
+    # 直接連接資料庫檔案，避免外部 get_conn 產生的鎖定衝突
+    db_conn = sqlite3.connect('bulletin.db')
+    try:
         # 1. 建立主資料表 (確保欄位齊全)
-        conn.execute('''CREATE TABLE IF NOT EXISTS project_tasks (
+        db_conn.execute('''CREATE TABLE IF NOT EXISTS project_tasks (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         order_no TEXT,
                         assign_date TEXT,
@@ -359,28 +361,33 @@ if menu == "🔴 專案管理首頁":
                         is_deleted INTEGER DEFAULT 0)''')
         
         # 2. 建立設定對照表
-        conn.execute('''CREATE TABLE IF NOT EXISTS project_settings (
+        db_conn.execute('''CREATE TABLE IF NOT EXISTS project_settings (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         config_key TEXT UNIQUE,
                         config_value TEXT)''')
-        conn.commit()
+        db_conn.commit()
         
         # 3. 💡 檢查並動態修正舊資料庫欄位 (避免新舊資料庫結構衝突)
         try:
-            c_check = conn.cursor()
+            c_check = db_conn.cursor()
             c_check.execute("SELECT task_content FROM project_tasks LIMIT 1")
         except sqlite3.OperationalError:
             # 如果舊資料庫沒有此欄位，直接補上
-            conn.execute("ALTER TABLE project_tasks ADD COLUMN task_content TEXT DEFAULT ''")
-            conn.commit()
+            db_conn.execute("ALTER TABLE project_tasks ADD COLUMN task_content TEXT DEFAULT ''")
+            db_conn.commit()
+    finally:
+        db_conn.close()
 
     # =========================================================
     # ⚙️ 讀取後台群組對照表，動態生成下拉選單
     # =========================================================
-    with get_conn() as conn:
-        c = conn.cursor()
+    db_conn = sqlite3.connect('bulletin.db')
+    try:
+        c = db_conn.cursor()
         c.execute("SELECT config_value FROM project_settings WHERE config_key = 'team_mapping'")
         row_mapping = c.fetchone()
+    finally:
+        db_conn.close()
     
     mapping_text = row_mapping[0] if row_mapping else "組長A:成員1,成員2\n組長B:成員3,成員4"
     
@@ -410,8 +417,11 @@ if menu == "🔴 專案管理首頁":
     # =========================================================
     st.markdown("### 🟡 進行中專案清單")
     
-    with get_conn() as conn:
-        df_active = pd.read_sql("SELECT * FROM project_tasks WHERE is_finished = 0 AND is_deleted = 0 ORDER BY id DESC", conn)
+    db_conn = sqlite3.connect('bulletin.db')
+    try:
+        df_active = pd.read_sql("SELECT * FROM project_tasks WHERE is_finished = 0 AND is_deleted = 0 ORDER BY id DESC", db_conn)
+    finally:
+        db_conn.close()
     
     if df_active.empty:
         st.info("目前沒有進行中的專案任務。")
@@ -426,9 +436,12 @@ if menu == "🔴 專案管理首頁":
             # 🟢 免密碼完工
             if m2.button("🟢 點我完工", key=f"f_btn_{row['id']}"):
                 f_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
-                with get_conn() as conn:
-                    conn.execute("UPDATE project_tasks SET is_finished = 1, finish_date = ? WHERE id = ?", (f_time, row['id']))
-                    conn.commit()
+                db_conn = sqlite3.connect('bulletin.db')
+                try:
+                    db_conn.execute("UPDATE project_tasks SET is_finished = 1, finish_date = ? WHERE id = ?", (f_time, row['id']))
+                    db_conn.commit()
+                finally:
+                    db_conn.close()
                 sync_to_github("Finish Project Task"); st.rerun()
                 
             # 📝 編輯修改 (密碼 0000)
@@ -450,10 +463,13 @@ if menu == "🔴 專案管理首頁":
                     e_content = st.text_area("修改執行內容", value=curr_content, key=f"ec_{row['id']}")
                     
                     if st.button("💾 儲存修改", key=f"save_e_{row['id']}"):
-                        with get_conn() as conn:
-                            conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, expected_date=?, task_content=? WHERE id=?", 
+                        db_conn = sqlite3.connect('bulletin.db')
+                        try:
+                            db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, expected_date=?, task_content=? WHERE id=?", 
                                          (e_order, e_author, e_worker, str(e_exp), e_content, row['id']))
-                            conn.commit()
+                            db_conn.commit()
+                        finally:
+                            db_conn.close()
                         sync_to_github("Edit Project Task"); st.rerun()
                 elif pwd_edit:
                     st.error("密碼錯誤")
@@ -463,9 +479,12 @@ if menu == "🔴 專案管理首頁":
                 pwd_del = st.text_input("驗證管理密碼", type="password", key=f"pwd_d_{row['id']}")
                 if pwd_del == "0000":
                     if st.button("🚨 確認刪除", key=f"conf_d_{row['id']}"):
-                        with get_conn() as conn:
-                            conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
-                            conn.commit()
+                        db_conn = sqlite3.connect('bulletin.db')
+                        try:
+                            db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
+                            db_conn.commit()
+                        finally:
+                            db_conn.close()
                         sync_to_github("Delete Project Task"); st.rerun()
                 elif pwd_del:
                     st.error("密碼錯誤")
@@ -489,11 +508,14 @@ if menu == "🔴 專案管理首頁":
             
         if st.button("🚀 提交指派專案"):
             if p_order and p_author and p_worker and "請先到下方" not in p_author:
-                with get_conn() as conn:
-                    conn.execute('''INSERT INTO project_tasks (order_no, assign_date, author_name, worker_name, expected_date, task_content, is_finished, is_deleted) 
+                db_conn = sqlite3.connect('bulletin.db')
+                try:
+                    db_conn.execute('''INSERT INTO project_tasks (order_no, assign_date, author_name, worker_name, expected_date, task_content, is_finished, is_deleted) 
                                     VALUES (?, ?, ?, ?, ?, ?, 0, 0)''', 
                                  (p_order, str(p_date), p_author, p_worker, str(p_exp_date), p_content))
-                    conn.commit()
+                    db_conn.commit()
+                finally:
+                    db_conn.close()
                 sync_to_github("Add Project Task"); st.success("專案指派成功！"); time.sleep(1); st.rerun()
             else:
                 st.error("請確認填寫製令，且選單已有正確人員名單！")
@@ -504,8 +526,11 @@ if menu == "🔴 專案管理首頁":
     # 3. 🟢 已完工歷史紀錄
     # =========================================================
     with st.expander("🟢 點擊展開：查看已完工歷史紀錄", expanded=False):
-        with get_conn() as conn:
-            df_finished = pd.read_sql("SELECT * FROM project_tasks WHERE is_finished = 1 AND is_deleted = 0 ORDER BY finish_date DESC", conn)
+        db_conn = sqlite3.connect('bulletin.db')
+        try:
+            df_finished = pd.read_sql("SELECT * FROM project_tasks WHERE is_finished = 1 AND is_deleted = 0 ORDER BY finish_date DESC", db_conn)
+        finally:
+            db_conn.close()
         
         if df_finished.empty:
             st.caption("暫無完工紀錄。")
@@ -524,10 +549,13 @@ if menu == "🔴 專案管理首頁":
                         he_worker = st.selectbox("修改執行人", worker_options, key=f"hew_{row['id']}")
                         he_content = st.text_area("修改執行內容", value=h_task_desc, key=f"hec_{row['id']}")
                         if st.button("💾 儲存修改歷史", key=f"hsave_e_{row['id']}"):
-                            with get_conn() as conn:
-                                conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", 
+                            db_conn = sqlite3.connect('bulletin.db')
+                            try:
+                                db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", 
                                              (he_order, he_author, he_worker, he_content, row['id']))
-                                conn.commit()
+                                db_conn.commit()
+                            finally:
+                                db_conn.close()
                             sync_to_github("Edit Finished Task History"); st.rerun()
                     elif pwd_hedit:
                         st.error("密碼錯誤")
@@ -537,9 +565,12 @@ if menu == "🔴 專案管理首頁":
                     pwd_hdel = st.text_input("驗證管理密碼", type="password", key=f"pwd_hd_{row['id']}")
                     if pwd_hdel == "0000":
                         if st.button("🚨 確認刪除歷史", key=f"hconf_d_{row['id']}"):
-                            with get_conn() as conn:
-                                conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
-                                conn.commit()
+                            db_conn = sqlite3.connect('bulletin.db')
+                            try:
+                                db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
+                                db_conn.commit()
+                            finally:
+                                db_conn.close()
                             sync_to_github("Delete Finished Task History"); st.rerun()
                     elif pwd_hdel:
                         st.error("密碼錯誤")
@@ -556,11 +587,14 @@ if menu == "🔴 專案管理首頁":
     new_mapping = st.text_area("人員群組對照表設定", value=mapping_text, height=150, key="team_mapping_input")
     
     if st.button("💾 儲存對照表設定"):
-        with get_conn() as conn:
-            conn.execute('''INSERT INTO project_settings (config_key, config_value) 
+        db_conn = sqlite3.connect('bulletin.db')
+        try:
+            db_conn.execute('''INSERT INTO project_settings (config_key, config_value) 
                             VALUES ('team_mapping', ?)
                             ON CONFLICT(config_key) DO UPDATE SET config_value=excluded.config_value''', (new_mapping,))
-            conn.commit()
+            db_conn.commit()
+        finally:
+            db_conn.close()
         sync_to_github("Update Team Mapping Settings")
         st.success("✅ 對照表更新成功！選單已同步變更。")
         time.sleep(1)
