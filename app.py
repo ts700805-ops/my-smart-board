@@ -136,7 +136,7 @@ elif menu == "⚠️ 品質異常首頁":
 
 # # 3. 新增頁面：製造部待處理事項清單
 elif menu == "🛠️ 製造部待處理清單":
-    # 透過網頁標題樣式注入端午主題配色與節慶視覺設計 (不再使用危險的卡片拼湊)
+    # 透過網頁標題樣式注入端午主題配色與節慶視覺設計
     st.markdown("""
         <style>
         .duanwu-header {
@@ -160,6 +160,12 @@ elif menu == "🛠️ 製造部待處理清單":
             color: #E0E0E0;
             margin-top: 5px;
             font-style: italic;
+        }
+        /* 💡 額外加強文字清晰度 */
+        .large-text {
+            font-size: 16px !important;
+            font-weight: bold !important;
+            color: #1E4D2B;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -199,18 +205,18 @@ elif menu == "🛠️ 製造部待處理清單":
             </div>
         """, unsafe_allow_html=True)
     else:
-        # 💡 終極解決方案：改用 Streamlit 官方原生安全元件搭配，保證畫面 100% 乾淨無錯誤
         for _, row in df_task.iterrows():
+            # 💡 1. 配合欄位定義，將變數對應至發布日期與製令
             t_date = row['date'] if row['date'] else "未排程"
             t_order = row['order_no'] if row['order_no'] else "無製令"
             t_content = row['task_content'] if row['task_content'] else "未填寫內容"
             
-            # 使用原生容器加上綠色提示邊框，兼顧端午風格美觀與系統穩定度
+            # 使用原生容器，並移除會縮小字體的反單引號，改用 markdown 粗體與 HTML 調大字體
             with st.container(border=True):
-                # 上層資訊列
-                c1, c2, c3 = st.columns([2.5, 2.5, 1])
-                c1.markdown(f"🟢 **📅 期限：** `{t_date}`")
-                c2.markdown(f"🔢 **製令：** `{t_order}`")
+                # 上層資訊列：調整為「發佈日期」，並使用 HTML span 來確保字體大且清晰
+                c1, c2, c3 = st.columns([3, 3, 1])
+                c1.markdown(f"🟢 **📅 發佈日期：** <span class='large-text'>{t_date}</span>", unsafe_allow_html=True)
+                c2.markdown(f"🔢 **製令：** <span class='large-text'>{t_order}</span>", unsafe_allow_html=True)
                 c3.markdown("<div style='text-align: right; font-size: 18px;'>🫔</div>", unsafe_allow_html=True)
                 
                 # 內容文字區
