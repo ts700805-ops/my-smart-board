@@ -227,13 +227,15 @@ elif menu == "🛠️ 製造部待處理清單":
             </div>
         """, unsafe_allow_html=True)
     else:
-        # 採用簡潔安全的 HTML 排版結構，徹底排除多餘的 </div> 被解構成字串的錯誤
         for _, row in df_task.iterrows():
             t_date = row['date'] if row['date'] else "未排程"
             t_order = row['order_no'] if row['order_no'] else "無製令"
-            t_content = row['task_content'] if row['task_content'] else "未填寫內容"
             
-            # 使用穩定的單一層 HTML 拼接，將動態資料填入，保證標籤閉合正確
+            # 💡 關鍵修復：強制將內容中可能含有的舊 HTML 殘留標籤替換掉，根除顯示錯誤！
+            raw_content = row['task_content'] if row['task_content'] else "未填寫內容"
+            t_content = raw_content.replace("</div>", "").replace("<div>", "").replace("</ div>", "")
+            
+            # 使用最單純穩定的 HTML 渲染
             card_html = f"""
             <div class="zonzi-card">
                 <div style="margin-bottom: 10px;">
