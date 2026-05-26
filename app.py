@@ -341,7 +341,7 @@ elif menu == "⚙️ 管理後台":
 if menu == "🔴 專案管理首頁":
     st.subheader("📋 專案進度追蹤看板")
     
-    # 確保資料庫有建立獨立表 (若未建立會在此自動補建)
+    # 確保資料庫有建立獨立表
     conn = get_conn()
     conn.execute('''CREATE TABLE IF NOT EXISTS project_tasks (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -355,7 +355,7 @@ if menu == "🔴 專案管理首頁":
                     is_deleted INTEGER DEFAULT 0)''')
     conn.commit(); conn.close()
     
-    # --- 區塊 1：➕ 指派新任務 (手動輸入，不掛勾程式內名單) ---
+    # --- 區塊 1：➕ 指派新任務 (手動輸入) ---
     with st.expander("➕ 點擊指派新任務 (獨立手動輸入區)", expanded=False):
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -393,7 +393,7 @@ if menu == "🔴 專案管理首頁":
             m1, m2, m3, m4 = st.columns([5, 1.5, 1.5, 1.5])
             m1.info(f"**製令：** {row['order_no']} | **指派日：** {row['assign_date']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}")
             
-            # 🟢 現場免密碼回報完工
+            # 🟢 免密碼完工
             if m2.button("🟢 點我完工", key=f"f_btn_{row['id']}"):
                 conn = get_conn()
                 f_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
@@ -417,4 +417,54 @@ if menu == "🔴 專案管理首頁":
                     st.error("密碼錯誤")
 
             # 🗑️ 刪除進行中 (密碼 0000)
-            with m4.popover
+            with m4.popover("🗑️ 刪除"):
+                pwd_del = st.text_input("驗證管理密碼", type="password", key=f"pwd_d_{row['id']}")
+                if pwd_del == "0000":
+                    if st.button("🚨 確認刪除", key=f"conf_d_{row['id']}"):
+                        conn = get_conn()
+                        conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
+                        conn.commit(); conn.close(); sync_to_github("Delete Project Task"); st.rerun()
+                elif pwd_del:
+                    st.error("密碼錯誤")
+
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("---")
+    
+    # --- 區塊 3：🟢 已完工歷史紀錄 ---
+    st.markdown("### 🟢 已完工歷史紀錄")
+    conn = get_conn()
+    df_finished = pd.read_sql("SELECT * FROM project_tasks WHERE is_finished = 1 AND is_deleted = 0 ORDER BY finish_date DESC", conn)
+    conn.close()
+    
+    if df_finished.empty:
+        st.caption("暫無完工紀錄。")
+    else:
+        for _, row in df_finished.iterrows():
+            m1, m3, m4 = st.columns([6.5, 1.5, 1.5])
+            m1.success(f"**製令：** {row['order_no']} | **執行：** {row['worker_name']} | **發布：** {row['author_name']} | **原預計完工：** {row['expected_date']} | ⏰ **實際完工時間：{row['finish_date']}**")
+            
+            # 修改完工歷史 (密碼 0000)
+            with m3.popover("📝 修改歷史"):
+                pwd_hedit = st.text_input("驗證管理密碼", type="password", key=f"pwd_he_{row['id']}")
+                if pwd_hedit == "0000":
+                    he_order = st.text_input("修改製令", value=row['order_no'], key=f"heo_{row['id']}")
+                    he_author = st.text_input("修改發布人", value=row['author_name'], key=f"hea_{row['id']}")
+                    he_worker = st.text_input("修改執行人", value=row['worker_name'], key=f"hew_{row['id']}")
+                    if st.button("💾 儲存修改歷史", key=f"hsave_e_{row['id']}"):
+                        conn = get_conn()
+                        conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=? WHERE id=?", 
+                                     (he_order, he_author, he_worker, row['id']))
+                        conn.commit(); conn.close(); sync_to_github("Edit Finished Task History"); st.rerun()
+                elif pwd_hedit:
+                    st.error("密碼錯誤")
+                    
+            # 刪除完工歷史 (密碼 0000)
+            with m4.popover("🗑️ 刪除紀錄"):
+                pwd_hdel = st.text_input("驗證管理密碼", type="password", key=f"pwd_hd_{row['id']}")
+                if pwd_hdel == "0000":
+                    if st.button("🚨 確認刪除歷史", key=f"hconf_d_{row['id']}"):
+                        conn = get_conn()
+                        conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
+                        conn.commit(); conn.close(); sync_to_github("Delete Finished Task History"); st.rerun()
+                elif pwd_hdel:
+                    st.error("密碼錯誤")
