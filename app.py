@@ -432,7 +432,7 @@ if menu == "🔴 專案管理首頁":
             task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "未填寫執行內容"
             m1.info(f"**製令：** {row['order_no']} | **指派日：** {row['assign_date']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}\n\n**📝 執行內容：** {task_desc}")
             
-            # 🟢 免密碼完工
+            # 🟢 免密碼完工回報
             if m2.button("🟢 點我完工", key=f"f_btn_{row['id']}"):
                 f_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
                 db_conn = sqlite3.connect('bulletin.db')
@@ -491,9 +491,9 @@ if menu == "🔴 專案管理首頁":
     st.markdown("---")
 
     # =========================================================
-    # 2. ➕ 指派新任務 (填寫執行內容欄位)
+    # 2. ➕ 指派新任務 (展開區塊)
     # =========================================================
-    with st.expander("➕ 點擊指派新任務 (下拉選單選取區)", expanded=False):
+    with st.expander("➕ 點擊展開：指派新任務 (下拉選單選取區)", expanded=False):
         c1, c2, c3 = st.columns(3)
         with c1:
             p_order = st.text_input("工單/製令編號", key="p_order_add")
@@ -522,17 +522,15 @@ if menu == "🔴 專案管理首頁":
     st.markdown("---")
     
     # =========================================================
-    # 3. 🟢 已完工歷史紀錄 (💡 整合模糊關鍵字搜尋功能)
+    # 3. 🟢 已完工歷史紀錄 (搜尋功能)
     # =========================================================
     with st.expander("🟢 點擊展開：查看已完工歷史紀錄", expanded=False):
         
-        # 🔍 新增：完工歷史紀錄專用的模糊關鍵字輸入框
-        search_kw = st.text_input("🔍 輸入關鍵字搜尋歷史紀錄 (可搜：製令、執行人、發布人、執行內容)", value="", key="history_search_input")
+        search_kw = st.text_input("🔍 輸入關鍵字搜尋歷史紀錄", value="", key="history_search_input")
         
         db_conn = sqlite3.connect('bulletin.db')
         try:
             if search_kw.strip():
-                # 如果有輸入關鍵字，使用 LIKE 進行多欄位模糊比對
                 query = '''SELECT * FROM project_tasks 
                            WHERE is_finished = 1 AND is_deleted = 0 
                            AND (order_no LIKE ? OR worker_name LIKE ? OR author_name LIKE ? OR task_content LIKE ?)
@@ -540,30 +538,26 @@ if menu == "🔴 專案管理首頁":
                 like_param = f"%{search_kw.strip()}%"
                 df_finished = pd.read_sql(query, db_conn, params=(like_param, like_param, like_param, like_param))
             else:
-                # 預設不搜尋時載入全部完工紀錄
                 df_finished = pd.read_sql("SELECT * FROM project_tasks WHERE is_finished = 1 AND is_deleted = 0 ORDER BY finish_date DESC", db_conn)
         finally:
             db_conn.close()
         
         if df_finished.empty:
-            if search_kw.strip():
-                st.caption("找不到符合該關鍵字的完工紀錄。")
-            else:
-                st.caption("暫無完工紀錄。")
+            st.caption("找不到相關完工紀錄。")
         else:
             for _, row in df_finished.iterrows():
                 m1, m3, m4 = st.columns([6.5, 1.5, 1.5])
                 h_task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "未填寫執行內容"
                 m1.success(f"**製令：** {row['order_no']} | **執行：** {row['worker_name']} | **發布：** {row['author_name']} | **原預計完工：** {row['expected_date']} | ⏰ **實際完工時間：{row['finish_date']}**\n\n**📝 執行內容：** {h_task_desc}")
                 
-                # 修改完工歷史 (密碼 0000)
+                # 修改歷史 (密碼 0000)
                 with m3.popover("📝 修改歷史"):
                     pwd_hedit = st.text_input("驗證管理密碼", type="password", key=f"pwd_he_{row['id']}")
                     if pwd_hedit == "0000":
                         he_order = st.text_input("修改製令", value=row['order_no'], key=f"heo_{row['id']}")
                         he_author = st.selectbox("修改發布人", author_options, key=f"hea_{row['id']}")
                         he_worker = st.selectbox("修改執行人", worker_options, key=f"hew_{row['id']}")
-                        he_content = st.text_area("修改執行內容", value=h_task_desc, key=f"hec_{row['id']}")
+                        he_content = st.text_area("修改內容", value=h_task_desc, key=f"hec_{row['id']}")
                         if st.button("💾 儲存修改歷史", key=f"hsave_e_{row['id']}"):
                             db_conn = sqlite3.connect('bulletin.db')
                             try:
@@ -576,7 +570,7 @@ if menu == "🔴 專案管理首頁":
                     elif pwd_hedit:
                         st.error("密碼錯誤")
                         
-                # 刪除完工歷史 (密碼 0000)
+                # 刪除歷史 (密碼 0000)
                 with m4.popover("🗑️ 刪除紀錄"):
                     pwd_hdel = st.text_input("驗證管理密碼", type="password", key=f"pwd_hd_{row['id']}")
                     if pwd_hdel == "0000":
@@ -591,27 +585,27 @@ if menu == "🔴 專案管理首頁":
                     elif pwd_hdel:
                         st.error("密碼錯誤")
 
-    st.markdown("<br><br><br><br>", unsafe_allow_html=True)
     st.markdown("---")
 
     # =========================================================
-    # 4. ⚙️ 編輯對照表後台 (在同頁最下方)
+    # 4. ⚙️ 編輯對照表後台 (💡 修正：已改為點擊展開摺疊區)
     # =========================================================
-    st.markdown("### 📝 編輯對照表後台")
-    st.caption("格式範例：組長名:成員1,成員2,成員3 (每行一位組長)")
-    
-    new_mapping = st.text_area("人員群組對照表設定", value=mapping_text, height=150, key="team_mapping_input")
-    
-    if st.button("💾 儲存對照表設定"):
-        db_conn = sqlite3.connect('bulletin.db')
-        try:
-            db_conn.execute('''INSERT INTO project_settings (config_key, config_value) 
-                            VALUES ('team_mapping', ?)
-                            ON CONFLICT(config_key) DO UPDATE SET config_value=excluded.config_value''', (new_mapping,))
-            db_conn.commit()
-        finally:
-            db_conn.close()
-        sync_to_github("Update Team Mapping Settings")
-        st.success("✅ 對照表更新成功！選單已同步變更。")
-        time.sleep(1)
-        st.rerun()
+    with st.expander("📝 點擊展開：編輯對照表與人員對照設定", expanded=False):
+        st.markdown("### ⚙️ 人員群組對照表設定")
+        st.caption("格式範例：組長名:成員1,成員2,成員3 (每行一位組長)")
+        
+        new_mapping = st.text_area("人員群組對照表內容", value=mapping_text, height=150, key="team_mapping_input")
+        
+        if st.button("💾 儲存對照表設定"):
+            db_conn = sqlite3.connect('bulletin.db')
+            try:
+                db_conn.execute('''INSERT INTO project_settings (config_key, config_value) 
+                                VALUES ('team_mapping', ?)
+                                ON CONFLICT(config_key) DO UPDATE SET config_value=excluded.config_value''', (new_mapping,))
+                db_conn.commit()
+            finally:
+                db_conn.close()
+            sync_to_github("Update Team Mapping Settings")
+            st.success("✅ 對照表更新成功！選單已同步變更。")
+            time.sleep(1)
+            st.rerun()
