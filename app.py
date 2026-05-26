@@ -193,7 +193,7 @@ with st.sidebar:
     st.markdown("<br>" * 10, unsafe_allow_html=True) 
     st.caption("⚠️ 底部功能僅供管理/記錄使用")
 
-st.title("🏭 <超慧>製造部-雲端公佈欄")
+
 
 # --- 頁面邏輯 ---
 
