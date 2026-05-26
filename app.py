@@ -7,8 +7,102 @@ from git import Repo
 from datetime import datetime, timedelta
 from PIL import Image
 
-# 1. 網頁基本設定 (維持原樣)
-st.set_page_config(page_title="超慧製造部-雲端公佈欄", page_icon="🏭", layout="wide")
+import streamlit as st
+import base64
+from PIL import Image
+
+# 1. 網頁基本設定 (更新了 Page Icon 為綠葉)
+st.set_page_config(
+    page_title="超慧製造部-雲端公佈欄", 
+    page_icon="🍃", 
+    layout="wide"
+)
+
+# --- 🖼️ 處理圖片背景轉為 Base64 (為了能在 CSS 中使用) ---
+def get_base64_image(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+
+# 假設圖片檔名為 duanwu_bg.jpg
+try:
+    img_base64 = get_base64_image("duanwu_bg.jpg")
+except:
+    img_base64 = ""
+
+# --- 🎋 端午節節慶氣氛 CSS 設計 ---
+st.markdown(f"""
+    <style>
+    /* 全域背景顏色：淡淡的竹青色 */
+    .stApp {{
+        background-color: #F0F9F1;
+    }}
+
+    /* 頂部導航列裝飾顏色：深翠綠 */
+    header[data-testid="stHeader"] {{
+        background-color: #1E4D2B !important;
+        border-bottom: 3px solid #D4AF37; /* 金黃色點綴 */
+    }}
+
+    /* 側邊欄風格：深色翠綠底 */
+    [data-testid="stSidebar"] {{
+        background-color: #2E5A39 !important;
+    }}
+    
+    /* 側邊欄文字顏色 */
+    [data-testid="stSidebar"] *, [data-testid="stSidebar"] span, [data-testid="stSidebar"] p {{
+        color: #FFFFFF !important;
+    }}
+
+    /* 標題與副標題字體顏色 */
+    h1, h2, h3 {{
+        color: #1E4D2B !important;
+        font-family: "Microsoft JhengHei", sans-serif;
+    }}
+
+    /* 圓角任務卡片設計 */
+    .stAlert {{
+        border-radius: 15px;
+        border: 1px solid #D1E7D5;
+        background-color: #FFFFFF;
+        box-shadow: 2px 2px 10px rgba(0,0,0,0.05);
+    }}
+
+    /* 按鈕風格：節慶金黃 */
+    .stButton>button {{
+        background-color: #D4AF37 !important;
+        color: #1E4D2B !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
+        border: none !important;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 🏠 側邊欄：放入您的端午節賀圖 ---
+with st.sidebar:
+    # 顯示賀圖
+    try:
+        festive_img = Image.open("duanwu_bg.jpg")
+        st.image(festive_img, use_container_width=True)
+    except:
+        st.warning("⚠️ 請確認 duanwu_bg.jpg 已放在程式夾中")
+    
+    st.markdown("---")
+    st.markdown("### 🐲 端午節期間公告")
+    st.caption("製造部祝全體同仁：端午安康，事事包中！")
+
+# --- 🚀 主頁標題區 ---
+# 在主頁面最上方也放一個小的裝飾標題
+c1, c2 = st.columns([1, 4])
+with c1:
+    st.write("") # 留空
+with c2:
+    st.title("🏭 <超慧>製造部-雲端公佈欄")
+    st.markdown("##### 🍃 **齊心協力 ‧ 粽志成城** ｜ 專業與節慶同步，效率與安康共存")
+
+# ... 接下來接您原本的 menu 判斷與其餘程式碼 ...
+
+
 
 # --- 🚀 安全讀取金鑰 ---
 try:
