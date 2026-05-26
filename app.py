@@ -341,7 +341,7 @@ elif menu == "⚙️ 管理後台":
 if menu == "🔴 專案管理首頁":
     st.subheader("📋 專案進度追蹤看板")
     
-    # 確保資料庫有建立所需的獨立表 (專案表 + 組長隊員對照表)
+    # 確保資料庫有建立所需的獨立表 (專案表新增 task_content 欄位)
     conn = get_conn()
     conn.execute('''CREATE TABLE IF NOT EXISTS project_tasks (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -350,6 +350,7 @@ if menu == "🔴 專案管理首頁":
                     author_name TEXT,
                     worker_name TEXT,
                     expected_date TEXT,
+                    task_content TEXT DEFAULT '',
                     finish_date TEXT DEFAULT '',
                     is_finished INTEGER DEFAULT 0,
                     is_deleted INTEGER DEFAULT 0)''')
@@ -392,7 +393,7 @@ if menu == "🔴 專案管理首頁":
     if not worker_options: worker_options = ["請先到下方設定對照表"]
 
     # =========================================================
-    # 1. 🟡 進行中專案清單 (已移到最上層)
+    # 1. 🟡 進行中專案清單 (顯示在最上層)
     # =========================================================
     st.markdown("### 🟡 進行中專案清單")
     conn = get_conn()
@@ -404,7 +405,10 @@ if menu == "🔴 專案管理首頁":
     else:
         for _, row in df_active.iterrows():
             m1, m2, m3, m4 = st.columns([5, 1.5, 1.5, 1.5])
-            m1.info(f"**製令：** {row['order_no']} | **指派日：** {row['assign_date']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}")
+            
+            # 顯示資訊與具體的執行內容
+            task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "未填寫執行內容"
+            m1.info(f"**製令：** {row['order_no']} | **指派日：** {row['assign_date']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}\n\n**📝 執行內容：** {task_desc}")
             
             # 🟢 免密碼完工
             if m2.button("🟢 點我完工", key=f"f_btn_{row['id']}"):
@@ -419,7 +423,6 @@ if menu == "🔴 專案管理首頁":
                 if pwd_edit == "0000":
                     e_order = st.text_input("修改製令", value=row['order_no'], key=f"eo_{row['id']}")
                     
-                    # 編輯時同樣提供下拉選單
                     try: def_auth_idx = author_options.index(row['author_name'])
                     except: def_auth_idx = 0
                     try: def_work_idx = worker_options.index(row['worker_name'])
@@ -427,12 +430,16 @@ if menu == "🔴 專案管理首頁":
                     
                     e_author = st.selectbox("修改發布人", author_options, index=def_auth_idx, key=f"ea_{row['id']}")
                     e_worker = st.selectbox("修改執行人", worker_options, index=def_work_idx, key=f"ew_{row['id']}")
-                    
                     e_exp = st.date_input("修改預計完工日", value=datetime.strptime(row['expected_date'], "%Y-%m-%d"), key=f"ex_{row['id']}")
+                    
+                    # 允許修改內容
+                    curr_content = row['task_content'] if ('task_content' in row and row['task_content']) else ""
+                    e_content = st.text_area("修改執行內容", value=curr_content, key=f"ec_{row['id']}")
+                    
                     if st.button("💾 儲存修改", key=f"save_e_{row['id']}"):
                         conn = get_conn()
-                        conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, expected_date=? WHERE id=?", 
-                                     (e_order, e_author, e_worker, str(e_exp), row['id']))
+                        conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, expected_date=?, task_content=? WHERE id=?", 
+                                     (e_order, e_author, e_worker, str(e_exp), e_content, row['id']))
                         conn.commit(); conn.close(); sync_to_github("Edit Project Task"); st.rerun()
                 elif pwd_edit:
                     st.error("密碼錯誤")
@@ -451,7 +458,7 @@ if menu == "🔴 專案管理首頁":
     st.markdown("---")
 
     # =========================================================
-    # 2. ➕ 指派新任務 (欄位改為下拉式選單內容格)
+    # 2. ➕ 指派新任務 (💡 新增右下角填寫執行內容大欄位)
     # =========================================================
     with st.expander("➕ 點擊指派新任務 (下拉選單選取區)", expanded=False):
         c1, c2, c3 = st.columns(3)
@@ -463,13 +470,16 @@ if menu == "🔴 專案管理首頁":
             p_date = st.date_input("指派日期", value=datetime.now())
         with c3:
             p_exp_date = st.date_input("預計完工日期", value=datetime.now() + timedelta(days=7))
+            # 💡 在右下角新增對應的執行內容文字框
+            p_content = st.text_area("填寫執行內容", placeholder="請輸入此專案的具體執行項目與要求...", key="p_content_add")
             
         if st.button("🚀 提交指派專案"):
             if p_order and p_author and p_worker and "請先到下方" not in p_author:
                 conn = get_conn()
-                conn.execute('''INSERT INTO project_tasks (order_no, assign_date, author_name, worker_name, expected_date, is_finished, is_deleted) 
-                                VALUES (?, ?, ?, ?, ?, 0, 0)''', 
-                             (p_order, str(p_date), p_author, p_worker, str(p_exp_date)))
+                # 將執行內容寫入資料庫
+                conn.execute('''INSERT INTO project_tasks (order_no, assign_date, author_name, worker_name, expected_date, task_content, is_finished, is_deleted) 
+                                VALUES (?, ?, ?, ?, ?, ?, 0, 0)''', 
+                             (p_order, str(p_date), p_author, p_worker, str(p_exp_date), p_content))
                 conn.commit(); conn.close()
                 sync_to_github("Add Project Task"); st.success("專案指派成功！"); time.sleep(1); st.rerun()
             else:
@@ -490,7 +500,8 @@ if menu == "🔴 專案管理首頁":
         else:
             for _, row in df_finished.iterrows():
                 m1, m3, m4 = st.columns([6.5, 1.5, 1.5])
-                m1.success(f"**製令：** {row['order_no']} | **執行：** {row['worker_name']} | **發布：** {row['author_name']} | **原預計完工：** {row['expected_date']} | ⏰ **實際完工時間：{row['finish_date']}**")
+                h_task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "未填寫執行內容"
+                m1.success(f"**製令：** {row['order_no']} | **執行：** {row['worker_name']} | **發布：** {row['author_name']} | **原預計完工：** {row['expected_date']} | ⏰ **實際完工時間：{row['finish_date']}**\n\n**📝 執行內容：** {h_task_desc}")
                 
                 # 修改完工歷史 (密碼 0000)
                 with m3.popover("📝 修改歷史"):
@@ -499,10 +510,11 @@ if menu == "🔴 專案管理首頁":
                         he_order = st.text_input("修改製令", value=row['order_no'], key=f"heo_{row['id']}")
                         he_author = st.selectbox("修改發布人", author_options, key=f"hea_{row['id']}")
                         he_worker = st.selectbox("修改執行人", worker_options, key=f"hew_{row['id']}")
+                        he_content = st.text_area("修改執行內容", value=h_task_desc, key=f"hec_{row['id']}")
                         if st.button("💾 儲存修改歷史", key=f"hsave_e_{row['id']}"):
                             conn = get_conn()
-                            conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=? WHERE id=?", 
-                                         (he_order, he_author, he_worker, row['id']))
+                            conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", 
+                                         (he_order, he_author, he_worker, he_content, row['id']))
                             conn.commit(); conn.close(); sync_to_github("Edit Finished Task History"); st.rerun()
                     elif pwd_hedit:
                         st.error("密碼錯誤")
@@ -522,12 +534,11 @@ if menu == "🔴 專案管理首頁":
     st.markdown("---")
 
     # =========================================================
-    # 4. ⚙️ 編輯對照表後台 (直接顯示在此頁面最下方)
+    # 4. ⚙️ 編輯對照表後台 (在同頁最下方)
     # =========================================================
     st.markdown("### 📝 編輯對照表後台")
     st.caption("格式範例：組長名:成員1,成員2,成員3 (每行一位組長)")
     
-    # 輸入框
     new_mapping = st.text_area("人員群組對照表設定", value=mapping_text, height=150, key="team_mapping_input")
     
     if st.button("💾 儲存對照表設定"):
