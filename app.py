@@ -133,17 +133,131 @@ elif menu == "⚠️ 品質異常首頁":
             if r['image_path'] and os.path.exists(r['image_path']):
                 st.image(r['image_path'], width=800)
 
-# 3. 新增頁面：製造部待處理事項清單
+
+
+# # 3. 新增頁面：製造部待處理事項清單
 elif menu == "🛠️ 製造部待處理清單":
-    st.subheader("🛠️ 製造部待處理事項清單")
+    # 透過 CSS 注入端午主題配色與節慶視覺設計 (翠綠、金黃、典雅白)
+    st.markdown("""
+        <style>
+        .duanwu-header {
+            background: linear-gradient(135deg, #1E4D2B 0%, #3A7D44 100%);
+            padding: 20px;
+            border-radius: 12px;
+            color: #FFFFFF;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(30,77,43,0.2);
+            border-left: 6px solid #D4AF37; /* 節慶金邊 */
+        }
+        .duanwu-title {
+            font-size: 24px !important;
+            font-weight: 700 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+        }
+        .duanwu-subtitle {
+            font-size: 14px;
+            color: #E0E0E0;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        .zonzi-card {
+            background-color: #F4F7F5;
+            border-left: 5px solid #2E6F40;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+        .zonzi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(46,111,64,0.15);
+            background-color: #EBF3EE;
+        }
+        .tag-date {
+            background-color: #D4AF37;
+            color: #1E4D2B;
+            font-weight: bold;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+        .tag-order {
+            background-color: #1E4D2B;
+            color: #FFFFFF;
+            font-weight: bold;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # 1. 主題式專業頁首 (融合端午包粽意象)
+    st.markdown("""
+        <div class="duanwu-header">
+            <div class="duanwu-title">🍃 🛠️ 製造部待處理事項清單 (包中看板)</div>
+            <div class="duanwu-subtitle">齊心協力 · 萬事包中 ｜ 如同端午精準包粽，每項任務皆能完美達標</div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # 2. 側邊或上方點綴一個簡約精緻的節慶小區域
+    col_info, col_img = st.columns([3, 1])
+    with col_info:
+        st.caption("💡 提示：本清單僅顯示狀態為「待處理」之製造任務，依據日期由遠至近排序，請優先處理急件。")
+    with col_img:
+        # 用純文字與 Emoji 堆疊出一個低調質感的幾何粽子視覺，維持後台專業度
+        st.markdown("""
+            <div style="text-align: right; font-size: 13px; color: #3A7D44; line-height: 1.3;">
+                ▲ <b>端午安康</b><br>
+                <span style="color:#D4AF37;">✨ 任務包中 ✨</span>
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 3. 讀取資料庫
     conn = get_conn()
     df_task = pd.read_sql("SELECT date, order_no, task_content FROM pending_tasks WHERE status = '待處理' ORDER BY date ASC", conn)
     conn.close()
     
+    # 4. 資料動態渲染
     if df_task.empty:
-        st.success("目前暫無待處理事項！")
+        # 漂亮的查無資料提示 (融入稻香金黃與翠綠)
+        st.markdown("""
+            <div style="background-color: #FFFDF3; border: 1px solid #D4AF37; padding: 25px; border-radius: 8px; text-align: center; color: #1E4D2B;">
+                🎉 <b>目前暫無待處理事項！所有任務皆已順利「包中」完工！</b>
+            </div>
+        """, unsafe_allow_html=True)
     else:
-        st.table(df_task)
+        # 採用專業的卡片流模式 (Card Flow)，比原本的 st.table 更具現代感與可讀性
+        for _, row in df_task.iterrows():
+            # 安全防空機制
+            t_date = row['date'] if row['date'] else "未排程"
+            t_order = row['order_no'] if row['order_no'] else "無製令"
+            t_content = row['task_content'] if row['task_content'] else "未填寫內容"
+            
+            # 渲染精美粽子主題卡片
+            st.markdown(f"""
+                <div class="zonzi-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div>
+                            <span class="tag-date">📅 期限: {t_date}</span>
+                            <span class="tag-order">🔢 製令: {t_order}</span>
+                        </div>
+                        <div style="font-size: 20px;">🫔</div> </div>
+                    <div style="font-size: 15px; color: #333333; padding-left: 5px; line-height: 1.5; font-weight: 500;">
+                        <b>📋 任務內容：</b> {t_content}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+
 
 # 4. 撰寫一般公告 (維持原樣)
 elif menu == "✍️ 撰寫新公告":
