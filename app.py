@@ -342,12 +342,11 @@ if menu == "🔴 專案管理首頁":
     st.subheader("📋 專案進度追蹤看板")
     
     # =========================================================
-    # ⚙️ 資料庫初始化與欄位自動修復 (使用獨立標準連線，完全防錯)
+    # ⚙️ 資料庫初始化與欄位自動修復 (安全 PRAGMA 檢查法，徹底告別噴錯)
     # =========================================================
-    # 直接連接資料庫檔案，避免外部 get_conn 產生的鎖定衝突
     db_conn = sqlite3.connect('bulletin.db')
     try:
-        # 1. 建立主資料表 (確保欄位齊全)
+        # 1. 建立主資料表
         db_conn.execute('''CREATE TABLE IF NOT EXISTS project_tasks (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         order_no TEXT,
@@ -367,14 +366,15 @@ if menu == "🔴 專案管理首頁":
                         config_value TEXT)''')
         db_conn.commit()
         
-        # 3. 💡 檢查並動態修正舊資料庫欄位 (避免新舊資料庫結構衝突)
-        try:
-            c_check = db_conn.cursor()
-            c_check.execute("SELECT task_content FROM project_tasks LIMIT 1")
-        except sqlite3.OperationalError:
-            # 如果舊資料庫沒有此欄位，直接補上
+        # 3. 💡 徹底修復：用 PRAGMA 安全檢查欄位，絕不引發 OperationalError 鎖定
+        cursor = db_conn.cursor()
+        cursor.execute("PRAGMA table_info(project_tasks)")
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        if "task_content" not in columns:
             db_conn.execute("ALTER TABLE project_tasks ADD COLUMN task_content TEXT DEFAULT ''")
             db_conn.commit()
+            
     finally:
         db_conn.close()
 
@@ -429,7 +429,6 @@ if menu == "🔴 專案管理首頁":
         for _, row in df_active.iterrows():
             m1, m2, m3, m4 = st.columns([5, 1.5, 1.5, 1.5])
             
-            # 顯示資訊與具體的執行內容
             task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "未填寫執行內容"
             m1.info(f"**製令：** {row['order_no']} | **指派日：** {row['assign_date']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}\n\n**📝 執行內容：** {task_desc}")
             
