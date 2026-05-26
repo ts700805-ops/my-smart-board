@@ -331,3 +331,90 @@ elif menu == "⚙️ 管理後台":
                     conn.commit(); conn.close(); sync_to_github("Finish Task"); st.rerun()
 
 
+
+
+
+
+
+
+# --- 🔴 專案管理首頁 (獨立功能活頁) ---
+if menu == "🔴 專案管理首頁":
+    st.subheader("📋 專案進度追蹤看板")
+    
+    # 確保資料庫有建立獨立表 (若未建立會在此自動補建)
+    conn = get_conn()
+    conn.execute('''CREATE TABLE IF NOT EXISTS project_tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    order_no TEXT,
+                    assign_date TEXT,
+                    author_name TEXT,
+                    worker_name TEXT,
+                    expected_date TEXT,
+                    finish_date TEXT DEFAULT '',
+                    is_finished INTEGER DEFAULT 0,
+                    is_deleted INTEGER DEFAULT 0)''')
+    conn.commit(); conn.close()
+    
+    # --- 區塊 1：➕ 指派新任務 (手動輸入，不掛勾程式內名單) ---
+    with st.expander("➕ 點擊指派新任務 (獨立手動輸入區)", expanded=False):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            p_order = st.text_input("工單/製令編號", key="p_order_add")
+            p_author = st.text_input("發布人員 (手動輸入姓名)", key="p_author_add")
+        with c2:
+            p_worker = st.text_input("執行人員 (手動輸入姓名)", key="p_worker_add")
+            p_date = st.date_input("指派日期", value=datetime.now())
+        with c3:
+            p_exp_date = st.date_input("預計完工日期", value=datetime.now() + timedelta(days=7))
+            
+        if st.button("🚀 提交指派專案"):
+            if p_order and p_author and p_worker:
+                conn = get_conn()
+                conn.execute('''INSERT INTO project_tasks (order_no, assign_date, author_name, worker_name, expected_date, is_finished, is_deleted) 
+                                VALUES (?, ?, ?, ?, ?, 0, 0)''', 
+                             (p_order, str(p_date), p_author, p_worker, str(p_exp_date)))
+                conn.commit(); conn.close()
+                sync_to_github("Add Project Task"); st.success("專案指派成功！"); time.sleep(1); st.rerun()
+            else:
+                st.error("請完整填寫製令、發布人員與執行人員！")
+
+    st.markdown("---")
+    
+    # --- 區塊 2：🟡 進行中專案清單 ---
+    st.markdown("### 🟡 進行中專案清單")
+    conn = get_conn()
+    df_active = pd.read_sql("SELECT * FROM project_tasks WHERE is_finished = 0 AND is_deleted = 0 ORDER BY id DESC", conn)
+    conn.close()
+    
+    if df_active.empty:
+        st.info("目前沒有進行中的專案任務。")
+    else:
+        for _, row in df_active.iterrows():
+            m1, m2, m3, m4 = st.columns([5, 1.5, 1.5, 1.5])
+            m1.info(f"**製令：** {row['order_no']} | **指派日：** {row['assign_date']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}")
+            
+            # 🟢 現場免密碼回報完工
+            if m2.button("🟢 點我完工", key=f"f_btn_{row['id']}"):
+                conn = get_conn()
+                f_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
+                conn.execute("UPDATE project_tasks SET is_finished = 1, finish_date = ? WHERE id = ?", (f_time, row['id']))
+                conn.commit(); conn.close(); sync_to_github("Finish Project Task"); st.rerun()
+                
+            # 📝 編輯修改 (密碼 0000)
+            with m3.popover("📝 編輯"):
+                pwd_edit = st.text_input("驗證管理密碼", type="password", key=f"pwd_e_{row['id']}")
+                if pwd_edit == "0000":
+                    e_order = st.text_input("修改製令", value=row['order_no'], key=f"eo_{row['id']}")
+                    e_author = st.text_input("修改發布人", value=row['author_name'], key=f"ea_{row['id']}")
+                    e_worker = st.text_input("修改執行人", value=row['worker_name'], key=f"ew_{row['id']}")
+                    e_exp = st.date_input("修改預計完工日", value=datetime.strptime(row['expected_date'], "%Y-%m-%d"), key=f"ex_{row['id']}")
+                    if st.button("💾 儲存修改", key=f"save_e_{row['id']}"):
+                        conn = get_conn()
+                        conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, expected_date=? WHERE id=?", 
+                                     (e_order, e_author, e_worker, str(e_exp), row['id']))
+                        conn.commit(); conn.close(); sync_to_github("Edit Project Task"); st.rerun()
+                elif pwd_edit:
+                    st.error("密碼錯誤")
+
+            # 🗑️ 刪除進行中 (密碼 0000)
+            with m4.popover
