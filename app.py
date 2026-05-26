@@ -342,7 +342,7 @@ if menu == "🔴 專案管理首頁":
     st.subheader("📋 專案進度追蹤看板")
     
     # =========================================================
-    # ⚙️ 資料庫初始化與欄位自動修復 (安全 PRAGMA 檢查法，徹底告別噴錯)
+    # ⚙️ 資料庫初始化與欄位自動修復 (安全 PRAGMA 檢查法)
     # =========================================================
     db_conn = sqlite3.connect('bulletin.db')
     try:
@@ -366,7 +366,7 @@ if menu == "🔴 專案管理首頁":
                         config_value TEXT)''')
         db_conn.commit()
         
-        # 3. 💡 徹底修復：用 PRAGMA 安全檢查欄位，絕不引發 OperationalError 鎖定
+        # 3. 檢查並動態修正舊資料庫欄位
         cursor = db_conn.cursor()
         cursor.execute("PRAGMA table_info(project_tasks)")
         columns = [row[1] for row in cursor.fetchall()]
@@ -522,17 +522,34 @@ if menu == "🔴 專案管理首頁":
     st.markdown("---")
     
     # =========================================================
-    # 3. 🟢 已完工歷史紀錄
+    # 3. 🟢 已完工歷史紀錄 (💡 整合模糊關鍵字搜尋功能)
     # =========================================================
     with st.expander("🟢 點擊展開：查看已完工歷史紀錄", expanded=False):
+        
+        # 🔍 新增：完工歷史紀錄專用的模糊關鍵字輸入框
+        search_kw = st.text_input("🔍 輸入關鍵字搜尋歷史紀錄 (可搜：製令、執行人、發布人、執行內容)", value="", key="history_search_input")
+        
         db_conn = sqlite3.connect('bulletin.db')
         try:
-            df_finished = pd.read_sql("SELECT * FROM project_tasks WHERE is_finished = 1 AND is_deleted = 0 ORDER BY finish_date DESC", db_conn)
+            if search_kw.strip():
+                # 如果有輸入關鍵字，使用 LIKE 進行多欄位模糊比對
+                query = '''SELECT * FROM project_tasks 
+                           WHERE is_finished = 1 AND is_deleted = 0 
+                           AND (order_no LIKE ? OR worker_name LIKE ? OR author_name LIKE ? OR task_content LIKE ?)
+                           ORDER BY finish_date DESC'''
+                like_param = f"%{search_kw.strip()}%"
+                df_finished = pd.read_sql(query, db_conn, params=(like_param, like_param, like_param, like_param))
+            else:
+                # 預設不搜尋時載入全部完工紀錄
+                df_finished = pd.read_sql("SELECT * FROM project_tasks WHERE is_finished = 1 AND is_deleted = 0 ORDER BY finish_date DESC", db_conn)
         finally:
             db_conn.close()
         
         if df_finished.empty:
-            st.caption("暫無完工紀錄。")
+            if search_kw.strip():
+                st.caption("找不到符合該關鍵字的完工紀錄。")
+            else:
+                st.caption("暫無完工紀錄。")
         else:
             for _, row in df_finished.iterrows():
                 m1, m3, m4 = st.columns([6.5, 1.5, 1.5])
