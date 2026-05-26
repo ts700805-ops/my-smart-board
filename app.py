@@ -134,10 +134,9 @@ elif menu == "⚠️ 品質異常首頁":
                 st.image(r['image_path'], width=800)
 
 
-
 # # 3. 新增頁面：製造部待處理事項清單
 elif menu == "🛠️ 製造部待處理清單":
-    # 透過 CSS 注入端午主題配色與節慶視覺設計
+    # 透過網頁標題樣式注入端午主題配色與節慶視覺設計 (不再使用危險的卡片拼湊)
     st.markdown("""
         <style>
         .duanwu-header {
@@ -161,33 +160,6 @@ elif menu == "🛠️ 製造部待處理清單":
             color: #E0E0E0;
             margin-top: 5px;
             font-style: italic;
-        }
-        .zonzi-card {
-            background-color: #F4F7F5;
-            border-left: 5px solid #2E6F40;
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 12px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-        .tag-date {
-            background-color: #D4AF37;
-            color: #1E4D2B;
-            font-weight: bold;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            margin-right: 10px;
-            display: inline-block;
-        }
-        .tag-order {
-            background-color: #1E4D2B;
-            color: #FFFFFF;
-            font-weight: bold;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            display: inline-block;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -227,28 +199,22 @@ elif menu == "🛠️ 製造部待處理清單":
             </div>
         """, unsafe_allow_html=True)
     else:
+        # 💡 終極解決方案：改用 Streamlit 官方原生安全元件搭配，保證畫面 100% 乾淨無錯誤
         for _, row in df_task.iterrows():
             t_date = row['date'] if row['date'] else "未排程"
             t_order = row['order_no'] if row['order_no'] else "無製令"
+            t_content = row['task_content'] if row['task_content'] else "未填寫內容"
             
-            # 💡 關鍵修復：強制將內容中可能含有的舊 HTML 殘留標籤替換掉，根除顯示錯誤！
-            raw_content = row['task_content'] if row['task_content'] else "未填寫內容"
-            t_content = raw_content.replace("</div>", "").replace("<div>", "").replace("</ div>", "")
-            
-            # 使用最單純穩定的 HTML 渲染
-            card_html = f"""
-            <div class="zonzi-card">
-                <div style="margin-bottom: 10px;">
-                    <span class="tag-date">📅 期限: {t_date}</span>
-                    <span class="tag-order">🔢 製令: {t_order}</span>
-                    <span style="float: right; font-size: 18px;">🫔</span>
-                </div>
-                <div style="font-size: 15px; color: #333333; line-height: 1.6; font-weight: 500; word-break: break-all;">
-                    <b>📋 任務內容：</b>{t_content}
-                </div>
-            </div>
-            """
-            st.markdown(card_html, unsafe_allow_html=True)
+            # 使用原生容器加上綠色提示邊框，兼顧端午風格美觀與系統穩定度
+            with st.container(border=True):
+                # 上層資訊列
+                c1, c2, c3 = st.columns([2.5, 2.5, 1])
+                c1.markdown(f"🟢 **📅 期限：** `{t_date}`")
+                c2.markdown(f"🔢 **製令：** `{t_order}`")
+                c3.markdown("<div style='text-align: right; font-size: 18px;'>🫔</div>", unsafe_allow_html=True)
+                
+                # 內容文字區
+                st.markdown(f"**📋 任務內容：**\n{t_content}")
 
 
 
