@@ -250,23 +250,38 @@ elif menu == "🛠️ 製造部待處理清單":
             border-left: 6px solid #D4AF37;
         }
         .duanwu-title {
-            font-size: 24px !important;
+            font-size: 26px !important;
             font-weight: 700 !important;
             margin: 0 !important;
             padding: 0 !important;
             letter-spacing: 1px;
         }
         .duanwu-subtitle {
-            font-size: 14px;
+            font-size: 15px;
             color: #E0E0E0;
             margin-top: 5px;
             font-style: italic;
         }
-        /* 💡 額外加強文字清晰度 */
-        .large-text {
-            font-size: 16px !important;
+        
+        /* 💡 終極字體放大設計 */
+        .large-text-label {
+            font-size: 20px !important; /* 欄位名稱加大 */
             font-weight: bold !important;
+            color: #333333;
+        }
+        .large-text-value {
+            font-size: 22px !important; /* 日期與製令內容顯著放大 */
+            font-weight: 800 !important;
             color: #1E4D2B;
+            background-color: #EBF5EE;
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+        .large-text-content {
+            font-size: 20px !important; /* 任務內容文字放大 */
+            color: #111111 !important;
+            line-height: 1.7 !important;
+            font-weight: 600 !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -282,12 +297,12 @@ elif menu == "🛠️ 製造部待處理清單":
     # 2. 提示說明與右側小點綴
     col_info, col_img = st.columns([3, 1])
     with col_info:
-        st.caption("💡 提示：本清單僅顯示狀態為「待處理」之製造任務，依據日期由遠至近排序，請優先處理急件。")
+        st.markdown("<p style='font-size: 16px; color:#555555;'>💡 <b>提示：</b>本清單僅顯示狀態為「待處理」之製造任務，依據日期由遠至近排序，請優先處理急件。</p>", unsafe_allow_html=True)
     with col_img:
         st.markdown("""
-            <div style="text-align: right; font-size: 13px; color: #3A7D44; line-height: 1.3;">
+            <div style="text-align: right; font-size: 14px; color: #3A7D44; line-height: 1.3;">
                 ▲ <b>端午安康</b><br>
-                <span style="color:#D4AF37;">✨ 任務包中 ✨</span>
+                <span style="color:#D4AF37; font-weight:bold;">✨ 任務包中 ✨</span>
             </div>
         """, unsafe_allow_html=True)
 
@@ -301,7 +316,7 @@ elif menu == "🛠️ 製造部待處理清單":
     # 4. 資料動態渲染
     if df_task.empty:
         st.markdown("""
-            <div style="background-color: #FFFDF3; border: 1px solid #D4AF37; padding: 25px; border-radius: 8px; text-align: center; color: #1E4D2B;">
+            <div style="background-color: #FFFDF3; border: 1px solid #D4AF37; padding: 25px; border-radius: 8px; text-align: center; color: #1E4D2B; font-size: 20px; font-weight: bold;">
                 🎉 <b>目前暫無待處理事項！所有任務皆已順利「包中」完工！</b>
             </div>
         """, unsafe_allow_html=True)
@@ -312,16 +327,19 @@ elif menu == "🛠️ 製造部待處理清單":
             t_order = row['order_no'] if row['order_no'] else "無製令"
             t_content = row['task_content'] if row['task_content'] else "未填寫內容"
             
-            # 使用原生容器，並移除會縮小字體的反單引號，改用 markdown 粗體與 HTML 調大字體
+            # 使用原生容器，內部使用調整過後的高清晰、大字體 HTML 結構
             with st.container(border=True):
-                # 上層資訊列：調整為「發佈日期」，並使用 HTML span 來確保字體大且清晰
-                c1, c2, c3 = st.columns([3, 3, 1])
-                c1.markdown(f"🟢 **📅 發佈日期：** <span class='large-text'>{t_date}</span>", unsafe_allow_html=True)
-                c2.markdown(f"🔢 **製令：** <span class='large-text'>{t_order}</span>", unsafe_allow_html=True)
-                c3.markdown("<div style='text-align: right; font-size: 18px;'>🫔</div>", unsafe_allow_html=True)
+                # 上層資訊列
+                c1, c2, c3 = st.columns([3.5, 3.5, 1])
+                c1.markdown(f"<span class='large-text-label'>🟢 📅 發佈日期：</span><span class='large-text-value'>{t_date}</span>", unsafe_allow_html=True)
+                c2.markdown(f"<span class='large-text-label'>🔢 製令：</span><span class='large-text-value'>{t_order}</span>", unsafe_allow_html=True)
+                c3.markdown("<div style='text-align: right; font-size: 22px;'>🫔</div>", unsafe_allow_html=True)
                 
-                # 內容文字區
-                st.markdown(f"**📋 任務內容：**\n{t_content}")
+                # 分隔線
+                st.markdown("<div style='margin-top: 10px; margin-bottom: 10px; border-top: 1px dashed #DDD;'></div>", unsafe_allow_html=True)
+                
+                # 內容文字區：全面放大字體
+                st.markdown(f"<div class='large-text-content'><b>📋 任務內容：</b>{t_content}</div>", unsafe_allow_html=True)
 
 
 
