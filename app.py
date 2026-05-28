@@ -197,7 +197,6 @@ with st.sidebar:
 
 
 # --- 頁面邏輯 ---
-
 # 1. 一般公佈欄首頁 (維持原樣)
 if menu == "🏠 公佈欄首頁":
     # 💡 1. 初始化全域字體比例設定，預設值給 130%
@@ -252,11 +251,20 @@ if menu == "🏠 公佈欄首頁":
     df = pd.read_sql(f"{query} ORDER BY id DESC", conn)
     conn.close()
     
-    # 資料動態渲染區：修正變數錯誤，完美恢復內容與相片按鈕
+    # 資料動態渲染區：已將 unsafe_allow_html=True 完整補齊
     for _, r in df.iterrows():
         with st.container():
             # 💡 1. 放大顯示：日期與發布人
-            st.markdown(f"<div class='home-info-label'>📅 {r['date']} ｜ 👤 發布人：{r['author']}</div>", unsafe_
+            st.markdown(f"<div class='home-info-label'>📅 {r['date']} ｜ 👤 發布人：{r['author']}</div>", unsafe_allow_html=True)
+            
+            # 💡 2. 放大顯示：公告主體內容
+            st.markdown(f"<div class='home-info-content'>{r['content']}</div>", unsafe_allow_html=True)
+            
+            # 💡 3. 完整保留原本的檢視照片功能與分隔線
+            if r['image_path'] and os.path.exists(r['image_path']):
+                with st.popover("🖼️ 檢視照片"):
+                    st.image(r['image_path'], use_container_width=True)
+            st.markdown("---")
 
 
                         
