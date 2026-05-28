@@ -239,7 +239,7 @@ elif menu == "⚠️ 品質異常首頁":
 elif menu == "🛠️ 製造部待處理清單":
     # 💡 1. 在頁面最上方新增一個讓使用者自由調整字體比例的滑桿
     # 設定範圍為 100% 到 200%，預設為 130% (比原本再大一點)
-    font_scale = st.slider("🔍 現場看板字體大小微調 (%)", min_value=100, max_value=200, value=130, step=10)
+    font_scale = st.slider("🔍 現場看板字體大小微調 (%)", min_value=100, max_value=200, value=170, step=10)
     
     # 根據滑桿基礎換算各個區塊的精準 px 大小
     title_size = int(24 * (font_scale / 100))
