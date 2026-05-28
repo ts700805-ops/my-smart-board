@@ -13,27 +13,7 @@ from PIL import Image
 
 import streamlit as st
 import base64
-from PIL import Image
-
-
-if menu == "公佈欄首頁":
-    # 💡 1. 在首頁初始化全域字體比例，預設值給 130%
-    if "global_font_scale" not in st.session_state:
-        st.session_state.global_font_scale = 130
-
-    # 💡 2. 顯示全域調整滑桿，並直接與 session_state 綁定
-    st.session_state.global_font_scale = st.slider(
-        "📢 全站看板字體大小統一微調 (%)", 
-        min_value=100, 
-        max_value=200, 
-        value=st.session_state.global_font_scale, 
-        step=10,
-        key="global_font_slider" # 確保全域唯一金鑰
-    )
-    st.caption(f"💡 目前全站字體已放大至： {st.session_state.global_font_scale}%")
-    st.markdown("---")
-    
-    # ... 接下來保留您原本「公佈欄首頁」後續的所有顯示程式碼 ...
+from PIL import Imag
 
 
 
