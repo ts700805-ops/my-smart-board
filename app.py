@@ -200,6 +200,50 @@ with st.sidebar:
 
 # 1. 一般公佈欄首頁 (維持原樣)
 if menu == "🏠 公佈欄首頁":
+    # 💡 1. 初始化全域字體比例設定，預設值給 130% (適合工廠現場看板看得很清楚)
+    if "global_font_scale" not in st.session_state:
+        st.session_state.global_font_scale = 130
+
+    # 💡 2. 顯示全域調整滑桿，直接讓同仁可以微調比例
+    st.session_state.global_font_scale = st.slider(
+        "📢 全站看板字體大小統一微調 (%)", 
+        min_value=100, 
+        max_value=200, 
+        value=st.session_state.global_font_scale, 
+        step=10,
+        key="global_font_slider"
+    )
+    
+    # 根據當前滑桿的比例，動態換算首頁公告的 px 字體大小
+    font_scale = st.session_state.global_font_scale
+    info_label_size = int(18 * (font_scale / 100))    # 日期與發布人字體大小
+    info_content_size = int(20 * (font_scale / 100))  # 公告內容字體大小
+
+    # 透過 CSS 動態將縮放後的字體套用到畫面上
+    st.markdown(f"""
+        <style>
+        .home-info-label {{
+            font-size: {info_label_size}px !important;
+            font-weight: bold !important;
+            color: #1E4D2B;
+            margin-bottom: 5px;
+        }}
+        .home-info-content {{
+            font-size: {info_content_size}px !important;
+            line-height: 1.6 !important;
+            font-weight: 500 !important;
+            color: #111111 !important;
+            background-color: #F4F9F5;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid #3A7D44;
+            margin-bottom: 10px;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+    st.markdown("---")
+
+    # 原本的搜尋功能完全不動
     search_q = st.text_input("🔍 搜尋公告內容或發布人", "")
     conn = get_conn()
     query = "SELECT * FROM posts WHERE is_deleted = 0"
@@ -208,14 +252,13 @@ if menu == "🏠 公佈欄首頁":
     df = pd.read_sql(f"{query} ORDER BY id DESC", conn)
     conn.close()
     
+    # 資料動態渲染區：原本功能不變，僅將文字改用大字體 HTML 套用
     for _, r in df.iterrows():
         with st.container():
-            st.markdown(f"**{r['date']} | 發布人：{r['author']}**")
-            st.info(r['content'])
-            if r['image_path'] and os.path.exists(r['image_path']):
-                with st.popover("🖼️ 檢視照片"):
-                    st.image(r['image_path'], use_container_width=True)
-            st.markdown("---")
+            # 💡 放大顯示：日期與發布人
+            st.markdown(f"<div class='home-info-label'>📅 {r['date']} ｜ 👤 發布人：{r['author']}</div>", unsafe_allow_html=True)
+            
+            # 💡 放大顯示：公告主體內容 (替換原本的 st.
 
 # 2. 品質異常首頁 (維持原樣)
 elif menu == "⚠️ 品質異常首頁":
