@@ -237,10 +237,20 @@ elif menu == "⚠️ 品質異常首頁":
 
 # # 3. 新增頁面：製造部待處理事項清單
 elif menu == "🛠️ 製造部待處理清單":
-    # 透過網頁標題樣式注入端午主題配色與節慶視覺設計
-    st.markdown("""
+    # 💡 1. 在頁面最上方新增一個讓使用者自由調整字體比例的滑桿
+    # 設定範圍為 100% 到 200%，預設為 130% (比原本再大一點)
+    font_scale = st.slider("🔍 現場看板字體大小微調 (%)", min_value=100, max_value=200, value=130, step=10)
+    
+    # 根據滑桿基礎換算各個區塊的精準 px 大小
+    title_size = int(24 * (font_scale / 100))
+    label_size = int(18 * (font_scale / 100))
+    value_size = int(20 * (font_scale / 100))
+    content_size = int(18 * (font_scale / 100))
+
+    # 透過網頁標題樣式注入端午主題配色與【動態比例字體】CSS
+    st.markdown(f"""
         <style>
-        .duanwu-header {
+        .duanwu-header {{
             background: linear-gradient(135deg, #1E4D2B 0%, #3A7D44 100%);
             padding: 20px;
             border-radius: 12px;
@@ -248,41 +258,41 @@ elif menu == "🛠️ 製造部待處理清單":
             margin-bottom: 25px;
             box-shadow: 0 4px 15px rgba(30,77,43,0.2);
             border-left: 6px solid #D4AF37;
-        }
-        .duanwu-title {
-            font-size: 26px !important;
+        }}
+        .duanwu-title {{
+            font-size: {title_size}px !important; /* 動態大標題 */
             font-weight: 700 !important;
             margin: 0 !important;
             padding: 0 !important;
             letter-spacing: 1px;
-        }
-        .duanwu-subtitle {
-            font-size: 15px;
+        }}
+        .duanwu-subtitle {{
+            font-size: {max(13, int(15 * (font_scale/100)))}px;
             color: #E0E0E0;
             margin-top: 5px;
             font-style: italic;
-        }
+        }}
         
-        /* 💡 終極字體放大設計 */
-        .large-text-label {
-            font-size: 20px !important; /* 欄位名稱加大 */
+        /* 💡 比例縮放字體樣式 */
+        .large-text-label {{
+            font-size: {label_size}px !important; /* 欄位名稱 */
             font-weight: bold !important;
             color: #333333;
-        }
-        .large-text-value {
-            font-size: 22px !important; /* 日期與製令內容顯著放大 */
+        }}
+        .large-text-value {{
+            font-size: {value_size}px !important; /* 日期與製令內容 */
             font-weight: 800 !important;
             color: #1E4D2B;
             background-color: #EBF5EE;
             padding: 2px 8px;
             border-radius: 6px;
-        }
-        .large-text-content {
-            font-size: 20px !important; /* 任務內容文字放大 */
+        }}
+        .large-text-content {{
+            font-size: {content_size}px !important; /* 任務內容文字 */
             color: #111111 !important;
             line-height: 1.7 !important;
             font-weight: 600 !important;
-        }
+        }}
         </style>
     """, unsafe_allow_html=True)
 
@@ -297,7 +307,7 @@ elif menu == "🛠️ 製造部待處理清單":
     # 2. 提示說明與右側小點綴
     col_info, col_img = st.columns([3, 1])
     with col_info:
-        st.markdown("<p style='font-size: 16px; color:#555555;'>💡 <b>提示：</b>本清單僅顯示狀態為「待處理」之製造任務，依據日期由遠至近排序，請優先處理急件。</p>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size: 15px; color:#555555;'>💡 <b>提示：</b>本清單僅顯示狀態為「待處理」之製造任務，依據日期由遠至近排序，請優先處理急件。</p>", unsafe_allow_html=True)
     with col_img:
         st.markdown("""
             <div style="text-align: right; font-size: 14px; color: #3A7D44; line-height: 1.3;">
@@ -315,32 +325,30 @@ elif menu == "🛠️ 製造部待處理清單":
     
     # 4. 資料動態渲染
     if df_task.empty:
-        st.markdown("""
-            <div style="background-color: #FFFDF3; border: 1px solid #D4AF37; padding: 25px; border-radius: 8px; text-align: center; color: #1E4D2B; font-size: 20px; font-weight: bold;">
+        st.markdown(f"""
+            <div style="background-color: #FFFDF3; border: 1px solid #D4AF37; padding: 25px; border-radius: 8px; text-align: center; color: #1E4D2B; font-size: {value_size}px; font-weight: bold;">
                 🎉 <b>目前暫無待處理事項！所有任務皆已順利「包中」完工！</b>
             </div>
         """, unsafe_allow_html=True)
     else:
         for _, row in df_task.iterrows():
-            # 💡 1. 配合欄位定義，將變數對應至發布日期與製令
             t_date = row['date'] if row['date'] else "未排程"
             t_order = row['order_no'] if row['order_no'] else "無製令"
             t_content = row['task_content'] if row['task_content'] else "未填寫內容"
             
-            # 使用原生容器，內部使用調整過後的高清晰、大字體 HTML 結構
+            # 使用原生容器，內部寬度與字體大小會隨滑桿動態縮放
             with st.container(border=True):
                 # 上層資訊列
                 c1, c2, c3 = st.columns([3.5, 3.5, 1])
                 c1.markdown(f"<span class='large-text-label'>🟢 📅 發佈日期：</span><span class='large-text-value'>{t_date}</span>", unsafe_allow_html=True)
                 c2.markdown(f"<span class='large-text-label'>🔢 製令：</span><span class='large-text-value'>{t_order}</span>", unsafe_allow_html=True)
-                c3.markdown("<div style='text-align: right; font-size: 22px;'>🫔</div>", unsafe_allow_html=True)
+                c3.markdown(f"<div style='text-align: right; font-size: {value_size}px;'>🫔</div>", unsafe_allow_html=True)
                 
                 # 分隔線
                 st.markdown("<div style='margin-top: 10px; margin-bottom: 10px; border-top: 1px dashed #DDD;'></div>", unsafe_allow_html=True)
                 
-                # 內容文字區：全面放大字體
+                # 內容文字區
                 st.markdown(f"<div class='large-text-content'><b>📋 任務內容：</b>{t_content}</div>", unsafe_allow_html=True)
-
 
 
 # 4. 撰寫一般公告 (維持原樣)
