@@ -13,7 +13,7 @@ from PIL import Image
 
 import streamlit as st
 import base64
-from PIL import Imag
+from PIL import Image
 
 # =========================================================
 # 1. 網頁基本設定 (全域唯一配置，確保最上方不重疊)
@@ -23,6 +23,7 @@ st.set_page_config(
     page_icon="🍃", 
     layout="wide"
 )
+
 
 # --- 🖼️ 處理圖片背景轉為 Base64 (安全不卡死機制) ---
 def get_base64_image(image_path):
