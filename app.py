@@ -273,26 +273,17 @@ if menu == "🏠 公佈欄首頁":
 elif menu == "⚠️ 品質異常首頁":
     st.subheader("⚠️ 品質異常管理首頁")
     
-    # 💡 1. 安全機制：如果使用者沒去首頁，直接進到這頁，自動給預設值 130%
-    if "global_font_scale" not in st.session_state:
-        st.session_state.global_font_scale = 130
-        
-    # 💡 2. 直接讀取首頁傳過來的全域字體大小
+    # 直接讀取左側側邊欄傳過來的全域字體大小
     font_scale = st.session_state.global_font_scale
-    
-    # 根據全域比例，動態換算字體 px 大小
     q_label_size = int(18 * (font_scale / 100))    # 相關人員字體大小
     q_content_size = int(20 * (font_scale / 100))  # 異常內容字體大小
 
-    # 透過 CSS 強制放大原本 st.expander 標題、st.write 以及 st.error 的內文字體
     st.markdown(f"""
         <style>
-        /* 放大折疊面板 (Expander) 的標題字體 */
         .stExpander p {{
             font-size: {int(18 * (font_scale / 100))}px !important;
             font-weight: bold !important;
         }}
-        /* 建立品質異常專用的放大樣式 */
         .quality-staff {{
             font-size: {q_label_size}px !important;
             font-weight: bold !important;
@@ -303,7 +294,7 @@ elif menu == "⚠️ 品質異常首頁":
             font-size: {q_content_size}px !important;
             line-height: 1.6 !important;
             font-weight: 600 !important;
-            color: #B71C1C !important; /* 顯眼的異常深紅色 */
+            color: #B71C1C !important;
             background-color: #FFEBEE;
             padding: 12px;
             border-radius: 6px;
@@ -324,16 +315,9 @@ elif menu == "⚠️ 品質異常首頁":
     
     # 資料動態渲染區
     for _, r in df.iterrows():
-        # 折疊面板標題會自動被上方的 CSS 放大
         with st.expander(f"🔴 [{r['date']}] 製令：{r['order_no']} | 分類：{r['category']}", expanded=True):
-            
-            # 💡 放大顯示：相關人員
             st.markdown(f"<div class='quality-staff'>👤 <b>相關人員：</b> {r['staff_name']}</div>", unsafe_allow_html=True)
-            
-            # 💡 放大顯示：異常內容 (改用自訂的 CSS 區塊替代原本的 st.error)
             st.markdown(f"<div class='quality-error-content'>🚨 <b>異常內容：</b> {r['content']}</div>", unsafe_allow_html=True)
-            
-            # 💡 修正：照片改成點選後再展開，維持寬度為 800
             if r['image_path'] and os.path.exists(r['image_path']):
                 with st.popover("🖼️ 檢視異常照片"):
                     st.image(r['image_path'], width=800)
