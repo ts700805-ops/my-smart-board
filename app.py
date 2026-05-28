@@ -273,8 +273,6 @@ if menu == "🏠 公佈欄首頁":
 elif menu == "⚠️ 品質異常首頁":
     st.subheader("⚠️ 品質異常管理首頁")
     
-    # 直接讀取左側側邊欄傳過來的全域字體大小
-    font_scale = st.session_state.global_font_scale
     q_label_size = int(18 * (font_scale / 100))    # 相關人員字體大小
     q_content_size = int(20 * (font_scale / 100))  # 異常內容字體大小
 
