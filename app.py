@@ -273,6 +273,13 @@ if menu == "🏠 公佈欄首頁":
 elif menu == "⚠️ 品質異常首頁":
     st.subheader("⚠️ 品質異常管理首頁")
     
+    # 💡 安全補底機制：如果最外層漏掉或找不到變數，這裡自動接住，絕對不噴錯！
+    if "global_font_scale" not in st.session_state:
+        st.session_state.global_font_scale = 130
+    
+    # 確保這一頁一定有 font_scale 變數可以用
+    font_scale = st.session_state.global_font_scale
+    
     q_label_size = int(18 * (font_scale / 100))    # 相關人員字體大小
     q_content_size = int(20 * (font_scale / 100))  # 異常內容字體大小
 
@@ -319,7 +326,6 @@ elif menu == "⚠️ 品質異常首頁":
             if r['image_path'] and os.path.exists(r['image_path']):
                 with st.popover("🖼️ 檢視異常照片"):
                     st.image(r['image_path'], width=800)
-
 
 
 
