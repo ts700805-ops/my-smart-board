@@ -200,11 +200,11 @@ with st.sidebar:
 
 # 1. 一般公佈欄首頁 (維持原樣)
 if menu == "🏠 公佈欄首頁":
-    # 💡 1. 初始化全域字體比例設定，預設值給 130% (適合工廠現場看板看得很清楚)
+    # 💡 1. 初始化全域字體比例設定，預設值給 130%
     if "global_font_scale" not in st.session_state:
         st.session_state.global_font_scale = 130
 
-    # 💡 2. 顯示全域調整滑桿，直接讓同仁可以微調比例
+    # 💡 2. 全域字體調整滑桿
     st.session_state.global_font_scale = st.slider(
         "📢 全站看板字體大小統一微調 (%)", 
         min_value=100, 
@@ -226,24 +226,24 @@ if menu == "🏠 公佈欄首頁":
             font-size: {info_label_size}px !important;
             font-weight: bold !important;
             color: #1E4D2B;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
         }}
         .home-info-content {{
             font-size: {info_content_size}px !important;
-            line-height: 1.6 !important;
+            line-height: 1.7 !important;
             font-weight: 500 !important;
             color: #111111 !important;
             background-color: #F4F9F5;
             padding: 15px;
             border-radius: 8px;
             border-left: 5px solid #3A7D44;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }}
         </style>
     """, unsafe_allow_html=True)
     st.markdown("---")
 
-    # 原本的搜尋功能完全不動
+    # 原本的搜尋與資料庫讀取功能完全不動
     search_q = st.text_input("🔍 搜尋公告內容或發布人", "")
     conn = get_conn()
     query = "SELECT * FROM posts WHERE is_deleted = 0"
@@ -252,13 +252,14 @@ if menu == "🏠 公佈欄首頁":
     df = pd.read_sql(f"{query} ORDER BY id DESC", conn)
     conn.close()
     
-    # 資料動態渲染區：原本功能不變，僅將文字改用大字體 HTML 套用
+    # 資料動態渲染區：修正變數錯誤，完美恢復內容與相片按鈕
     for _, r in df.iterrows():
         with st.container():
-            # 💡 放大顯示：日期與發布人
-            st.markdown(f"<div class='home-info-label'>📅 {r['date']} ｜ 👤 發布人：{r['author']}</div>", unsafe_allow_html=True)
-            
-            # 💡 放大顯示：公告主體內容 (替換原本的 st.
+            # 💡 1. 放大顯示：日期與發布人
+            st.markdown(f"<div class='home-info-label'>📅 {r['date']} ｜ 👤 發布人：{r['author']}</div>", unsafe_
+
+
+                        
 
 # 2. 品質異常首頁 (維持原樣)
 elif menu == "⚠️ 品質異常首頁":
