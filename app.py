@@ -18,11 +18,6 @@ from PIL import Image
 # =========================================================
 # 1. 網頁基本設定 (全域唯一配置，確保最上方不重疊)
 # =========================================================
-if menu == "🏠 公佈欄首頁":
-    # 補底防錯
-    if "global_font_scale" not in st.session_state:
-        st.session_state.global_font_scale = 130
-    font_scale = st.session_state.global_font_scale
 st.set_page_config(
     page_title="超慧製造部-雲端公佈欄", 
     page_icon="🍃", 
