@@ -87,7 +87,7 @@ with st.sidebar:
     
     st.markdown("<hr style='border-color: rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
     st.markdown("### 🐲 製造部端午公告")
-    st.caption("端午節特別活動來囉，龍騰端午慶，2026年6月12日11:30，公司1樓大廳集合")
+    st.caption("祝大家端午節快樂，龍騰端午慶")
 
 # =========================================================
 # 🚀 唯一主頁標題區 (💡 修正：請刪除您後方原有的舊 st.title 程式碼)
