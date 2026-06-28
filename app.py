@@ -70,8 +70,8 @@ st.markdown("""
 # 🏠 側邊欄配置：完美融入您的「端午安康」精美賀圖
 # =========================================================
 with st.sidebar:
-    # 📌 依照您的要求，在導航左上方加上版本別 (碼次 +1 改為 2026062802)
-    st.markdown("<h4 style='color: #D4AF37; margin-bottom: 5px;'>系統版本：2026062802</h4>", unsafe_allow_html=True)
+    # 📌 依照您的要求，在導航左上方加上版本別 (更新至 2026062803)
+    st.markdown("<h4 style='color: #D4AF37; margin-bottom: 5px;'>系統版本：2026062803</h4>", unsafe_allow_html=True)
     
     # 完美渲染您的節慶照片
     try:
@@ -153,7 +153,8 @@ def init_db():
                     task_content TEXT,
                     status TEXT DEFAULT '待處理',
                     complete_date TEXT)''')
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
 
 init_db()
 
@@ -239,7 +240,8 @@ if menu == "🏠 公佈欄首頁":
             if r['image_path'] and os.path.exists(r['image_path']):
                 with st.popover("🖼️ 檢視照片"):
                     st.image(r['image_path'], use_container_width=True)
-            st.markdown("---")
+         
+    st.markdown("---")
 
 # 2. 品質異常首頁
 elif menu == "⚠️ 品質異常首頁":
@@ -274,6 +276,7 @@ elif menu == "⚠️ 品質異常首頁":
             border-radius: 6px;
             border-left: 5px solid #D32F2F;
             margin-bottom: 10px;
+            white-space: pre-wrap; /* 修正點：允許內容換行不擠在一起 */
         }}
         </style>
     """, unsafe_allow_html=True)
@@ -287,9 +290,11 @@ elif menu == "⚠️ 品質異常首頁":
     conn.close()
     
     for _, r in df.iterrows():
+        # 修正點：支援內容中包含 \n 的換行渲染
+        formatted_content = r['content'].replace("\n", "<br>")
         with st.expander(f"🔴 [{r['date']}] 製令：{r['order_no']} | 分類：{r['category']}", expanded=True):
             st.markdown(f"<div class='quality-staff'>👤 <b>相關人員：</b> {r['staff_name']}</div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='quality-error-content'>🚨 <b>異常內容：</b> {r['content']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='quality-error-content'>🚨 <b>異常內容：</b> <br>{formatted_content}</div>", unsafe_allow_html=True)
             if r['image_path'] and os.path.exists(r['image_path']):
                 with st.popover("🖼️ 檢視異常照片"):
                     st.image(r['image_path'], width=800)
@@ -412,8 +417,10 @@ elif menu == "✍️ 撰寫新公告":
             conn = get_conn()
             t = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
             conn.execute("INSERT INTO posts (date, author, content, image_path, is_deleted) VALUES (?, ?, ?, ?, 0)", (t, author, msg, p))
-            conn.commit(); conn.close()
-            sync_to_github("New Post"); st.balloons(); st.success("發布成功！"); time.sleep(1.5); st.rerun()
+            conn.commit()
+            conn.close()
+            sync_to_github("New Post"); st.balloons(); st.success("發布成功！"); time.sleep(1.5);
+            st.rerun()
 
 # 5. 撰寫品質
 elif menu == "📝 撰寫品質":
@@ -421,12 +428,13 @@ elif menu == "📝 撰寫品質":
     col1, col2 = st.columns(2)
     with col1:
         order_no = st.text_input("工單/製令編號")
-        q_cat = st.selectbox("異常分類", ["零件異常", "外觀異常", "組裝問題", "流程問題", "其他"])
+        q_cat = st.selectbox("異常分類", ["零件異常", "外觀異常", "組裝問題", "流程問題", "核心問題", "其他"])
     with col2:
         conn = get_conn()
         s_list = pd.read_sql("SELECT name FROM staff", conn)['name'].tolist()
         conn.close()
         q_staff = st.selectbox("相關人員", s_list)
+    
     q_content = st.text_area("異常描述")
     q_file = st.file_uploader("🖼️ 現場照片", type=['jpg', 'png', 'jpeg'])
     if st.button("🚨 提交紀錄"):
@@ -438,8 +446,10 @@ elif menu == "📝 撰寫品質":
             conn = get_conn()
             t = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
             conn.execute("INSERT INTO quality_posts (date, order_no, content, category, staff_name, image_path, is_deleted) VALUES (?, ?, ?, ?, ?, ?, 0)", (t, order_no, q_content, q_cat, q_staff, p))
-            conn.commit(); conn.close()
-            sync_to_github("New Quality Alert"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5); st.rerun()
+            conn.commit()
+            conn.close()
+            sync_to_github("New Quality Alert"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5);
+            st.rerun()
 
 # 6. 所有紀錄
 elif menu == "📜 所有紀錄":
@@ -466,7 +476,7 @@ elif menu == "⚙️ 管理後台":
     st.subheader("🛠️ 管理系統")
     if st.text_input("請輸入管理密碼", type="password") == "0000":
         t1, t2, t3, t4 = st.tabs(["公告管理", "品質紀錄管理", "人員管理", "待處理事項管理"])
-        
+     
         with t1:
             conn = get_conn()
             df = pd.read_sql("SELECT * FROM posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
@@ -475,7 +485,6 @@ elif menu == "⚙️ 管理後台":
                 c1, c2, c3 = st.columns([6, 2, 2])
                 c1.write(f"[{r['date']}] {r['content'][:20]}...")
                 with c2.popover("📝 編輯"):
-                    # 【修改此處】：從字串安全轉換成日期型態物件，並改為日曆型態可選欄位
                     try:
                         curr_date_val = datetime.strptime(r['date'].split(" ")[0], '%Y-%m-%d').date()
                     except:
@@ -485,9 +494,8 @@ elif menu == "⚙️ 管理後台":
                     nc = st.text_area("修改內容", value=r['content'], key=f"ep_{r['id']}")
                     if st.button("💾 儲存", key=f"sp_{r['id']}"):
                         conn = get_conn()
-                        # 將新點選的日期轉回字串格式，直接更新並覆蓋回原本的 date 欄位
                         formatted_date = new_post_date.strftime('%Y-%m-%d')
-                        if " " in r['date']: # 如果原本有包含時間，一併保留時間
+                        if " " in r['date']: 
                             formatted_date += " " + r['date'].split(" ", 1)[1]
                         conn.execute("UPDATE posts SET date = ?, content = ? WHERE id = ?", (formatted_date, nc, r['id']))
                         conn.commit(); conn.close()
@@ -500,12 +508,11 @@ elif menu == "⚙️ 管理後台":
             df_q = pd.read_sql("SELECT * FROM quality_posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
             staff_list = pd.read_sql("SELECT name FROM staff", conn)['name'].tolist()
             conn.close()
-            cat_options = ["零件異常", "外觀異常", "組裝問題", "流程問題", "其他"]
+            cat_options = ["零件異常", "外觀異常", "組裝問題", "流程問題", "核心問題", "其他"]
             for _, r in df_q.iterrows():
                 qc1, qc2, qc3 = st.columns([6, 2, 2])
                 qc1.write(f"[{r['date']}] 製令:{r['order_no']} | 人員:{r['staff_name']}")
                 with qc2.popover("📝 編輯"):
-                    # 【修改此處】：品質紀錄日期同步改為日曆型態可選欄位，修正填錯的日期
                     try:
                         curr_q_date_val = datetime.strptime(r['date'].split(" ")[0], '%Y-%m-%d').date()
                     except:
@@ -527,9 +534,8 @@ elif menu == "⚙️ 管理後台":
                             p = f"{IMAGE_FOLDER}/q_{datetime.now().strftime('%Y%m%d%H%M%S')}_{new_img.name}"
                             with open(p, "wb") as f: f.write(new_img.getbuffer())
                         conn = get_conn()
-                        # 將新選擇的日期轉回字串，直接覆蓋原本的 date 欄位
                         formatted_q_date = new_q_date.strftime('%Y-%m-%d')
-                        if " " in r['date']: # 保留原本帶有的時間
+                        if " " in r['date']: 
                             formatted_q_date += " " + r['date'].split(" ", 1)[1]
                         conn.execute("UPDATE quality_posts SET date=?, order_no=?, category=?, staff_name=?, content=?, image_path=? WHERE id=?", 
                                      (formatted_q_date, new_order, new_cat, new_staff, new_content, p, r['id']))
@@ -631,7 +637,6 @@ if menu == "🔴 專案管理首頁":
         if "task_content" not in columns:
             db_conn.execute("ALTER TABLE project_tasks ADD COLUMN task_content TEXT DEFAULT ''")
             db_conn.commit()
-            
     finally:
         db_conn.close()
 
@@ -654,8 +659,8 @@ if menu == "🔴 專案管理首頁":
             leader = leader.strip()
             if leader and leader not in author_options:
                 author_options.append(leader)
-                if leader not in worker_options:
-                    worker_options.append(leader)
+            if leader not in worker_options:
+                worker_options.append(leader)
             
             for m in members.split(","):
                 m = m.strip()
