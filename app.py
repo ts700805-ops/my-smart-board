@@ -70,8 +70,8 @@ st.markdown("""
 # 🏠 側邊欄配置：完美融入您的「端午安康」精美賀圖
 # =========================================================
 with st.sidebar:
-    # 📌 依照您的要求，在導航左上方加上版本別 (碼次 +1 改為 2026062803)
-    st.markdown("<h4 style='color: #D4AF37; margin-bottom: 5px;'>系統版本：2026062803</h4>", unsafe_allow_html=True)
+    # 📌 依照您的要求，在導航左上方加上版本別 (碼次 +1 改為 2026062804)
+    st.markdown("<h4 style='color: #D4AF37; margin-bottom: 5px;'>系統版本：2026062804</h4>", unsafe_allow_html=True)
     
     # 完美渲染您的節慶照片
     try:
@@ -369,7 +369,7 @@ elif menu == "🛠️ 製造部待處理清單":
             color: #111111 !important;
             line-height: 1.7 !important;
             font-weight: 600 !important;
-            white-space: pre-wrap; /* 完美支援任務描述多行換行排列 */
+            white-space: pre-wrap;
         }}
         </style>
     """, unsafe_allow_html=True)
@@ -439,7 +439,7 @@ elif menu == "✍️ 撰寫新公告":
             conn.execute("INSERT INTO posts (date, author, content, image_path, is_deleted) VALUES (?, ?, ?, ?, 0)", (t, author, msg, p))
             conn.commit()
             conn.close()
-            sync_to_github("New Post - 2026062803"); st.balloons(); st.success("發布成功！"); time.sleep(1.5);
+            sync_to_github("New Post - 2026062804"); st.balloons(); st.success("發布成功！"); time.sleep(1.5);
             st.rerun()
 
 # 5. 撰寫品質
@@ -468,7 +468,7 @@ elif menu == "📝 撰寫品質":
             conn.execute("INSERT INTO quality_posts (date, order_no, content, category, staff_name, image_path, is_deleted) VALUES (?, ?, ?, ?, ?, ?, 0)", (t, order_no, q_content, q_cat, q_staff, p))
             conn.commit()
             conn.close()
-            sync_to_github("New Quality Alert - 2026062803"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5);
+            sync_to_github("New Quality Alert - 2026062804"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5);
             st.rerun()
 
 # 6. 所有紀錄
@@ -519,9 +519,9 @@ elif menu == "⚙️ 管理後台":
                             formatted_date += " " + r['date'].split(" ", 1)[1]
                         conn.execute("UPDATE posts SET date = ?, content = ? WHERE id = ?", (formatted_date, nc, r['id']))
                         conn.commit(); conn.close()
-                        sync_to_github("Edit Post - 2026062803"); st.rerun()
+                        sync_to_github("Edit Post - 2026062804"); st.rerun()
                 if c3.button("🗑️ 刪除", key=f"dp_{r['id']}"):
-                    conn = get_conn(); conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Post - 2026062803"); st.rerun()
+                    conn = get_conn(); conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Post - 2026062804"); st.rerun()
 
         with t2:
             conn = get_conn()
@@ -559,9 +559,9 @@ elif menu == "⚙️ 管理後台":
                             formatted_q_date += " " + r['date'].split(" ", 1)[1]
                         conn.execute("UPDATE quality_posts SET date=?, order_no=?, category=?, staff_name=?, content=?, image_path=? WHERE id=?", 
                                      (formatted_q_date, new_order, new_cat, new_staff, new_content, p, r['id']))
-                        conn.commit(); conn.close(); sync_to_github("Edit Quality - 2026062803"); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github("Edit Quality - 2026062804"); st.rerun()
                 if qc3.button("🗑️ 刪除", key=f"dq_{r['id']}"):
-                    conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality - 2026062803"); st.rerun()
+                    conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality - 2026062804"); st.rerun()
 
         with t3:
             st.write("### 👥 人員名單管理")
@@ -571,7 +571,7 @@ elif menu == "⚙️ 管理後台":
                     conn = get_conn()
                     try:
                         conn.execute("INSERT INTO staff (name) VALUES (?)", (new_n,))
-                        conn.commit(); conn.close(); sync_to_github(f"Add {new_n} - 2026062803"); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github(f"Add {new_n} - 2026062804"); st.rerun()
                     except: conn.close(); st.error("人員已存在")
             st.markdown("---")
             conn = get_conn()
@@ -581,7 +581,7 @@ elif menu == "⚙️ 管理後台":
                 col1, col2 = st.columns([8, 2])
                 col1.write(f"👤 {row['name']}")
                 if col2.button("🗑️ 刪除人員", key=f"ds_{row['id']}"):
-                    conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff - 2026062803"); st.rerun()
+                    conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff - 2026062804"); st.rerun()
 
         with t4:
             st.write("### 📝 新增待處理事項")
@@ -595,7 +595,7 @@ elif menu == "⚙️ 管理後台":
                         conn = get_conn()
                         conn.execute("INSERT INTO pending_tasks (date, order_no, task_content) VALUES (?, ?, ?)", 
                                      (str(t_date), t_order, t_msg))
-                        conn.commit(); conn.close(); sync_to_github("Add Task - 2026062803"); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github("Add Task - 2026062804"); st.rerun()
 
             st.markdown("---")
             st.write("### ⏳ 目前待處理清單")
@@ -618,13 +618,13 @@ elif menu == "⚙️ 管理後台":
                         conn = get_conn()
                         conn.execute("UPDATE pending_tasks SET date=?, order_no=?, task_content=? WHERE id=?", 
                                      (str(e_date), e_order, e_task, task['id']))
-                        conn.commit(); conn.close(); sync_to_github("Edit Task - 2026062803"); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github("Edit Task - 2026062804"); st.rerun()
 
                 if tc3.button("✅ 完成", key=f"finish_{task['id']}"):
                     now_t = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
                     conn = get_conn()
                     conn.execute("UPDATE pending_tasks SET status='已完成', complete_date=? WHERE id=?", (now_t, task['id']))
-                    conn.commit(); conn.close(); sync_to_github("Finish Task - 2026062803"); st.rerun()
+                    conn.commit(); conn.close(); sync_to_github("Finish Task - 2026062804"); st.rerun()
 
 # --- 🔴 專案管理首頁 (獨立功能活頁) ---
 if menu == "🔴 專案管理首頁":
@@ -644,9 +644,10 @@ if menu == "🔴 專案管理首頁":
     
     p_font_scale = st.session_state.project_font_scale
     
+    # 【✨修正核心】：更換並加強 CSS 權重，確保 st.info 元件內部所有 p 與文字都能被成功放大縮小
     st.markdown(f"""
         <style>
-        div[data-testid="stNotification"] p {{
+        div[data-testid="stNotification"] *, div[data-testid="stNotification"] p {{
             font-size: {int(16 * (p_font_scale / 100))}px !important;
             line-height: 1.6 !important;
         }}
@@ -738,7 +739,7 @@ if menu == "🔴 專案管理首頁":
                     db_conn.commit()
                 finally:
                     db_conn.close()
-                sync_to_github("Finish Project Task - 2026062803"); st.rerun()
+                sync_to_github("Finish Project Task - 2026062804"); st.rerun()
                 
             with m3.popover("📝 編輯"):
                 pwd_edit = st.text_input("驗證管理密碼", type="password", key=f"pwd_e_{row['id']}")
@@ -765,7 +766,7 @@ if menu == "🔴 專案管理首頁":
                             db_conn.commit()
                         finally:
                             db_conn.close()
-                        sync_to_github("Edit Project Task - 2026062803"); st.rerun()
+                        sync_to_github("Edit Project Task - 2026062804"); st.rerun()
                 elif pwd_edit:
                     st.error("密碼錯誤")
 
@@ -779,6 +780,6 @@ if menu == "🔴 專案管理首頁":
                             db_conn.commit()
                         finally:
                             db_conn.close()
-                        sync_to_github("Delete Project Task - 2026062803"); st.rerun()
+                        sync_to_github("Delete Project Task - 2026062804"); st.rerun()
                 elif pwd_del:
                     st.error("密碼錯誤")
