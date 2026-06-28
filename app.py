@@ -70,7 +70,7 @@ st.markdown("""
 # 🏠 側邊欄配置：完美融入您的「端午安康」精美賀圖
 # =========================================================
 with st.sidebar:
-    # 📌 依照您的要求，在導航左上方加上版本別 (更新至 2026062803)
+    # 📌 依照您的要求，在導航左上方加上版本別 (碼次 +1 改為 2026062803)
     st.markdown("<h4 style='color: #D4AF37; margin-bottom: 5px;'>系統版本：2026062803</h4>", unsafe_allow_html=True)
     
     # 完美渲染您的節慶照片
@@ -186,19 +186,19 @@ with st.sidebar:
 # --- 頁面邏輯 ---
 # 1. 一般公佈欄首頁
 if menu == "🏠 公佈欄首頁":
-    if "global_font_scale" not in st.session_state:
-        st.session_state.global_font_scale = 130
+    if "home_font_scale" not in st.session_state:
+        st.session_state.home_font_scale = 130
 
-    st.session_state.global_font_scale = st.slider(
-        "📢 全站看板字體大小統一微調 (%)", 
+    st.session_state.home_font_scale = st.slider(
+        "📢 現場看板字體大小微調 (%)", 
         min_value=100, 
         max_value=200, 
-        value=st.session_state.global_font_scale, 
+        value=st.session_state.home_font_scale, 
         step=10,
-        key="global_font_slider"
+        key="home_font_slider"
     )
     
-    font_scale = st.session_state.global_font_scale
+    font_scale = st.session_state.home_font_scale
     info_label_size = int(18 * (font_scale / 100))    
     info_content_size = int(20 * (font_scale / 100))  
 
@@ -220,6 +220,7 @@ if menu == "🏠 公佈欄首頁":
             border-radius: 8px;
             border-left: 5px solid #3A7D44;
             margin-bottom: 12px;
+            white-space: pre-wrap;
         }}
         </style>
     """, unsafe_allow_html=True)
@@ -247,10 +248,19 @@ if menu == "🏠 公佈欄首頁":
 elif menu == "⚠️ 品質異常首頁":
     st.subheader("⚠️ 品質異常管理首頁")
     
-    if "global_font_scale" not in st.session_state:
-        st.session_state.global_font_scale = 130
+    if "quality_font_scale" not in st.session_state:
+        st.session_state.quality_font_scale = 130
+        
+    st.session_state.quality_font_scale = st.slider(
+        "🔍 現場看板字體大小微調 (%)", 
+        min_value=100, 
+        max_value=200, 
+        value=st.session_state.quality_font_scale, 
+        step=10,
+        key="quality_font_slider"
+    )
     
-    font_scale = st.session_state.global_font_scale
+    font_scale = st.session_state.quality_font_scale
     q_label_size = int(18 * (font_scale / 100))    
     q_content_size = int(20 * (font_scale / 100))  
 
@@ -276,7 +286,7 @@ elif menu == "⚠️ 品質異常首頁":
             border-radius: 6px;
             border-left: 5px solid #D32F2F;
             margin-bottom: 10px;
-            white-space: pre-wrap; /* 修正點：允許內容換行不擠在一起 */
+            white-space: pre-wrap;
         }}
         </style>
     """, unsafe_allow_html=True)
@@ -290,19 +300,28 @@ elif menu == "⚠️ 品質異常首頁":
     conn.close()
     
     for _, r in df.iterrows():
-        # 修正點：支援內容中包含 \n 的換行渲染
-        formatted_content = r['content'].replace("\n", "<br>")
         with st.expander(f"🔴 [{r['date']}] 製令：{r['order_no']} | 分類：{r['category']}", expanded=True):
             st.markdown(f"<div class='quality-staff'>👤 <b>相關人員：</b> {r['staff_name']}</div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='quality-error-content'>🚨 <b>異常內容：</b> <br>{formatted_content}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='quality-error-content'>🚨 <b>異常內容：</b> {r['content']}</div>", unsafe_allow_html=True)
             if r['image_path'] and os.path.exists(r['image_path']):
                 with st.popover("🖼️ 檢視異常照片"):
                     st.image(r['image_path'], width=800)
 
 # 3. 製造部待處理事項清單
 elif menu == "🛠️ 製造部待處理清單":
-    font_scale = st.slider("🔍 現場看板字體大小微調 (%)", min_value=100, max_value=200, value=170, step=10)
+    if "task_font_scale" not in st.session_state:
+        st.session_state.task_font_scale = 170
+        
+    st.session_state.task_font_scale = st.slider(
+        "🔍 現場看板字體大小微調 (%)", 
+        min_value=100, 
+        max_value=200, 
+        value=st.session_state.task_font_scale, 
+        step=10,
+        key="task_font_slider"
+    )
     
+    font_scale = st.session_state.task_font_scale
     title_size = int(24 * (font_scale / 100))
     label_size = int(18 * (font_scale / 100))
     value_size = int(20 * (font_scale / 100))
@@ -350,6 +369,7 @@ elif menu == "🛠️ 製造部待處理清單":
             color: #111111 !important;
             line-height: 1.7 !important;
             font-weight: 600 !important;
+            white-space: pre-wrap; /* 完美支援任務描述多行換行排列 */
         }}
         </style>
     """, unsafe_allow_html=True)
@@ -397,7 +417,7 @@ elif menu == "🛠️ 製造部待處理清單":
                 c3.markdown(f"<div style='text-align: right; font-size: {value_size}px;'>🫔</div>", unsafe_allow_html=True)
                 
                 st.markdown("<div style='margin-top: 10px; margin-bottom: 10px; border-top: 1px dashed #DDD;'></div>", unsafe_allow_html=True)
-                st.markdown(f"<div class='large-text-content'><b>📋 任務內容：</b>{t_content}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='large-text-content'><b>📋 任務內容：</b>\n{t_content}</div>", unsafe_allow_html=True)
 
 # 4. 撰寫一般公告
 elif menu == "✍️ 撰寫新公告":
@@ -419,7 +439,7 @@ elif menu == "✍️ 撰寫新公告":
             conn.execute("INSERT INTO posts (date, author, content, image_path, is_deleted) VALUES (?, ?, ?, ?, 0)", (t, author, msg, p))
             conn.commit()
             conn.close()
-            sync_to_github("New Post"); st.balloons(); st.success("發布成功！"); time.sleep(1.5);
+            sync_to_github("New Post - 2026062803"); st.balloons(); st.success("發布成功！"); time.sleep(1.5);
             st.rerun()
 
 # 5. 撰寫品質
@@ -428,7 +448,7 @@ elif menu == "📝 撰寫品質":
     col1, col2 = st.columns(2)
     with col1:
         order_no = st.text_input("工單/製令編號")
-        q_cat = st.selectbox("異常分類", ["零件異常", "外觀異常", "組裝問題", "流程問題", "核心問題", "其他"])
+        q_cat = st.selectbox("異常分類", ["零件異常", "外觀異常", "組裝問題", "流程問題", "其他"])
     with col2:
         conn = get_conn()
         s_list = pd.read_sql("SELECT name FROM staff", conn)['name'].tolist()
@@ -448,7 +468,7 @@ elif menu == "📝 撰寫品質":
             conn.execute("INSERT INTO quality_posts (date, order_no, content, category, staff_name, image_path, is_deleted) VALUES (?, ?, ?, ?, ?, ?, 0)", (t, order_no, q_content, q_cat, q_staff, p))
             conn.commit()
             conn.close()
-            sync_to_github("New Quality Alert"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5);
+            sync_to_github("New Quality Alert - 2026062803"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5);
             st.rerun()
 
 # 6. 所有紀錄
@@ -499,16 +519,16 @@ elif menu == "⚙️ 管理後台":
                             formatted_date += " " + r['date'].split(" ", 1)[1]
                         conn.execute("UPDATE posts SET date = ?, content = ? WHERE id = ?", (formatted_date, nc, r['id']))
                         conn.commit(); conn.close()
-                        sync_to_github("Edit Post"); st.rerun()
+                        sync_to_github("Edit Post - 2026062803"); st.rerun()
                 if c3.button("🗑️ 刪除", key=f"dp_{r['id']}"):
-                    conn = get_conn(); conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Post"); st.rerun()
+                    conn = get_conn(); conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Post - 2026062803"); st.rerun()
 
         with t2:
             conn = get_conn()
             df_q = pd.read_sql("SELECT * FROM quality_posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
             staff_list = pd.read_sql("SELECT name FROM staff", conn)['name'].tolist()
             conn.close()
-            cat_options = ["零件異常", "外觀異常", "組裝問題", "流程問題", "核心問題", "其他"]
+            cat_options = ["零件異常", "外觀異常", "組裝問題", "流程問題", "其他"]
             for _, r in df_q.iterrows():
                 qc1, qc2, qc3 = st.columns([6, 2, 2])
                 qc1.write(f"[{r['date']}] 製令:{r['order_no']} | 人員:{r['staff_name']}")
@@ -539,9 +559,9 @@ elif menu == "⚙️ 管理後台":
                             formatted_q_date += " " + r['date'].split(" ", 1)[1]
                         conn.execute("UPDATE quality_posts SET date=?, order_no=?, category=?, staff_name=?, content=?, image_path=? WHERE id=?", 
                                      (formatted_q_date, new_order, new_cat, new_staff, new_content, p, r['id']))
-                        conn.commit(); conn.close(); sync_to_github("Edit Quality"); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github("Edit Quality - 2026062803"); st.rerun()
                 if qc3.button("🗑️ 刪除", key=f"dq_{r['id']}"):
-                    conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality"); st.rerun()
+                    conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality - 2026062803"); st.rerun()
 
         with t3:
             st.write("### 👥 人員名單管理")
@@ -551,7 +571,7 @@ elif menu == "⚙️ 管理後台":
                     conn = get_conn()
                     try:
                         conn.execute("INSERT INTO staff (name) VALUES (?)", (new_n,))
-                        conn.commit(); conn.close(); sync_to_github(f"Add {new_n}"); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github(f"Add {new_n} - 2026062803"); st.rerun()
                     except: conn.close(); st.error("人員已存在")
             st.markdown("---")
             conn = get_conn()
@@ -561,7 +581,7 @@ elif menu == "⚙️ 管理後台":
                 col1, col2 = st.columns([8, 2])
                 col1.write(f"👤 {row['name']}")
                 if col2.button("🗑️ 刪除人員", key=f"ds_{row['id']}"):
-                    conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff"); st.rerun()
+                    conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff - 2026062803"); st.rerun()
 
         with t4:
             st.write("### 📝 新增待處理事項")
@@ -575,7 +595,7 @@ elif menu == "⚙️ 管理後台":
                         conn = get_conn()
                         conn.execute("INSERT INTO pending_tasks (date, order_no, task_content) VALUES (?, ?, ?)", 
                                      (str(t_date), t_order, t_msg))
-                        conn.commit(); conn.close(); sync_to_github("Add Task"); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github("Add Task - 2026062803"); st.rerun()
 
             st.markdown("---")
             st.write("### ⏳ 目前待處理清單")
@@ -598,17 +618,40 @@ elif menu == "⚙️ 管理後台":
                         conn = get_conn()
                         conn.execute("UPDATE pending_tasks SET date=?, order_no=?, task_content=? WHERE id=?", 
                                      (str(e_date), e_order, e_task, task['id']))
-                        conn.commit(); conn.close(); sync_to_github("Edit Task"); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github("Edit Task - 2026062803"); st.rerun()
 
                 if tc3.button("✅ 完成", key=f"finish_{task['id']}"):
                     now_t = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
                     conn = get_conn()
                     conn.execute("UPDATE pending_tasks SET status='已完成', complete_date=? WHERE id=?", (now_t, task['id']))
-                    conn.commit(); conn.close(); sync_to_github("Finish Task"); st.rerun()
+                    conn.commit(); conn.close(); sync_to_github("Finish Task - 2026062803"); st.rerun()
 
 # --- 🔴 專案管理首頁 (獨立功能活頁) ---
 if menu == "🔴 專案管理首頁":
     st.subheader("📋 專案進度追蹤看板")
+    
+    if "project_font_scale" not in st.session_state:
+        st.session_state.project_font_scale = 130
+        
+    st.session_state.project_font_scale = st.slider(
+        "🔍 現場看板字體大小微調 (%)", 
+        min_value=100, 
+        max_value=200, 
+        value=st.session_state.project_font_scale, 
+        step=10,
+        key="project_font_slider"
+    )
+    
+    p_font_scale = st.session_state.project_font_scale
+    
+    st.markdown(f"""
+        <style>
+        div[data-testid="stNotification"] p {{
+            font-size: {int(16 * (p_font_scale / 100))}px !important;
+            line-height: 1.6 !important;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
     
     db_conn = sqlite3.connect('bulletin.db')
     try:
@@ -695,7 +738,7 @@ if menu == "🔴 專案管理首頁":
                     db_conn.commit()
                 finally:
                     db_conn.close()
-                sync_to_github("Finish Project Task"); st.rerun()
+                sync_to_github("Finish Project Task - 2026062803"); st.rerun()
                 
             with m3.popover("📝 編輯"):
                 pwd_edit = st.text_input("驗證管理密碼", type="password", key=f"pwd_e_{row['id']}")
@@ -722,7 +765,7 @@ if menu == "🔴 專案管理首頁":
                             db_conn.commit()
                         finally:
                             db_conn.close()
-                        sync_to_github("Edit Project Task"); st.rerun()
+                        sync_to_github("Edit Project Task - 2026062803"); st.rerun()
                 elif pwd_edit:
                     st.error("密碼錯誤")
 
@@ -736,6 +779,6 @@ if menu == "🔴 專案管理首頁":
                             db_conn.commit()
                         finally:
                             db_conn.close()
-                        sync_to_github("Delete Project Task"); st.rerun()
+                        sync_to_github("Delete Project Task - 2026062803"); st.rerun()
                 elif pwd_del:
                     st.error("密碼錯誤")
