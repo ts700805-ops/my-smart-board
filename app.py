@@ -70,7 +70,7 @@ st.markdown("""
 # 🏠 側邊欄配置：完美融入您的「端午安康」精美賀圖
 # =========================================================
 with st.sidebar:
-    # 📌 依照您的要求，在導航左上方加上版本別 (升級至 2026062802)
+    # 📌 依照您的要求，在導航左上方加上版本別 (碼次 +1 改為 2026062802)
     st.markdown("<h4 style='color: #D4AF37; margin-bottom: 5px;'>系統版本：2026062802</h4>", unsafe_allow_html=True)
     
     # 完美渲染您的節慶照片
@@ -142,8 +142,7 @@ def init_db():
                     category TEXT, 
                     staff_name TEXT, 
                     image_path TEXT, 
-                    is_deleted INTEGER DEFAULT 0,
-                    updated_at TEXT DEFAULT '')''')
+                    is_deleted INTEGER DEFAULT 0)''')
     c.execute('CREATE TABLE IF NOT EXISTS staff (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)')
     
     # 新增：製造部待處理事項資料表
@@ -154,13 +153,6 @@ def init_db():
                     task_content TEXT,
                     status TEXT DEFAULT '待處理',
                     complete_date TEXT)''')
-    
-    # 自動檢查 quality_posts 有無存在 updated_at 欄位，沒有則自動補上確保相容
-    try:
-        c.execute("ALTER TABLE quality_posts ADD COLUMN updated_at TEXT DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass # 代表欄位已存在，略過即可
-        
     conn.commit(); conn.close()
 
 init_db()
@@ -295,12 +287,7 @@ elif menu == "⚠️ 品質異常首頁":
     conn.close()
     
     for _, r in df.iterrows():
-        # 同步調整顯示名稱，以便把修改日期完整展現
-        display_title = f"🔴 [{r['date']}] 製令：{r['order_no']} | 分類：{r['category']}"
-        if 'updated_at' in r and r['updated_at']:
-            display_title += f" (✍️ 修改日期: {r['updated_at']})"
-            
-        with st.expander(display_title, expanded=True):
+        with st.expander(f"🔴 [{r['date']}] 製令：{r['order_no']} | 分類：{r['category']}", expanded=True):
             st.markdown(f"<div class='quality-staff'>👤 <b>相關人員：</b> {r['staff_name']}</div>", unsafe_allow_html=True)
             st.markdown(f"<div class='quality-error-content'>🚨 <b>異常內容：</b> {r['content']}</div>", unsafe_allow_html=True)
             if r['image_path'] and os.path.exists(r['image_path']):
@@ -450,7 +437,7 @@ elif menu == "📝 撰寫品質":
                 with open(p, "wb") as f: f.write(q_file.getbuffer())
             conn = get_conn()
             t = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
-            conn.execute("INSERT INTO quality_posts (date, order_no, content, category, staff_name, image_path, is_deleted, updated_at) VALUES (?, ?, ?, ?, ?, ?, 0, '')", (t, order_no, q_content, q_cat, q_staff, p))
+            conn.execute("INSERT INTO quality_posts (date, order_no, content, category, staff_name, image_path, is_deleted) VALUES (?, ?, ?, ?, ?, ?, 0)", (t, order_no, q_content, q_cat, q_staff, p))
             conn.commit(); conn.close()
             sync_to_github("New Quality Alert"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5); st.rerun()
 
@@ -488,9 +475,22 @@ elif menu == "⚙️ 管理後台":
                 c1, c2, c3 = st.columns([6, 2, 2])
                 c1.write(f"[{r['date']}] {r['content'][:20]}...")
                 with c2.popover("📝 編輯"):
+                    # 【修改此處】：從字串安全轉換成日期型態物件，並改為日曆型態可選欄位
+                    try:
+                        curr_date_val = datetime.strptime(r['date'].split(" ")[0], '%Y-%m-%d').date()
+                    except:
+                        curr_date_val = datetime.today().date()
+                    new_post_date = st.date_input("修改日期", value=curr_date_val, key=f"ep_date_{r['id']}")
+                    
                     nc = st.text_area("修改內容", value=r['content'], key=f"ep_{r['id']}")
                     if st.button("💾 儲存", key=f"sp_{r['id']}"):
-                        conn = get_conn(); conn.execute("UPDATE posts SET content = ? WHERE id = ?", (nc, r['id'])); conn.commit(); conn.close()
+                        conn = get_conn()
+                        # 將新點選的日期轉回字串格式，直接更新並覆蓋回原本的 date 欄位
+                        formatted_date = new_post_date.strftime('%Y-%m-%d')
+                        if " " in r['date']: # 如果原本有包含時間，一併保留時間
+                            formatted_date += " " + r['date'].split(" ", 1)[1]
+                        conn.execute("UPDATE posts SET date = ?, content = ? WHERE id = ?", (formatted_date, nc, r['id']))
+                        conn.commit(); conn.close()
                         sync_to_github("Edit Post"); st.rerun()
                 if c3.button("🗑️ 刪除", key=f"dp_{r['id']}"):
                     conn = get_conn(); conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Post"); st.rerun()
@@ -503,11 +503,15 @@ elif menu == "⚙️ 管理後台":
             cat_options = ["零件異常", "外觀異常", "組裝問題", "流程問題", "其他"]
             for _, r in df_q.iterrows():
                 qc1, qc2, qc3 = st.columns([6, 2, 2])
-                # 後台列清單同步告知目前設定的修改時間
-                update_lbl = f" | 修改時間:{r['updated_at']}" if ('updated_at' in r and r['updated_at']) else ""
-                qc1.write(f"[{r['date']}] 製令:{r['order_no']} | 人員:{r['staff_name']}{update_lbl}")
-                
+                qc1.write(f"[{r['date']}] 製令:{r['order_no']} | 人員:{r['staff_name']}")
                 with qc2.popover("📝 編輯"):
+                    # 【修改此處】：品質紀錄日期同步改為日曆型態可選欄位，修正填錯的日期
+                    try:
+                        curr_q_date_val = datetime.strptime(r['date'].split(" ")[0], '%Y-%m-%d').date()
+                    except:
+                        curr_q_date_val = datetime.today().date()
+                    new_q_date = st.date_input("修改日期", value=curr_q_date_val, key=f"uq_date_{r['id']}")
+                    
                     new_order = st.text_input("製令編號", value=r['order_no'], key=f"uo_{r['id']}")
                     try: curr_cat_idx = cat_options.index(r['category'])
                     except: curr_cat_idx = 0
@@ -517,36 +521,19 @@ elif menu == "⚙️ 管理後台":
                     new_staff = st.selectbox("人員", staff_list, index=curr_staff_idx, key=f"us_{r['id']}")
                     new_content = st.text_area("內容", value=r['content'], key=f"ucont_{r['id']}")
                     new_img = st.file_uploader("🖼️ 更新照片 (不選則保留原圖)", type=['jpg', 'png', 'jpeg'], key=f"uimg_{r['id']}")
-                    
-                    # ----------------------------------------------------
-                    # ➕ 這裡新增修改日期的功能 (預設為當前日期，人員亦可自由手動選擇變更)
-                    # ----------------------------------------------------
-                    existing_update_date = r['updated_at'] if ('updated_at' in r and r['updated_at']) else ""
-                    try:
-                        default_date_val = datetime.strptime(existing_update_date, '%Y-%m-%d').date()
-                    except:
-                        default_date_val = datetime.now().date()
-                        
-                    new_update_date = st.date_input("修改日期設定", value=default_date_val, key=f"udate_{r['id']}")
-                    # ----------------------------------------------------
-                    
                     if st.button("💾 儲存修改", key=f"save_q_{r['id']}"):
                         p = r['image_path']
                         if new_img:
                             p = f"{IMAGE_FOLDER}/q_{datetime.now().strftime('%Y%m%d%H%M%S')}_{new_img.name}"
                             with open(p, "wb") as f: f.write(new_img.getbuffer())
-                            
-                        # 格式化日期為字串
-                        formatted_date_str = new_update_date.strftime('%Y-%m-%d')
-                        
                         conn = get_conn()
-                        conn.execute("UPDATE quality_posts SET order_no=?, category=?, staff_name=?, content=?, image_path=?, updated_at=? WHERE id=?", 
-                                     (new_order, new_cat, new_staff, new_content, p, formatted_date_str, r['id']))
-                        conn.commit()
-                        conn.close()
-                        sync_to_github("Edit Quality")
-                        st.rerun()
-                        
+                        # 將新選擇的日期轉回字串，直接覆蓋原本的 date 欄位
+                        formatted_q_date = new_q_date.strftime('%Y-%m-%d')
+                        if " " in r['date']: # 保留原本帶有的時間
+                            formatted_q_date += " " + r['date'].split(" ", 1)[1]
+                        conn.execute("UPDATE quality_posts SET date=?, order_no=?, category=?, staff_name=?, content=?, image_path=? WHERE id=?", 
+                                     (formatted_q_date, new_order, new_cat, new_staff, new_content, p, r['id']))
+                        conn.commit(); conn.close(); sync_to_github("Edit Quality"); st.rerun()
                 if qc3.button("🗑️ 刪除", key=f"dq_{r['id']}"):
                     conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality"); st.rerun()
 
