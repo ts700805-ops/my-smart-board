@@ -826,68 +826,66 @@ if menu == "🔴 專案管理首頁":
 
 
 
-# --- 🎀 助理績效考核區 (移除下方冗餘的名單維護) ---
+# =========================================================
+# 🎀 助理績效考核區 (修正版 - 強制連結至後台統一資料表)
+# =========================================================
 if menu == "🎀 助理績效考核區":
-    # (密碼保護與表結構檢查邏輯保持不變...)
-    conn = get_conn()
-    conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
-    conn.execute("CREATE TABLE IF NOT EXISTS assistant_evaluations (id INTEGER PRIMARY KEY, eval_date TEXT, assistant_name TEXT, eval_item TEXT, eval_target TEXT, eval_content TEXT, is_deleted INTEGER DEFAULT 0)")
-    
-    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
-    staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
-    staff_list = staff_df['name'].tolist()
-    conn.close()
+    # 密碼保護
+    if 'eval_auth' not in st.session_state: st.session_state.eval_auth = False
+    if not st.session_state.eval_auth:
+        pwd = st.text_input("🔑 請輸入密碼 (0000)", type="password")
+        if pwd == "0000": st.session_state.eval_auth = True; st.rerun()
+        st.stop()
 
     st.subheader("🎀 助理績效考核管理系統")
     
-    # 新增考核紀錄 (直接使用 staff_list 下拉選單)
+    # 統一連結資料表 (與管理後台完全一致)
+    conn = get_conn()
+    
+    # 讀取名單 (從統一的資料表 assistant_list_exclusive 讀取)
+    # 如果執行到這裡報錯，請確認您的 get_conn() 有正確連到同一個 .db 檔案
+    staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
+    staff_list = staff_df['name'].tolist()
+    
+    # 讀取考核紀錄
+    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
+    conn.close()
+
+    # --- 1. 新增考核表單 ---
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
-        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["請先至管理後台新增人員"])
+        # 這裡會自動顯示從「管理後台」存入的名單
+        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["⚠️ 請先至管理後台新增人員"])
         txt_item = st.text_area("📊 考核項目")
         txt_target = st.text_area("🎯 考核指標")
         txt_content = st.text_area("✨ 考核紀錄")
+        
         if st.form_submit_button("💝 立即存檔紀錄"):
-            # (資料存檔邏輯...)
-            st.rerun()
+            if sel_assistant != "⚠️ 請先至管理後台新增人員":
+                conn = get_conn()
+                conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
+                             (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
+                conn.commit()
+                conn.close()
+                st.success("存檔成功！")
+                st.rerun()
+            else:
+                st.error("請先選擇有效的助理名稱")
 
-    # 顯示考核紀錄 (含刪除按鈕...)
-
-# --- ⚙️ 管理後台 (整合名單維護功能) ---
-elif menu == "⚙️ 管理後台":
-    st.subheader("⚙️ 管理後台 - 助理名單維護")
-    
-    # 確保資料表存在
-    conn = get_conn()
-    conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
-    conn.close()
-
-    # 名單維護介面
-    new_staff = st.text_input("輸入新助理姓名 (支援逗號分隔)")
-    if st.button("➕ 加入名單"):
-        if new_staff.strip():
-            names = [n.strip() for n in new_staff.split(',')]
+    # --- 2. 顯示考核紀錄 ---
+    st.markdown("---")
+    st.markdown("### 📜 績效考核紀錄總覽")
+    for _, row in eval_df.iterrows():
+        c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 0.5])
+        c1.write(row['eval_date'])
+        c2.write(row['assistant_name'])
+        c3.write(row['eval_item'])
+        c4.write(row['eval_target'])
+        c5.write(row['eval_content'])
+        
+        if c6.button("🗑️", key=f"del_{row['id']}"):
             conn = get_conn()
-            for name in names:
-                try: conn.execute("INSERT INTO assistant_list_exclusive (name) VALUES (?)", (name,))
-                except: continue
+            conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
             conn.commit()
             conn.close()
             st.rerun()
-    
-    st.markdown("#### 目前助理名單：")
-    conn = get_conn()
-    current_staff = pd.read_sql("SELECT * FROM assistant_list_exclusive", conn)
-    conn.close()
-    
-    # 顯示名單並提供刪除
-    if not current_staff.empty:
-        for _, row in current_staff.iterrows():
-            col1, col2 = st.columns([4, 1])
-            col1.write(f"👤 {row['name']}")
-            if col2.button("🗑️ 刪除", key=f"del_{row['id']}"):
-                conn = get_conn()
-                conn.execute("DELETE FROM assistant_list_exclusive WHERE id = ?", (row['id'],))
-                conn.commit()
-                conn.close()
-                st.rerun()
