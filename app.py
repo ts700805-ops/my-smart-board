@@ -836,8 +836,8 @@ if menu == "🎀 助理績效考核區":
 
     st.subheader("🎀 助理績效考核管理系統")
     
-    # 字體設定：放大 2 倍，範圍 32-56，預設 40
-    font_size = st.slider("調整顯示文字大小", 32, 56, 40)
+    # 字體設定：預設值改為 30
+    font_size = st.slider("調整顯示文字大小", 16, 56, 30)
     st.markdown(f"""
         <style>
         .custom-text {{ 
@@ -850,12 +850,15 @@ if menu == "🎀 助理績效考核區":
         </style>
     """, unsafe_allow_html=True)
 
-    # 關鍵修改：使用專用資料表
+    # 資料庫連線
     conn = get_conn()
     conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
+    
+    # 讀取考核與名單
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
+    # 確保讀取名單時不報錯
     staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
-    staff_list = staff_df['name'].tolist()
+    staff_list = staff_df['name'].tolist() if not staff_df.empty else []
     conn.close()
 
     # 1. 績效考核紀錄總覽
@@ -864,10 +867,10 @@ if menu == "🎀 助理績效考核區":
         st.markdown("---")
         unique_key = f"row_{row['id']}_{index}" 
         
+        # 強制清理日期流水碼
         raw_date = str(row['eval_date'])
         display_date = raw_date.split('] ')[-1] if ']' in raw_date else raw_date
         
-        # 欄位：[日期] [姓名] [項目] [指標] [紀錄] [按鈕區]
         c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 0.8])
         c1.markdown(f"<div class='custom-text'>{display_date}</div>", unsafe_allow_html=True)
         c2.markdown(f"<div class='custom-text'>{row['assistant_name']}</div>", unsafe_allow_html=True)
@@ -877,8 +880,7 @@ if menu == "🎀 助理績效考核區":
         
         with c6:
             btn_col1, btn_col2 = st.columns(2)
-            if btn_col1.button("✏️", key=f"edit_btn_{unique_key}"): 
-                st.session_state[f"edit_mode_{row['id']}"] = True
+            if btn_col1.button("✏️", key=f"edit_btn_{unique_key}"): st.session_state[f"edit_mode_{row['id']}"] = True
             if btn_col2.button("🗑️", key=f"del_btn_{unique_key}"):
                 conn = get_conn()
                 conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
@@ -888,9 +890,7 @@ if menu == "🎀 助理績效考核區":
             
             if st.session_state.get(f"edit_mode_{row['id']}"):
                 with st.form(f"f_{unique_key}"):
-                    try: default_date = datetime.strptime(display_date, '%Y-%m-%d').date()
-                    except: default_date = datetime.today().date()
-                    n_date = st.date_input("日期", value=default_date)
+                    n_date = st.date_input("日期", value=datetime.today().date())
                     n_item = st.text_area("項目", row['eval_item'])
                     n_target = st.text_area("指標", row['eval_target'])
                     n_content = st.text_area("紀錄", row['eval_content'])
@@ -936,16 +936,22 @@ if menu == "🎀 助理績效考核區":
     
     st.markdown("#### 目前助理名單：")
     conn = get_conn()
-    current_staff = pd.read_sql("SELECT * FROM assistant_list_exclusive", conn)
+    # 使用 try-except 確保讀取表不存在時不會崩潰
+    try:
+        current_staff = pd.read_sql("SELECT * FROM assistant_list_exclusive", conn)
+    except:
+        current_staff = pd.DataFrame()
     conn.close()
     
-    for idx, staff in current_staff.iterrows():
-        c1, c2 = st.columns([4, 1])
-        c1.write(f"👤 {staff['name']}")
-        if c2.button("🗑️ 刪除", key=f"del_staff_{staff['id']}_{idx}"):
-            conn = get_conn()
-            conn.execute("DELETE FROM assistant_list_exclusive WHERE id = ?", (staff['id'],))
-            conn.commit()
-            conn.close()
-            st.rerun()
-
+    if not current_staff.empty:
+        for idx, staff in current_staff.iterrows():
+            c1, c2 = st.columns([4, 1])
+            c1.write(f"👤 {staff['name']}")
+            if c2.button("🗑️ 刪除", key=f"del_staff_{staff['id']}_{idx}"):
+                conn = get_conn()
+                conn.execute("DELETE FROM assistant_list_exclusive WHERE id = ?", (staff['id'],))
+                conn.commit()
+                conn.close()
+                st.rerun()
+    else:
+        st.info("目前尚無助理名單")
