@@ -836,12 +836,11 @@ if menu == "🎀 助理績效考核區":
 
     st.subheader("🎀 助理績效考核管理系統")
     
-    # 字體設定：預設值改為 30
-    font_size = st.slider("調整顯示文字大小", 16, 56, 25)
+    # 字體設定：固定為 30
     st.markdown(f"""
         <style>
         .custom-text {{ 
-            font-size: {font_size}px !important; 
+            font-size: 30px !important; 
             font-weight: bold !important; 
             word-wrap: break-word !important; 
             white-space: pre-wrap !important; 
@@ -850,15 +849,14 @@ if menu == "🎀 助理績效考核區":
         </style>
     """, unsafe_allow_html=True)
 
-    # 資料庫連線
+    # 資料庫初始化
     conn = get_conn()
     conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
     
     # 讀取考核與名單
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
-    # 確保讀取名單時不報錯
     staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
-    staff_list = staff_df['name'].tolist() if not staff_df.empty else []
+    staff_list = staff_df['name'].tolist()
     conn.close()
 
     # 1. 績效考核紀錄總覽
@@ -867,7 +865,7 @@ if menu == "🎀 助理績效考核區":
         st.markdown("---")
         unique_key = f"row_{row['id']}_{index}" 
         
-        # 強制清理日期流水碼
+        # 顯示日期 (移除可能的舊流水碼)
         raw_date = str(row['eval_date'])
         display_date = raw_date.split('] ')[-1] if ']' in raw_date else raw_date
         
@@ -920,38 +918,40 @@ if menu == "🎀 助理績效考核區":
             conn.close()
             st.rerun()
 
-    # 3. 獨立助理名單維護
+    # 3. 獨立助理名單維護 (使用您要求的逗號樣式)
     st.markdown("---")
-    st.markdown("### ⚙️ 助理名單維護 (本頁專用)")
-    new_staff = st.text_input("輸入新助理姓名")
+    st.markdown("### ⚙️ 助理名單維護")
+    st.info("請輸入姓名，若要一次新增多位，請用逗號分隔，例如：王小明, 李小華")
+    
+    new_staff_input = st.text_input("輸入新助理姓名 (支援逗號分隔)")
     if st.button("➕ 加入名單"):
-        if new_staff.strip():
+        if new_staff_input.strip():
+            names = [n.strip() for n in new_staff_input.split(',')]
             conn = get_conn()
-            try:
-                conn.execute("INSERT INTO assistant_list_exclusive (name) VALUES (?)", (new_staff.strip(),))
-                conn.commit()
-            except: st.error("人員已存在")
+            for name in names:
+                if name:
+                    try: conn.execute("INSERT INTO assistant_list_exclusive (name) VALUES (?)", (name,))
+                    except: continue
+            conn.commit()
             conn.close()
             st.rerun()
     
+    # 顯示目前名單
     st.markdown("#### 目前助理名單：")
     conn = get_conn()
-    # 使用 try-except 確保讀取表不存在時不會崩潰
-    try:
-        current_staff = pd.read_sql("SELECT * FROM assistant_list_exclusive", conn)
-    except:
-        current_staff = pd.DataFrame()
+    current_staff = pd.read_sql("SELECT * FROM assistant_list_exclusive", conn)
     conn.close()
     
     if not current_staff.empty:
-        for idx, staff in current_staff.iterrows():
-            c1, c2 = st.columns([4, 1])
-            c1.write(f"👤 {staff['name']}")
-            if c2.button("🗑️ 刪除", key=f"del_staff_{staff['id']}_{idx}"):
-                conn = get_conn()
-                conn.execute("DELETE FROM assistant_list_exclusive WHERE id = ?", (staff['id'],))
-                conn.commit()
-                conn.close()
-                st.rerun()
+        # 將名單以逗號並排顯示，並提供刪除按鈕
+        cols = st.columns(5)
+        for idx, row in current_staff.iterrows():
+            with cols[idx % 5]:
+                if st.button(f"🗑️ {row['name']}", key=f"del_staff_{row['id']}"):
+                    conn = get_conn()
+                    conn.execute("DELETE FROM assistant_list_exclusive WHERE id = ?", (row['id'],))
+                    conn.commit()
+                    conn.close()
+                    st.rerun()
     else:
-        st.info("目前尚無助理名單")
+        st.warning("目前尚無助理名單")
