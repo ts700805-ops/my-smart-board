@@ -956,14 +956,20 @@ if menu == "🎀 助理績效考核區":
     st.markdown("---")
     
     # --- 新增考核表單區 ---
+ # --- 新增考核表單區 (已修改為同一列排版) ---
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
         sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list)
-        txt_item = st.text_area("📊 考核項目", placeholder="請填寫本次考核的主題或項目名稱...")
         
-        # 【第14項修改】：將原本的詳細內容拆分為獨立兩格「考核指標」與「考核紀錄」
-        txt_target = st.text_area("🎯 考核指標", placeholder="請填寫此項目的達成指標或要求準則...")
-        txt_content = st.text_area("✨ 考核紀錄", placeholder="請詳細填寫助理實際的執行進度、表現狀況與評語...")
+        # 使用 columns 建立三欄位
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            txt_item = st.text_area("📊 考核項目", placeholder="請填寫主題或項目名稱...")
+        with col2:
+            txt_target = st.text_area("🎯 考核指標", placeholder="請填寫達成指標或要求準則...")
+        with col3:
+            txt_content = st.text_area("✨ 考核紀錄", placeholder="請詳細填寫實際執行進度與評語...")
         
         if st.form_submit_button("💝 💝 立即存檔紀錄 💝 💝"):
             if txt_item.strip() and txt_target.strip() and txt_content.strip():
