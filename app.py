@@ -827,41 +827,35 @@ if menu == "🔴 專案管理首頁":
 
 
 # =========================================================
-# 🎀 助理績效考核區 (已修復連結：同步讀取系統總名單)
+# 🎀 助理績效考核區 (已修正 NameError：強制定義路徑)
 # =========================================================
 if menu == "🎀 助理績效考核區":
-    # 密碼保護 (維持您現有的設定)
-    if 'eval_auth' not in st.session_state: st.session_state.eval_auth = False
-    if not st.session_state.eval_auth:
-        pwd = st.text_input("🔑 請輸入密碼 (0000)", type="password")
-        if pwd == "0000": st.session_state.eval_auth = True; st.rerun()
-        st.stop()
-
     st.subheader("🎀 助理績效考核管理系統")
-
-    # 【關鍵修改】：統一使用系統標準的 get_conn()
-    # 這樣才能確保讀取到的是 GitHub bulletin.db 中真正的總名單
-    conn = get_conn()
     
-    # 讀取人員名單 (直接從系統共同的名單表讀取)
-    # 注意：請確保您的後台是用此名稱儲存名單的，如果後台是用其他表，請替換名稱
+    # 【關鍵修正】：直接在區塊內明確定義路徑，確保不再出現 NameError
+    db_file = 'bulletin.db'
+    
+    # 1. 直接連線資料庫
+    conn = sqlite3.connect(db_file)
+    
+    # 2. 讀取名單 (從 GitHub 存放的 bulletin.db 讀取)
     try:
+        # 請確認您的資料表名稱是否為 assistant_list_exclusive
         staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
         staff_list = staff_df['name'].tolist()
     except:
         staff_list = []
-        st.warning("⚠️ 尚未偵測到人員名單，請確認後台是否已正確建立名單表。")
-
+    
     # 讀取考核紀錄
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
     conn.close()
 
-    # 下拉選單連結
+    # 3. 新增考核表單
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
         sel_assistant = st.selectbox(
             "🎀 選擇助理姓名", 
-            staff_list if staff_list else ["⚠️ 請先至管理後台新增人員"]
+            staff_list if staff_list else ["⚠️ 尚無人員名單"]
         )
         
         txt_item = st.text_area("📊 考核項目")
@@ -869,25 +863,34 @@ if menu == "🎀 助理績效考核區":
         txt_content = st.text_area("✨ 考核紀錄")
         
         if st.form_submit_button("💝 立即存檔紀錄"):
-            if staff_list:
-                conn = get_conn()
+            if sel_assistant != "⚠️ 尚無人員名單":
+                # 重新連線寫入
+                conn = sqlite3.connect(db_file)
                 conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
                              (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
                 conn.commit()
                 conn.close()
                 st.success("存檔成功！"); st.rerun()
             else:
-                st.error("名單為空，無法存檔")
+                st.error("名單未建立，請至後台確認")
 
-    # 4. 考核列表 (顯示區)
+    # 4. 考核列表顯示
     st.markdown("---")
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_file)
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
     conn.close()
     
     for _, row in eval_df.iterrows():
-        st.markdown(f"**日期：{row['eval_date']} | 助理：{row['assistant_name']}**")
-        st.write(f"項目：{row['eval_item']}")
-        st.write(f"指標：{row['eval_target']}")
-        st.write(f"紀錄：{row['eval_content']}")
-        st.markdown("---")
+        c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 0.5])
+        c1.write(row['eval_date'])
+        c2.write(row['assistant_name'])
+        c3.write(row['eval_item'])
+        c4.write(row['eval_target'])
+        c5.write(row['eval_content'])
+        
+        if c6.button("🗑️", key=f"del_{row['id']}"):
+            conn = sqlite3.connect(db_file)
+            conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
+            conn.commit()
+            conn.close()
+            st.rerun()
