@@ -825,166 +825,83 @@ if menu == "🔴 專案管理首頁":
                 st.markdown(f"📝 **完整執行內容：**\n{task_desc}")
 
 
-# --- 🎀 助理績效考核區 (獨立活頁，全新可愛少女風格，移除密碼，修正排版順序) ---
+# --- 🎀 助理績效考核區 (優化版：大字體、自由輸入、日期整合) ---
 if menu == "🎀 助理績效考核區":
-    # 🦄 注入專屬助理的粉嫩可愛少女風格 CSS
-    st.markdown("""
+    # 🦄 注入自定義風格與字體調整 CSS
+    # 透過變數 fontSize 控制整體字體，預設 18px
+    if 'eval_font_size' not in st.session_state: st.session_state.eval_font_size = 18
+    
+    st.markdown(f"""
         <style>
-        .stApp {
-            background-color: #FFF0F5 !important;  /* 浪漫粉紅薰衣草底色 */
-        }
-        h2, h3, h4 {
-            color: #FF69B4 !important;  /* 蜜糖草莓色系標題 */
-            font-family: "Microsoft JhengHei", sans-serif;
-        }
-        .assistant-card {
-            background-color: #FFFFFF;
-            border: 2px solid #FFB6C1;
-            border-radius: 15px;
-            padding: 18px;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 12px rgba(255,182,193,0.3);
-        }
-        .assistant-title {
-            color: #E67E22;
-            font-size: 19px;
-            font-weight: bold;
-            border-bottom: 1px dashed #FFB6C1;
-            padding-bottom: 6px;
-            margin-bottom: 10px;
-        }
-        .assistant-text {
-            font-size: 16px;
-            color: #2C3E50;
-            line-height: 1.7;
-            background-color: #FFF5F7;
-            padding: 10px 15px;
-            border-radius: 8px;
-            margin-bottom: 12px;
-            white-space: pre-wrap; /* 完美支援跨行換行呈现，文字絕不相黏 */
-        }
+        .stApp {{ background-color: #FFF0F5 !important; }}
+        .big-font {{ font-size: {st.session_state.eval_font_size}px !important; }}
+        h2, h3 {{ color: #FF69B4 !important; }}
+        .assistant-card {{ background-color: #FFFFFF; border: 2px solid #FFB6C1; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
+        .assistant-title {{ color: #E67E22; font-size: {st.session_state.eval_font_size + 4}px; font-weight: bold; }}
         </style>
     """, unsafe_allow_html=True)
-    
+
+    # 調整字體大小工具
+    with st.expander("⚙️ 顯示設定 (調整字體大小)"):
+        st.session_state.eval_font_size = st.slider("調整頁面文字大小", 14, 30, st.session_state.eval_font_size)
+
     st.subheader("🎀 助理績效考核管理系統")
-    
-    # --- 頂部獨立日期編輯區 ---
-    st.markdown("### 📅 考核日期設定")
-    eval_date = st.date_input("請選擇考核日期", value=datetime.today().date(), key="main_eval_date", label_visibility="collapsed")
+
+    # --- 新增考核表單區 ---
+    st.markdown("### ✍️ 新增/編輯考核紀錄")
+    with st.form("assistant_add_form", clear_on_submit=True):
+        # 將日期設定移入表單
+        c_head1, c_head2 = st.columns([1, 1])
+        with c_head1:
+            sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list)
+        with c_head2:
+            new_eval_date = st.date_input("📅 考核日期", datetime.today().date())
+
+        # 強制同一列排版
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            txt_item = st.text_area("📊 考核項目 (可空白)")
+        with col2:
+            txt_target = st.text_area("🎯 考核指標 (可空白)")
+        with col3:
+            txt_content = st.text_area("✨ 考核紀錄 (可空白)")
+        
+        if st.form_submit_button("💝 立即存檔紀錄"):
+            conn = get_conn()
+            conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
+                         (str(new_eval_date), sel_assistant, txt_item, txt_target, txt_content))
+            conn.commit()
+            conn.close()
+            sync_to_github("Add Assistant Eval - 20260705")
+            st.success("💖 資料已登錄！")
+            time.sleep(1)
+            st.rerun()
+
     st.markdown("---")
-    
-    # --- 【第11項修改】：將考核紀錄顯示區調移至畫面最上方呈現 ---
     st.markdown("### 📜 歷史考核紀錄查詢")
     
     conn = get_conn()
-    # 依助理姓名進行排序，將同一助理的所有項目聚集在一起，再依日期排序
-    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY assistant_name ASC, eval_date DESC", conn)
-    staff_df = pd.read_sql("SELECT name FROM staff", conn)
+    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
     conn.close()
-    
-    staff_list = staff_df['name'].tolist()
-    if not staff_list:
-        staff_list = ["請先新增人員"]
-        
+
     if eval_df.empty:
-        st.caption("🧁 目前暫無任何考核存檔紀錄。")
+        st.caption("🧁 目前無考核紀錄。")
     else:
         for _, row in eval_df.iterrows():
+            # 使用 container 呈現，字體大小隨狀態變動
             with st.container():
-                st.markdown(f"""
-                <div class="assistant-card">
-                    <div class="assistant-title">🌸 助理姓名：{row['assistant_name']} ｜ 📅 考核日期：{row['eval_date']}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"<div class='assistant-card'><div class='assistant-title'>🌸 {row['assistant_name']} | 📅 {row['eval_date']}</div>", unsafe_allow_html=True)
                 
-                # 左右排版：左側內容，右側操控按鈕
-                c_left, c_right = st.columns([7.5, 2.5])
-                with c_left:
-                    st.markdown("**📊 考核項目：**")
-                    st.markdown(f"<div class='assistant-text'>{row['eval_item']}</div>", unsafe_allow_html=True)
-                    
-                    st.markdown("**🎯 考核指標：**")
-                    st.markdown(f"<div class='assistant-text'>{row['eval_target'] if row['eval_target'] else ''}</div>", unsafe_allow_html=True)
-                    
-                    st.markdown("**📝 考核紀錄：**")
-                    st.markdown(f"<div class='assistant-text'>{row['eval_content'] if row['eval_content'] else ''}</div>", unsafe_allow_html=True)
+                # 顯示區強制同一列
+                d1, d2, d3 = st.columns(3)
+                with d1: st.markdown(f"<p class='big-font'><b>項目:</b> {row['eval_item']}</p>", unsafe_allow_html=True)
+                with d2: st.markdown(f"<p class='big-font'><b>指標:</b> {row['eval_target']}</p>", unsafe_allow_html=True)
+                with d3: st.markdown(f"<p class='big-font'><b>紀錄:</b> {row['eval_content']}</p>", unsafe_allow_html=True)
                 
-                with c_right:
-                    st.markdown("<div style='text-align: right; margin-top: 10px;'>", unsafe_allow_html=True)
-                    btn_edit = st.checkbox("📝 編輯此筆", key=f"chk_ae_{row['id']}")
-                    if st.button("🗑 `刪除紀錄`", key=f"btn_ad_{row['id']}"):
-                        conn = get_conn()
-                        conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
-                        conn.commit()
-                        conn.close()
-                        sync_to_github("Delete Assistant Eval - 20260705013")
-                        st.success("🌸 考核紀錄已安全移除！")
-                        time.sleep(1)
-                        st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-                
-                # 【第7項】編輯功能直接呈現在同分頁顯示區的下方
-                if btn_edit:
-                    st.markdown("<div style='background-color:#FFF; padding:15px; border-radius:10px; border:1px solid #FFB6C1;'>", unsafe_allow_html=True)
-                    st.markdown("#### 🛠️ 編輯考核明細")
-                    try:
-                        curr_d_val = datetime.strptime(row['eval_date'], '%Y-%m-%d').date()
-                    except:
-                        curr_d_val = datetime.today().date()
-                        
-                    up_date = st.date_input("修正考核日期", value=curr_d_val, key=f"u_ad_date_{row['id']}")
-                    up_assistant = st.selectbox("修正助理姓名", staff_list, index=staff_list.index(row['assistant_name']) if row['assistant_name'] in staff_list else 0, key=f"u_an_{row['id']}")
-                    up_item = st.text_area("修正考核項目", value=row['eval_item'], key=f"u_ai_{row['id']}")
-                    up_target = st.text_area("修正考核指標", value=row['eval_target'], key=f"u_at_{row['id']}")
-                    up_content = st.text_area("修正考核紀錄", value=row['eval_content'], key=f"u_ac_{row['id']}")
-                    
-                    if st.button("💾 儲存修改內容", key=f"u_asave_{row['id']}"):
-                        conn = get_conn()
-                        conn.execute("UPDATE assistant_evaluations SET eval_date=?, assistant_name=?, eval_item=?, eval_target=?, eval_content=? WHERE id=?",
-                                     (str(up_date), up_assistant, up_item, up_target, up_content, row['id']))
-                        conn.commit()
-                        conn.close()
-                        sync_to_github("Edit Assistant Eval - 20260705013")
-                        st.success("✨ 修改內容已成功保存！")
-                        time.sleep(1)
-                        st.rerun()
-                    st.markdown("</div>", unsafe_allow_html=True)
-                    
-                st.markdown("<hr style='border-color: rgba(255,182,193,0.3);'>", unsafe_allow_html=True)
-
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("---")
-    
-# --- 新增考核表單區 (修正排版：強制並列) ---
-    st.markdown("### ✍️ 新增助理考核紀錄")
-    
-    # 將選擇姓名移出 form 之外，確保 form 寬度計算正確
-    sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list)
-    
-    with st.form("assistant_add_form", clear_on_submit=True):
-        # 強制分配比例 1:1:1，確保三個 text_area 寬度均等且強制在同一列
-        col1, col2, col3 = st.columns([1, 1, 1])
-        
-        with col1:
-            txt_item = st.text_area("📊 考核項目", placeholder="請填寫主題...")
-        with col2:
-            txt_target = st.text_area("🎯 考核指標", placeholder="請填寫指標...")
-        with col3:
-            txt_content = st.text_area("✨ 考核紀錄", placeholder="請填寫紀錄...")
-        
-        # 將按鈕放在下方
-        submitted = st.form_submit_button("💝 💝 立即存檔紀錄 💝 💝")
-        
-        if submitted:
-            if txt_item.strip() and txt_target.strip() and txt_content.strip():
-                conn = get_conn()
-                conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
-                             (str(eval_date), sel_assistant, txt_item, txt_target, txt_content))
-                conn.commit()
-                conn.close()
-                sync_to_github("Add Assistant Eval - 20260705021")
-                st.success(f"💖 {sel_assistant} 的考評資料已成功登錄！")
-                time.sleep(1)
-                st.rerun()
-            else:
-                st.error("❌ 所有輸入格欄位皆為必填項目！")
+                if st.button("🗑 刪除此筆", key=f"del_{row['id']}"):
+                    conn = get_conn()
+                    conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
+                    conn.commit()
+                    conn.close()
+                    st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
