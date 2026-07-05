@@ -920,14 +920,24 @@ if menu == "🎀 助理績效考核區":
             conn.close()
             st.rerun()
 
-    # 3. 獨立助理名單維護 (本頁專用)
+# 3. 獨立助理名單維護 (本頁專用 - 已加入防呆與錯誤捕捉)
     st.markdown("---")
     st.markdown("### ⚙️ 助理名單維護 (本頁專用)")
-    new_staff = st.text_input("輸入新助理姓名")
+    new_staff = st.text_input("輸入新助理姓名", key="new_staff_input")
+    
     if st.button("➕ 加入名單"):
-        conn = get_conn()
-        conn.execute("INSERT INTO staff (name) VALUES (?)", (new_staff,))
-        conn.commit()
-        conn.close()
-        st.success(f"已新增：{new_staff}")
-        st.rerun()
+        if new_staff.strip() == "":
+            st.warning("請輸入有效的姓名！")
+        else:
+            conn = get_conn()
+            try:
+                # 嘗試新增，若姓名重複會觸發 IntegrityError
+                conn.execute("INSERT INTO staff (name) VALUES (?)", (new_staff.strip(),))
+                conn.commit()
+                st.success(f"成功新增助理：{new_staff}")
+                st.rerun()
+            except Exception as e:
+                # 若已存在則顯示提示，不讓程式崩潰
+                st.error("該姓名已在名單中，無需重複新增！")
+            finally:
+                conn.close()
