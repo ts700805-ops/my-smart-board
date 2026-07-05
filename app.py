@@ -823,7 +823,6 @@ if menu == "🔴 專案管理首頁":
                 st.markdown(f"✅ **製令：** {row['order_no']} ｜ **指派：** {row['author_name']} ｜ **執行：** {row['worker_name']}")
                 st.markdown(f"📅 **指派日期：** {row['assign_date']} ｜ **預計完工：** {row['expected_date']} ｜ 🏁 **實際完工時間：** `{row['finish_date']}`")
                 st.markdown(f"📝 **完整執行內容：**\n{task_desc}")
-
 if menu == "🎀 助理績效考核區":
     # 密碼保護
     if 'eval_auth' not in st.session_state: st.session_state.eval_auth = False
@@ -832,8 +831,10 @@ if menu == "🎀 助理績效考核區":
         if pwd == "0000": st.session_state.eval_auth = True; st.rerun()
         st.stop()
 
-    # --- 這裡已經徹底移除流水碼 ---
+    # 使用這個完全乾淨的寫法，確保不包含任何括號與流水號
     st.subheader("🎀 助理績效考核管理系統")
+    
+    # 以下保持您的其他邏輯不變...
     
     # 字體大小設定
     font_size = st.slider("調整顯示文字大小", 16, 28, 20)
