@@ -847,11 +847,11 @@ if menu == "🎀 助理績效考核區":
     st.subheader("🎀 助理績效考核管理系統")
 
     # --- 字體大小微調功能 ---
-    font_ratio = st.slider("調整字體大小 (%)", 50, 200, 120)
+    font_ratio = st.slider("調整字體大小 (%)", 50, 200, 100)
     base_size = 25
     current_size = int(base_size * (font_ratio / 100))
     
-    # 定義樣式：.custom-text 為一般內容，.custom-header 為加大加粗標題
+    # 定義樣式：.custom-text 為一般內容，.custom-header 為加大兩倍加粗標題
     st.markdown(f"""
         <style>
         .custom-text {{ font-size: {current_size}px !important; }}
@@ -877,7 +877,6 @@ if menu == "🎀 助理績效考核區":
         )
     """)
 
-    # 直接讀取【管理後台】的人員名單
     staff_df = pd.read_sql("SELECT name FROM staff ORDER BY name", db_conn)
     staff_list = staff_df["name"].tolist()
 
@@ -939,6 +938,7 @@ if menu == "🎀 助理績效考核區":
             c4.markdown(f"<div class='custom-text'>{row['eval_target']}</div>", unsafe_allow_html=True)
             c5.markdown(f"<div class='custom-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
 
+            # 刪除功能
             if c6.button("🗑️ 刪除", key=f"del_eval_{row['id']}"):
                 db_conn = sqlite3.connect("bulletin.db")
                 db_conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row["id"],))
