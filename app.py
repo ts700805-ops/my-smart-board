@@ -847,7 +847,6 @@ if menu == "🎀 助理績效考核區":
     st.subheader("🎀 助理績效考核管理系統")
 
     # --- 字體大小微調功能 ---
-    # 調整範圍 50%~200%，基礎預設為 25px
     font_ratio = st.slider("調整字體大小 (%)", 50, 200, 120)
     base_size = 25
     current_size = int(base_size * (font_ratio / 100))
