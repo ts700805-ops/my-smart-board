@@ -957,30 +957,34 @@ if menu == "🎀 助理績效考核區":
     
 # --- 新增考核表單區 (修正排版：強制並列) ---
     st.markdown("### ✍️ 新增助理考核紀錄")
+    
+    # 將選擇姓名移出 form 之外，確保 form 寬度計算正確
+    sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list)
+    
     with st.form("assistant_add_form", clear_on_submit=True):
-        #
-        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list)
-        
-        # 使用 columns 建立三欄位
-        col1, col2, col3 = st.columns(3)
+        # 強制分配比例 1:1:1，確保三個 text_area 寬度均等且強制在同一列
+        col1, col2, col3 = st.columns([1, 1, 1])
         
         with col1:
-            txt_item = st.text_area("📊 考核項目", placeholder="請填寫主題或項目名稱...")
+            txt_item = st.text_area("📊 考核項目", placeholder="請填寫主題...")
         with col2:
-            txt_target = st.text_area("🎯 考核指標", placeholder="請填寫達成指標或要求準則...")
+            txt_target = st.text_area("🎯 考核指標", placeholder="請填寫指標...")
         with col3:
-            txt_content = st.text_area("✨ 考核紀錄", placeholder="請詳細填寫實際執行進度與評語...")
+            txt_content = st.text_area("✨ 考核紀錄", placeholder="請填寫紀錄...")
         
-        if st.form_submit_button("💝 💝 立即存檔紀錄 💝 💝"):
+        # 將按鈕放在下方
+        submitted = st.form_submit_button("💝 💝 立即存檔紀錄 💝 💝")
+        
+        if submitted:
             if txt_item.strip() and txt_target.strip() and txt_content.strip():
                 conn = get_conn()
                 conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
                              (str(eval_date), sel_assistant, txt_item, txt_target, txt_content))
                 conn.commit()
                 conn.close()
-                sync_to_github("Add Assistant Eval - 20260705013")
+                sync_to_github("Add Assistant Eval - 20260705021")
                 st.success(f"💖 {sel_assistant} 的考評資料已成功登錄！")
                 time.sleep(1)
                 st.rerun()
             else:
-                st.error("❌ 所有輸入格欄位皆為必填項目，請檢查是否有未填寫的格子。")
+                st.error("❌ 所有輸入格欄位皆為必填項目！")
