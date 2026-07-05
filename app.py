@@ -71,7 +71,7 @@ st.markdown("""
 # =========================================================
 with st.sidebar:
     # 📌 流水碼更新為 20260705025
-    st.markdown("<h4 style='color: #F1C40F; margin-bottom: 5px;'>系統版本：20260705013</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #F1C40F; margin-bottom: 5px;'>系統版本：20260705025</h4>", unsafe_allow_html=True)
     
     # 渲染照片區
     try:
