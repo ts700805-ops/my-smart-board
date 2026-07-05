@@ -826,8 +826,11 @@ if menu == "🔴 專案管理首頁":
 
 
 
+# =========================================================
+# 🎀 助理績效考核區 (重寫版：採用與公佈欄相同的穩定架構)
+# =========================================================
 if menu == "🎀 助理績效考核區":
-    # 密碼保護
+    # 密碼保護 (保持原有邏輯)
     if 'eval_auth' not in st.session_state: st.session_state.eval_auth = False
     if not st.session_state.eval_auth:
         pwd = st.text_input("🔑 請輸入密碼 (0000)", type="password")
@@ -835,49 +838,57 @@ if menu == "🎀 助理績效考核區":
         st.stop()
 
     st.subheader("🎀 助理績效考核管理系統")
-    font_size = st.slider("調整顯示文字大小", 16, 28, 20)
-    st.markdown(f"<style>.custom-text {{ font-size: {font_size}px !important; font-weight: bold !important; }}</style>", unsafe_allow_html=True)
-
-    # 確保資料表結構一致
+    
+    # 資料庫連線初始化與表結構檢查 (確保資料不遺失的核心)
     conn = get_conn()
     conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
     conn.execute("CREATE TABLE IF NOT EXISTS assistant_evaluations (id INTEGER PRIMARY KEY, eval_date TEXT, assistant_name TEXT, eval_item TEXT, eval_target TEXT, eval_content TEXT, is_deleted INTEGER DEFAULT 0)")
-    conn.close()
-
-    # 讀取當前資料
-    conn = get_conn()
+    
+    # 讀取資料
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
     staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
-    conn.close()
     staff_list = staff_df['name'].tolist()
+    conn.close()
 
-    # 1. 績效考核紀錄總覽 (包含編輯/刪除)
-    st.markdown("### 📜 績效考核紀錄總覽")
+    # --- 1. 績效考核紀錄顯示區 ---
+    st.markdown("### 📜 績效考核紀錄")
     for _, row in eval_df.iterrows():
         st.markdown("---")
+        # 採用與公佈欄一致的 columns 排版，確保顯示穩定
         c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 0.8])
-        c1.markdown(f"<div class='custom-text'>{row['eval_date']}</div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='custom-text'>{row['assistant_name']}</div>", unsafe_allow_html=True)
-        # ... (後續顯示與編輯按鈕邏輯參照您原本的邏輯) ...
-
-    # 2. 新增考核紀錄
-    st.markdown("---")
-    st.markdown("### ✍️ 新增績效考核紀錄")
-    with st.form("add_form", clear_on_submit=True):
-        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["請先至下方新增名單"])
-        c1, c2, c3 = st.columns(3)
-        txt_item = c1.text_area("📊 考核項目")
-        txt_target = c2.text_area("🎯 考核指標")
-        txt_content = c3.text_area("✨ 考核紀錄")
-        if st.form_submit_button("💝 立即存檔紀錄"):
+        c1.markdown(f"**{row['eval_date']}**")
+        c2.markdown(f"**{row['assistant_name']}**")
+        c3.markdown(row['eval_item'])
+        c4.markdown(row['eval_target'])
+        c5.markdown(row['eval_content'])
+        
+        # 刪除按鈕
+        if c6.button("🗑️", key=f"del_{row['id']}"):
             conn = get_conn()
-            conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
-                         (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
+            conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
             conn.commit()
             conn.close()
             st.rerun()
 
-    # 3. 助理名單維護
+    # --- 2. 新增考核表單區 ---
+    st.markdown("---")
+    st.markdown("### ✍️ 新增助理考核紀錄")
+    with st.form("assistant_add_form", clear_on_submit=True):
+        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["請先至下方新增名單"])
+        txt_item = st.text_area("📊 考核項目")
+        txt_target = st.text_area("🎯 考核指標")
+        txt_content = st.text_area("✨ 考核紀錄")
+        
+        if st.form_submit_button("💝 立即存檔紀錄"):
+            if txt_item.strip() and txt_target.strip():
+                conn = get_conn()
+                conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
+                             (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
+                conn.commit()
+                conn.close()
+                st.rerun()
+
+    # --- 3. 助理名單管理區 ---
     st.markdown("---")
     st.markdown("### ⚙️ 助理名單維護")
     new_staff = st.text_input("輸入新助理姓名")
@@ -887,6 +898,7 @@ if menu == "🎀 助理績效考核區":
             try:
                 conn.execute("INSERT INTO assistant_list_exclusive (name) VALUES (?)", (new_staff.strip(),))
                 conn.commit()
-            except: st.error("該人員已存在")
+            except:
+                st.error("此人員已存在")
             conn.close()
             st.rerun()
