@@ -827,98 +827,169 @@ if menu == "🔴 專案管理首頁":
 
 
 # =========================================================
-# 🎀 助理績效考核區 (比照專案管理模組，直連 GitHub 資料庫)
+# 🎀 助理績效考核區 (共用 ⚙️管理後台 → 👥人員名單管理)
 # =========================================================
 if menu == "🎀 助理績效考核區":
+
+    # -------------------------------
     # 密碼保護
-    if 'eval_auth' not in st.session_state: st.session_state.eval_auth = False
+    # -------------------------------
+    if 'eval_auth' not in st.session_state:
+        st.session_state.eval_auth = False
+
     if not st.session_state.eval_auth:
         pwd = st.text_input("🔑 請輸入密碼 (0000)", type="password")
-        if pwd == "0000": st.session_state.eval_auth = True; st.rerun()
+        if pwd == "0000":
+            st.session_state.eval_auth = True
+            st.rerun()
         st.stop()
 
     st.subheader("🎀 助理績效考核管理系統")
 
-    # 1. 直接讀取 GitHub 的 bulletin.db (與專案管理模組完全一致)
-    db_conn = sqlite3.connect('bulletin.db')
-    
-    # 確保名單表存在 (防止初次執行報錯)
-    db_conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
-    
-    # 讀取名單
-    staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", db_conn)
-    staff_list = staff_df['name'].tolist()
-    
-    # 讀取考核紀錄
-    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", db_conn)
+    # --- 新增字體大小微調功能 ---
+    font_ratio = st.slider("調整字體大小 (%)", 50, 200, 100)
+    font_size = int(25 * (font_ratio / 100))
+    st.markdown(f"""
+        <style>
+        .custom-text {{ font-size: {font_size}px !important; }}
+        </style>
+    """, unsafe_allow_html=True)
+
+    # =====================================================
+    # 讀取 bulletin.db
+    # =====================================================
+    db_conn = sqlite3.connect("bulletin.db")
+
+    # 考核資料表
+    db_conn.execute("""
+        CREATE TABLE IF NOT EXISTS assistant_evaluations(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            eval_date TEXT,
+            assistant_name TEXT,
+            eval_item TEXT,
+            eval_target TEXT,
+            eval_content TEXT,
+            is_deleted INTEGER DEFAULT 0
+        )
+    """)
+
+    # ★★★★★
+    # 直接讀取【管理後台】的人員名單
+    # staff 資料表
+    # ★★★★★
+    staff_df = pd.read_sql(
+        "SELECT name FROM staff ORDER BY name",
+        db_conn
+    )
+
+    staff_list = staff_df["name"].tolist()
+
+    eval_df = pd.read_sql("""
+        SELECT *
+        FROM assistant_evaluations
+        WHERE is_deleted = 0
+        ORDER BY eval_date DESC,id DESC
+    """, db_conn)
+
     db_conn.close()
 
-    # 2. 新增考核紀錄
+    # =====================================================
+    # 新增考核
+    # =====================================================
     st.markdown("### ✍️ 新增績效考核紀錄")
-    with st.form("add_eval_form", clear_on_submit=True): # 修改 key 避免重複
-        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["⚠️ 後台無人員資料"])
+
+    with st.form("add_eval_form", clear_on_submit=True):
+
+        sel_assistant = st.selectbox(
+            "🎀 選擇助理姓名",
+            staff_list if staff_list else ["⚠️ 請先到【⚙️管理後台 → 👥人員名單管理】新增人員"]
+        )
+
         c1, c2, c3 = st.columns(3)
+
         txt_item = c1.text_area("📊 考核項目")
         txt_target = c2.text_area("🎯 考核指標")
         txt_content = c3.text_area("✨ 考核紀錄")
-        
+
         if st.form_submit_button("💝 立即存檔紀錄"):
-            if staff_list:
-                db_conn = sqlite3.connect('bulletin.db')
-                db_conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
-                                (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
+
+            if not staff_list:
+                st.error("請先至【⚙️管理後台 → 👥人員名單管理】新增人員")
+            else:
+
+                db_conn = sqlite3.connect("bulletin.db")
+
+                db_conn.execute("""
+                    INSERT INTO assistant_evaluations
+                    (
+                        eval_date,
+                        assistant_name,
+                        eval_item,
+                        eval_target,
+                        eval_content
+                    )
+                    VALUES
+                    (?, ?, ?, ?, ?)
+                """,
+                (
+                    datetime.today().strftime("%Y-%m-%d"),
+                    sel_assistant,
+                    txt_item,
+                    txt_target,
+                    txt_content
+                ))
+
                 db_conn.commit()
                 db_conn.close()
-                sync_to_github("Add Evaluation") # 強制同步到 GitHub
-                st.success("存檔成功！"); st.rerun()
-            else:
-                st.error("名單為空，請先新增人員")
 
-    # 3. 紀錄顯示與刪除
+                sync_to_github("Add Evaluation")
+
+                st.success("✅ 存檔成功")
+                st.rerun()
+
+    # =====================================================
+    # 紀錄總覽
+    # =====================================================
     st.markdown("### 📜 績效考核紀錄總覽")
-    for _, row in eval_df.iterrows():
-        st.markdown("---")
-        c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 0.8])
-        c1.write(row['eval_date'])
-        c2.write(row['assistant_name'])
-        c3.write(row['eval_item'])
-        c4.write(row['eval_target'])
-        c5.write(row['eval_content'])
-        
-        if c6.button("🗑️ 刪除", key=f"del_eval_{row['id']}"):
-            db_conn = sqlite3.connect('bulletin.db')
-            db_conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
-            db_conn.commit()
-            db_conn.close()
-            sync_to_github("Delete Evaluation")
-            st.rerun()
 
-    # 4. 助理名單維護 (直接讀寫 bulletin.db)
-    st.markdown("---")
-    st.markdown("### ⚙️ 助理名單維護")
-    new_staff = st.text_input("輸入新助理姓名")
-    if st.button("➕ 加入名單"):
-        if new_staff.strip():
-            db_conn = sqlite3.connect('bulletin.db')
-            try:
-                db_conn.execute("INSERT INTO assistant_list_exclusive (name) VALUES (?)", (new_staff.strip(),))
+    if eval_df.empty:
+        st.info("目前尚無任何考核紀錄")
+
+    else:
+
+        for _, row in eval_df.iterrows():
+
+            st.markdown("---")
+
+            c1, c2, c3, c4, c5, c6 = st.columns(
+                [1,1,1.5,1.5,1.8,0.8]
+            )
+
+            # 套用字體樣式
+            c1.markdown(f"<div class='custom-text'>{row['eval_date']}</div>", unsafe_allow_html=True)
+            c2.markdown(f"<div class='custom-text'>{row['assistant_name']}</div>", unsafe_allow_html=True)
+            c3.markdown(f"<div class='custom-text'>{row['eval_item']}</div>", unsafe_allow_html=True)
+            c4.markdown(f"<div class='custom-text'>{row['eval_target']}</div>", unsafe_allow_html=True)
+            c5.markdown(f"<div class='custom-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
+
+            if c6.button(
+                "🗑️ 刪除",
+                key=f"del_eval_{row['id']}"
+            ):
+
+                db_conn = sqlite3.connect("bulletin.db")
+
+                db_conn.execute("""
+                    UPDATE assistant_evaluations
+                    SET is_deleted = 1
+                    WHERE id = ?
+                """,
+                (row["id"],))
+
                 db_conn.commit()
-                sync_to_github("Add Staff")
-            except: st.error("該名稱已存在")
-            db_conn.close()
-            st.rerun()
-    
-    db_conn = sqlite3.connect('bulletin.db')
-    current_staff = pd.read_sql("SELECT * FROM assistant_list_exclusive", db_conn)
-    db_conn.close()
-    
-    for _, staff in current_staff.iterrows():
-        c1, c2 = st.columns([4, 1])
-        c1.write(f"👤 {staff['name']}")
-        if c2.button("🗑️ 刪除", key=f"del_staff_{staff['id']}"):
-            db_conn = sqlite3.connect('bulletin.db')
-            db_conn.execute("DELETE FROM assistant_list_exclusive WHERE id = ?", (staff['id'],))
-            db_conn.commit()
-            db_conn.close()
-            sync_to_github("Delete Staff")
-            st.rerun()
+                db_conn.close()
+
+                sync_to_github("Delete Evaluation")
+
+                st.success("已刪除")
+                st.rerun()
