@@ -826,48 +826,45 @@ if menu == "🔴 專案管理首頁":
 
 
 
+# =========================================================
+# 🎀 助理績效考核區 (比照系統公告模組的標準連結寫法)
+# =========================================================
 if menu == "🎀 助理績效考核區":
     st.subheader("🎀 助理績效考核管理系統")
     
-    # 1. 統一改用您後台「公佈欄」使用的 get_conn() 函數
-    # 這能確保讀取的絕對是後台同一個 bulletin.db
-    conn = get_conn()
+    # 1. 統一使用系統標準連線 (確保連接至同一個 bulletin.db)
+    db_path = 'bulletin.db'
     
-    # 2. 直接讀取後台名單表
-    try:
-        staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
-        staff_list = staff_df['name'].tolist()
-    except Exception as e:
-        staff_list = []
-        st.error(f"⚠️ 無法讀取名單，請確認後台名單表是否存在：{e}")
-
-    # 讀取考核紀錄
+    # 2. 同步讀取後台名單 (與撰寫公告的下拉選單邏輯完全一致)
+    conn = sqlite3.connect(db_path)
+    # 從您後台共同的名單表抓取
+    staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
+    staff_list = staff_df['name'].tolist()
+    # 讀取考核數據
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
     conn.close()
 
-    # 3. 顯示下拉選單 (直接連結後台名單)
+    # 3. 考核錄入表單
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
-        sel_assistant = st.selectbox(
-            "🎀 選擇助理姓名", 
-            staff_list if staff_list else ["⚠️ 後台尚未建立人員名單"]
-        )
+        # 這裡直接引用已存在的 staff_list，若有在後台新增，這裡自動連結
+        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["⚠️ 系統無名單"])
         txt_item = st.text_area("📊 考核項目")
         txt_target = st.text_area("🎯 考核指標")
         txt_content = st.text_area("✨ 考核紀錄")
         
         if st.form_submit_button("💝 立即存檔紀錄"):
-            if staff_list:
-                conn = get_conn()
+            if staff_list and sel_assistant != "⚠️ 系統無名單":
+                conn = sqlite3.connect(db_path)
                 conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
                              (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
                 conn.commit()
                 conn.close()
-                st.success("紀錄已成功存檔！"); st.rerun()
+                st.success("紀錄已成功存檔"); st.rerun()
             else:
-                st.error("後台名單為空，無法存檔")
+                st.error("名單未連結，請至後台確認人員名單")
 
-    # 4. 顯示考核紀錄總覽
+    # 4. 考核列表顯示
     st.markdown("---")
     st.markdown("### 📜 績效考核紀錄總覽")
     for _, row in eval_df.iterrows():
@@ -878,8 +875,9 @@ if menu == "🎀 助理績效考核區":
         c4.write(row['eval_target'])
         c5.write(row['eval_content'])
         
-        if c6.button("🗑️", key=f"del_e_{row['id']}"):
-            conn = get_conn()
+        # 刪除功能
+        if c6.button("🗑️", key=f"del_{row['id']}"):
+            conn = sqlite3.connect(db_path)
             conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
             conn.commit()
             conn.close()
