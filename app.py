@@ -827,49 +827,51 @@ if menu == "🔴 專案管理首頁":
 
 
 # =========================================================
-# 🎀 助理績效考核區 (已調整為與系統一致的穩定寫法)
+# 🎀 助理績效考核區 (已修正：強制連結至 bulletin.db 並同步名單)
 # =========================================================
 if menu == "🎀 助理績效考核區":
     st.subheader("🎀 助理績效考核管理系統")
-    
-    # 統一連結至系統資料庫
+
+    # 1. 強制統一連線至 bulletin.db (與公佈欄使用同一個檔案)
     db_path = 'bulletin.db'
     
-    # 1. 確保名單資料表存在 (這段確保了您能讀取到後台新增的人員)
-    db_conn = sqlite3.connect(db_path)
-    db_conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
-    db_conn.execute("CREATE TABLE IF NOT EXISTS assistant_evaluations (id INTEGER PRIMARY KEY, eval_date TEXT, assistant_name TEXT, eval_item TEXT, eval_target TEXT, eval_content TEXT, is_deleted INTEGER DEFAULT 0)")
-    db_conn.commit()
-    db_conn.close()
+    # 2. 強制檢查並建立資料表 (確保這兩個表一定存在)
+    conn = sqlite3.connect(db_path)
+    conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
+    conn.execute("CREATE TABLE IF NOT EXISTS assistant_evaluations (id INTEGER PRIMARY KEY, eval_date TEXT, assistant_name TEXT, eval_item TEXT, eval_target TEXT, eval_content TEXT, is_deleted INTEGER DEFAULT 0)")
+    conn.commit()
+    conn.close()
 
-    # 2. 讀取名單與考核資料
-    db_conn = sqlite3.connect(db_path)
-    staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", db_conn)
-    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", db_conn)
-    db_conn.close()
+    # 3. 從統一資料庫讀取資料
+    conn = sqlite3.connect(db_path)
+    staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
+    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
+    conn.close()
     
     staff_list = staff_df['name'].tolist()
 
-    # 3. 新增考核表單
+    # 4. 新增考核表單
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
-        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["⚠️ 尚未建立名單"])
+        # 若下拉選單抓不到資料，說明後台沒新增人員
+        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["⚠️ 尚未建立名單，請至管理後台新增"])
         txt_item = st.text_area("📊 考核項目")
         txt_target = st.text_area("🎯 考核指標")
         txt_content = st.text_area("✨ 考核紀錄")
         
         if st.form_submit_button("💝 立即存檔紀錄"):
-            if sel_assistant != "⚠️ 尚未建立名單":
-                db_conn = sqlite3.connect(db_path)
-                db_conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
-                                (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
-                db_conn.commit()
-                db_conn.close()
-                st.success("紀錄已成功連結並存檔！"); st.rerun()
+            if staff_list:
+                conn = sqlite3.connect(db_path)
+                conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
+                             (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
+                conn.commit()
+                conn.close()
+                st.success("存檔成功！"); st.rerun()
             else:
-                st.error("請確認名單已建立")
+                st.error("請確認後台已新增名單")
 
-    # 4. 考核總覽 (顯示區)
+    # 5. 顯示紀錄 (保持與系統一致)
+    st.markdown("---")
     st.markdown("### 📜 績效考核紀錄總覽")
     for _, row in eval_df.iterrows():
         c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 0.5])
@@ -879,10 +881,9 @@ if menu == "🎀 助理績效考核區":
         c4.write(row['eval_target'])
         c5.write(row['eval_content'])
         
-        # 刪除功能
-        if c6.button("🗑️", key=f"del_e_{row['id']}"):
-            db_conn = sqlite3.connect(db_path)
-            db_conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
-            db_conn.commit()
-            db_conn.close()
+        if c6.button("🗑️", key=f"del_{row['id']}"):
+            conn = sqlite3.connect(db_path)
+            conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
+            conn.commit()
+            conn.close()
             st.rerun()
