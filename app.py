@@ -664,24 +664,28 @@ elif menu == "🎀 助理績效考核區":
         h2, h3 {
             color: #FF69B4 !important; /* 浪漫粉 */
         }
-        .pink-card {
-            background-color: #FFFFFF;
-            border: 2px solid #FFB6C1;
-            padding: 18px;
-            border-radius: 15px;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 10px rgba(255,182,193,0.3);
-        }
-        .pink-title {
-            color: #FF1493;
-            font-size: 18px;
+        .pink-header-row {
+            background-color: #FFC0CB;
+            padding: 10px;
+            border-radius: 8px;
             font-weight: bold;
-            margin-bottom: 8px;
+            color: #FF1493;
+            text-align: left;
+            margin-bottom: 5px;
         }
-        .pink-text {
+        .pink-data-row {
+            background-color: #FFFFFF;
+            border: 1px solid #FFB6C1;
+            padding: 12px 10px;
+            border-radius: 8px;
+            margin-bottom: 5px;
+            box-shadow: 0 2px 5px rgba(255,182,193,0.2);
+            display: flex;
+            align-items: center;
+        }
+        .pink-text-cell {
             color: #333333;
-            font-size: 15px;
-            line-height: 1.6;
+            font-size: 14px;
             white-space: pre-wrap; /* 支援完整換行 */
         }
         </style>
@@ -725,17 +729,15 @@ elif menu == "🎀 助理績效考核區":
     txt_content = st.text_area("✨ 考核紀錄 (支援換行)")
     
     if st.button("💝 立即存檔紀錄 💝"):
-        # 允許填寫內容空白，不阻擋
         conn = get_conn()
         
-        # 獲取今日日期與依今天日期建立的流水號 (+1 機制)
-        today_str = datetime.today().strftime('%Y%m%d')
+        # 獲取指定考核日期並依該日期建立的流水號 (+1 機制)
+        date_str_key = eval_date.strftime('%Y%m%d')
         c = conn.cursor()
-        c.execute("SELECT COUNT(*) FROM assistant_evaluations WHERE eval_date LIKE ?", (f"{today_str}%",))
-        today_count = c.fetchone()[0] + 1
-        serial_no = f"{today_str}{today_count:03d}"  # 產生如 20260705001 的流水號
+        c.execute("SELECT COUNT(*) FROM assistant_evaluations WHERE eval_date LIKE ?", (f"[{date_str_key}%",))
+        date_count = c.fetchone()[0] + 1
+        serial_no = f"{date_str_key}{date_count:03d}"  # 產生如 20260705001 的流水號
         
-        # 將流水號與日期結合儲存，或單獨存於 eval_date 欄位
         saved_date_str = f"[{serial_no}] {eval_date.strftime('%Y-%m-%d')}"
         
         conn.execute(
@@ -751,7 +753,7 @@ elif menu == "🎀 助理績效考核區":
 
     st.markdown("<hr style='border-color: #FFB6C1;'>", unsafe_allow_html=True)
     
-    # --- 📜 顯示區 (同名助理集中排列) ---
+    # --- 📜 顯示區 (依照圖示全新重構：一整排完全並排顯示) ---
     st.markdown("### 📋 助理紀錄看板")
     
     conn = get_conn()
@@ -762,38 +764,57 @@ elif menu == "🎀 助理績效考核區":
     if eval_df.empty:
         st.caption("目前尚無任何考核紀錄 🌸")
     else:
+        # 表頭排版一整排
+        h_col1, h_col2, h_col3, h_col4, h_col5, h_col6 = st.columns([2.2, 1.3, 2.0, 3.0, 3.0, 1.5])
+        h_col1.markdown("<div class='pink-header-row'>📅 日期/流水號</div>", unsafe_allow_html=True)
+        h_col2.markdown("<div class='pink-header-row'>👤 助理姓名</div>", unsafe_allow_html=True)
+        h_col3.markdown("<div class='pink-header-row'>📊 考核項目</div>", unsafe_allow_html=True)
+        h_col4.markdown("<div class='pink-header-row'>🎯 考核指標</div>", unsafe_allow_html=True)
+        h_col5.markdown("<div class='pink-header-row'>✨ 考核紀錄</div>", unsafe_allow_html=True)
+        h_col6.markdown("<div class='pink-header-row'>⚙️ 操作</div>", unsafe_allow_html=True)
+        
         for _, r in eval_df.iterrows():
-            # 外層大卡片佈局
-            st.markdown(f"""
-                <div class="pink-card">
-                    <div class="pink-title">📅 {r['eval_date']} ｜ 👤 助理：{r['assistant_name']}</div>
-                    <div class="pink-text"><b>📊 考核項目：</b>{r['eval_item']}</div>
-                </div>
-            """, unsafe_allow_html=True)
+            # 內容排版完全並排在一整排上
+            d_col1, d_col2, d_col3, d_col4, d_col5, d_col6 = st.columns([2.2, 1.3, 2.0, 3.0, 3.0, 1.5])
             
-            # 使用二欄位把內容與右側按鈕分開
-            col_detail, col_ops = st.columns([8.5, 1.5])
-            with col_detail:
-                st.markdown(f"""
-                    <div style="padding-left: 20px; margin-bottom: 15px;">
-                        <div class="pink-text"><b>🎯 考核指標：</b><br>{r['eval_target']}</div>
-                        <div style="margin-top: 8px;" class="pink-text"><b>✨ 考核紀錄：</b><br>{r['eval_content']}</div>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-            with col_ops:
-                # 右側提供編輯與刪除彈窗功能
-                c_edit, c_del = st.columns(2)
+            d_col1.markdown(f"<div class='pink-data-row'><span class='pink-text-cell'>{r['eval_date']}</span></div>", unsafe_allow_html=True)
+            d_col2.markdown(f"<div class='pink-data-row'><span class='pink-text-cell'>{r['assistant_name']}</span></div>", unsafe_allow_html=True)
+            d_col3.markdown(f"<div class='pink-data-row'><span class='pink-text-cell'>{r['eval_item']}</span></div>", unsafe_allow_html=True)
+            d_col4.markdown(f"<div class='pink-data-row'><span class='pink-text-cell'>{r['eval_target']}</span></div>", unsafe_allow_html=True)
+            d_col5.markdown(f"<div class='pink-data-row'><span class='pink-text-cell'>{r['eval_content']}</span></div>", unsafe_allow_html=True)
+            
+            # 操作按鈕區 (右側並排編輯、刪除)
+            with d_col6:
+                st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+                c_edit, c_del = st.columns([1, 1])
                 with c_edit:
-                    with st.popover("📝 編輯"):
+                    with st.popover("📝"):
+                        # 編輯功能加入日期
+                        try:
+                            # 嘗試從儲存格式 "[20260705001] 2026-07-05" 解析原始日期
+                            raw_date_part = r['eval_date'].split(" ")[1]
+                            curr_eval_date = datetime.strptime(raw_date_part, '%Y-%m-%d').date()
+                        except:
+                            curr_eval_date = datetime.today().date()
+                        
+                        edit_date = st.date_input("修改日期", value=curr_eval_date, key=f"ee_date_{r['id']}")
                         edit_item = st.text_input("修改項目", value=r['eval_item'], key=f"ee_item_{r['id']}")
                         edit_target = st.text_area("修改指標", value=r['eval_target'], key=f"ee_target_{r['id']}")
                         edit_content = st.text_area("修改紀錄", value=r['eval_content'], key=f"ee_content_{r['id']}")
+                        
                         if st.button("💾 儲存", key=f"save_ee_{r['id']}"):
                             conn = get_conn()
+                            # 當日期變動或儲存時重新計算流水號
+                            new_date_str_key = edit_date.strftime('%Y%m%d')
+                            c_num = conn.cursor()
+                            c_num.execute("SELECT COUNT(*) FROM assistant_evaluations WHERE eval_date LIKE ? AND id != ?", (f"[{new_date_str_key}%", r['id']))
+                            new_date_count = c_num.fetchone()[0] + 1
+                            new_serial_no = f"{new_date_str_key}{new_date_count:03d}"
+                            new_saved_date_str = f"[{new_serial_no}] {edit_date.strftime('%Y-%m-%d')}"
+                            
                             conn.execute(
-                                "UPDATE assistant_evaluations SET eval_item=?, eval_target=?, eval_content=? WHERE id=?",
-                                (edit_item, edit_target, edit_content, r['id'])
+                                "UPDATE assistant_evaluations SET eval_date=?, eval_item=?, eval_target=?, eval_content=? WHERE id=?",
+                                (new_saved_date_str, edit_item, edit_target, edit_content, r['id'])
                             )
                             conn.commit()
                             conn.close()
@@ -807,7 +828,6 @@ elif menu == "🎀 助理績效考核區":
                         conn.close()
                         sync_to_github("Delete Assistant Evaluation - 20260705013")
                         st.rerun()
-            st.markdown("<hr style='border-color: rgba(255,182,193,0.3);'>", unsafe_allow_html=True)
 
     # --- 👤 下拉式選單人員後台管理 (移至本頁最下方) ---
     st.markdown("<br><br>", unsafe_allow_html=True)
