@@ -827,52 +827,53 @@ if menu == "🔴 專案管理首頁":
 
 
 # =========================================================
-# 🎀 助理績效考核區 (強制同步版)
+# 🎀 助理績效考核區 (比照「撰寫新公告」的下拉選單寫法)
 # =========================================================
 if menu == "🎀 助理績效考核區":
     st.subheader("🎀 助理績效考核管理系統")
     
-    # 確保連線路徑與公佈欄完全一致
+    # 【核心連結】：嚴格使用與公佈欄相同的 bulletin.db
     db_path = 'bulletin.db'
-
-    # 1. 強制確保表格存在
-    conn = sqlite3.connect(db_path)
-    conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
-    conn.execute("CREATE TABLE IF NOT EXISTS assistant_evaluations (id INTEGER PRIMARY KEY, eval_date TEXT, assistant_name TEXT, eval_item TEXT, eval_target TEXT, eval_content TEXT, is_deleted INTEGER DEFAULT 0)")
-    conn.commit()
-    conn.close()
-
-    # 2. 強制讀取同一份資料庫檔案
-    conn = sqlite3.connect(db_path)
-    staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
-    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
-    conn.close()
     
+    # 1. 讀取名單 (比照公告寫法，直接從資料庫撈取)
+    conn = sqlite3.connect(db_path)
+    # 確保表格存在
+    conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
+    # 讀取人員名單
+    staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
     staff_list = staff_df['name'].tolist()
+    conn.close()
 
-    # 3. 新增考核表單
+    # 2. 下拉式選單 (與公告頁面邏輯一致)
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
-        # 這裡會直接抓取後台同步過來的人員
-        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["⚠️ 請先至管理後台新增人員"])
+        # 如果 staff_list 為空，顯示提示
+        sel_assistant = st.selectbox(
+            "🎀 選擇助理姓名", 
+            staff_list if staff_list else ["⚠️ 尚無人員名單，請先至管理後台新增"]
+        )
+        
         txt_item = st.text_area("📊 考核項目")
         txt_target = st.text_area("🎯 考核指標")
         txt_content = st.text_area("✨ 考核紀錄")
         
         if st.form_submit_button("💝 立即存檔紀錄"):
-            if staff_list:
+            if sel_assistant != "⚠️ 尚無人員名單，請先至管理後台新增":
                 conn = sqlite3.connect(db_path)
                 conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
                              (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
                 conn.commit()
                 conn.close()
-                st.success("存檔成功！"); st.rerun()
+                st.success("紀錄已成功存檔！"); st.rerun()
             else:
-                st.error("名單尚未建立")
+                st.error("名單未建立，無法存檔")
 
-    # 4. 考核總覽
+    # 3. 考核列表顯示
     st.markdown("---")
-    st.markdown("### 📜 績效考核紀錄總覽")
+    conn = sqlite3.connect(db_path)
+    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
+    conn.close()
+    
     for _, row in eval_df.iterrows():
         c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 0.5])
         c1.write(row['eval_date'])
@@ -881,8 +882,7 @@ if menu == "🎀 助理績效考核區":
         c4.write(row['eval_target'])
         c5.write(row['eval_content'])
         
-        # 刪除功能
-        if c6.button("🗑️", key=f"del_e_{row['id']}"):
+        if c6.button("🗑️", key=f"del_a_{row['id']}"):
             conn = sqlite3.connect(db_path)
             conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
             conn.commit()
