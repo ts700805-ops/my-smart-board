@@ -189,7 +189,7 @@ if st.sidebar.button("📊 助理考核紀錄系統", use_container_width=True):
     st.session_state.current_page = "📊 助理考核紀錄系統"
 
 st.sidebar.markdown("---")
-st.sidebar.caption("系統版本：20260705018")
+st.sidebar.caption("系統版本：20260705020")
 st.sidebar.caption("超慧製造部 數位管理小組 榮譽出品")
 
 # 獲取最新的人員名單
@@ -659,17 +659,17 @@ elif st.session_state.current_page == "📊 助理考核紀錄系統":
     # --- 新增考核表單區 ---
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
-        # 🟢 【僅修改此處】：依照您的圖片，將四大元件並排成一整排顯示
+        # 🟢 【僅修改此處排版】：切換成 columns 機制，讓四個欄位在一整排上並列顯示
         row_col1, row_col2, row_col3, row_col4 = st.columns([2, 3, 3, 4])
         
         with row_col1:
             sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list)
         with row_col2:
-            txt_item = st.text_area("📊 考核項目", placeholder="請填寫本次考核的主題或項目名稱...", height=100)
+            txt_item = st.text_area("📊 考核項目", placeholder="請填寫本次考核的主題或項目名稱...")
         with row_col3:
-            txt_target = st.text_area("🎯 考核指標", placeholder="請填寫此項目的達成指標或要求準則...", height=100)
+            txt_target = st.text_area("🎯 考核指標", placeholder="請填寫此項目的達成指標或要求準則...")
         with row_col4:
-            txt_content = st.text_area("✨ 考核紀錄", placeholder="請詳細填寫助理實際的執行進度、表現狀況與評語...", height=100)
+            txt_content = st.text_area("✨ 考核紀錄", placeholder="請詳細填寫助理實際的執行進度、表現狀況與評語...")
         
         if st.form_submit_button("💝 💝 立即存檔紀錄 💝 💝"):
             if txt_item.strip() and txt_target.strip() and txt_content.strip():
