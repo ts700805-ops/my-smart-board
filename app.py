@@ -828,29 +828,29 @@ if menu == "🔴 專案管理首頁":
 
 if menu == "🎀 助理績效考核區":
     st.subheader("🎀 助理績效考核管理系統")
-
-    # 1. 強制統一連線至 bulletin.db (與公佈欄完全一致)
-    db_path = 'bulletin.db'
     
-    # 2. 讀取名單 (直接從系統共同的名單表讀取)
-    conn = sqlite3.connect(db_path)
-    # 檢查該表是否存在 (若無則跳出提醒)
+    # 1. 統一改用您後台「公佈欄」使用的 get_conn() 函數
+    # 這能確保讀取的絕對是後台同一個 bulletin.db
+    conn = get_conn()
+    
+    # 2. 直接讀取後台名單表
     try:
         staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
         staff_list = staff_df['name'].tolist()
-    except:
+    except Exception as e:
         staff_list = []
-    
+        st.error(f"⚠️ 無法讀取名單，請確認後台名單表是否存在：{e}")
+
     # 讀取考核紀錄
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
     conn.close()
 
-    # 3. 下拉選單 (直接連結後台名單)
+    # 3. 顯示下拉選單 (直接連結後台名單)
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
         sel_assistant = st.selectbox(
             "🎀 選擇助理姓名", 
-            staff_list if staff_list else ["⚠️ 請先至『⚙️ 管理後台』新增人員"]
+            staff_list if staff_list else ["⚠️ 後台尚未建立人員名單"]
         )
         txt_item = st.text_area("📊 考核項目")
         txt_target = st.text_area("🎯 考核指標")
@@ -858,16 +858,16 @@ if menu == "🎀 助理績效考核區":
         
         if st.form_submit_button("💝 立即存檔紀錄"):
             if staff_list:
-                conn = sqlite3.connect(db_path)
+                conn = get_conn()
                 conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
                              (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
                 conn.commit()
                 conn.close()
-                st.success("存檔成功！"); st.rerun()
+                st.success("紀錄已成功存檔！"); st.rerun()
             else:
-                st.error("無法存檔：後台尚未建立名單")
+                st.error("後台名單為空，無法存檔")
 
-    # 4. 顯示總覽
+    # 4. 顯示考核紀錄總覽
     st.markdown("---")
     st.markdown("### 📜 績效考核紀錄總覽")
     for _, row in eval_df.iterrows():
@@ -878,8 +878,8 @@ if menu == "🎀 助理績效考核區":
         c4.write(row['eval_target'])
         c5.write(row['eval_content'])
         
-        if c6.button("🗑️", key=f"del_{row['id']}"):
-            conn = sqlite3.connect(db_path)
+        if c6.button("🗑️", key=f"del_e_{row['id']}"):
+            conn = get_conn()
             conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
             conn.commit()
             conn.close()
