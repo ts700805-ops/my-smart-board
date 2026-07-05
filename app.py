@@ -824,84 +824,64 @@ if menu == "🔴 專案管理首頁":
                 st.markdown(f"📅 **指派日期：** {row['assign_date']} ｜ **預計完工：** {row['expected_date']} ｜ 🏁 **實際完工時間：** `{row['finish_date']}`")
                 st.markdown(f"📝 **完整執行內容：**\n{task_desc}")
 
-
-# --- 🎀 助理績效考核區 (優化版：大字體、自由輸入、日期整合) ---
+# --- 🎀 助理績效考核區 (修正版) ---
 if menu == "🎀 助理績效考核區":
-    # 🦄 注入自定義風格與字體調整 CSS
-    # 透過變數 fontSize 控制整體字體，預設 18px
-    if 'eval_font_size' not in st.session_state: st.session_state.eval_font_size = 18
-    
-    st.markdown(f"""
+    # 🦄 風格 CSS
+    st.markdown("""
         <style>
-        .stApp {{ background-color: #FFF0F5 !important; }}
-        .big-font {{ font-size: {st.session_state.eval_font_size}px !important; }}
-        h2, h3 {{ color: #FF69B4 !important; }}
-        .assistant-card {{ background-color: #FFFFFF; border: 2px solid #FFB6C1; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
-        .assistant-title {{ color: #E67E22; font-size: {st.session_state.eval_font_size + 4}px; font-weight: bold; }}
+        .stApp { background-color: #FFF0F5 !important; }
+        .big-font { font-size: 18px !important; }
+        h2, h3 { color: #FF69B4 !important; }
+        .assistant-card { background-color: #FFFFFF; border: 2px solid #FFB6C1; border-radius: 15px; padding: 20px; margin-bottom: 20px; }
         </style>
     """, unsafe_allow_html=True)
 
-    # 調整字體大小工具
-    with st.expander("⚙️ 顯示設定 (調整字體大小)"):
-        st.session_state.eval_font_size = st.slider("調整頁面文字大小", 14, 30, st.session_state.eval_font_size)
-
     st.subheader("🎀 助理績效考核管理系統")
 
-    # --- 新增考核表單區 ---
-    st.markdown("### ✍️ 新增/編輯考核紀錄")
-    with st.form("assistant_add_form", clear_on_submit=True):
-        # 將日期設定移入表單
-        c_head1, c_head2 = st.columns([1, 1])
-        with c_head1:
-            sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list)
-        with c_head2:
-            new_eval_date = st.date_input("📅 考核日期", datetime.today().date())
+    # 1. 字體調整滑桿 (移至上方)
+    font_size = st.slider("調整顯示文字大小", 14, 30, 18)
 
-        # 強制同一列排版
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            txt_item = st.text_area("📊 考核項目 (可空白)")
-        with col2:
-            txt_target = st.text_area("🎯 考核指標 (可空白)")
-        with col3:
-            txt_content = st.text_area("✨ 考核紀錄 (可空白)")
+    # 2. 新增表單 (將欄位改為並列顯示)
+    st.markdown("### ✍️ 新增助理考核紀錄")
+    
+    # 為了讓欄位並列且不報錯，我們將 Selectbox 和 Date 移到上方
+    col_a, col_b = st.columns(2)
+    with col_a:
+        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list)
+    with col_b:
+        new_eval_date = st.date_input("📅 考核日期", datetime.today().date())
+
+    # 使用 form_container 技巧來確保欄位並列
+    with st.form("my_form", clear_on_submit=True):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            txt_item = st.text_area("📊 考核項目")
+        with c2:
+            txt_target = st.text_area("🎯 考核指標")
+        with c3:
+            txt_content = st.text_area("✨ 考核紀錄")
         
-        if st.form_submit_button("💝 立即存檔紀錄"):
+        submitted = st.form_submit_button("💝 立即存檔")
+        if submitted:
             conn = get_conn()
             conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
                          (str(new_eval_date), sel_assistant, txt_item, txt_target, txt_content))
             conn.commit()
             conn.close()
-            sync_to_github("Add Assistant Eval - 20260705")
-            st.success("💖 資料已登錄！")
-            time.sleep(1)
+            sync_to_github("Add Assistant Eval")
+            st.success("💖 已登錄！")
             st.rerun()
 
     st.markdown("---")
-    st.markdown("### 📜 歷史考核紀錄查詢")
+    st.markdown("### 📜 歷史考核紀錄")
     
     conn = get_conn()
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
     conn.close()
 
-    if eval_df.empty:
-        st.caption("🧁 目前無考核紀錄。")
-    else:
-        for _, row in eval_df.iterrows():
-            # 使用 container 呈現，字體大小隨狀態變動
-            with st.container():
-                st.markdown(f"<div class='assistant-card'><div class='assistant-title'>🌸 {row['assistant_name']} | 📅 {row['eval_date']}</div>", unsafe_allow_html=True)
-                
-                # 顯示區強制同一列
-                d1, d2, d3 = st.columns(3)
-                with d1: st.markdown(f"<p class='big-font'><b>項目:</b> {row['eval_item']}</p>", unsafe_allow_html=True)
-                with d2: st.markdown(f"<p class='big-font'><b>指標:</b> {row['eval_target']}</p>", unsafe_allow_html=True)
-                with d3: st.markdown(f"<p class='big-font'><b>紀錄:</b> {row['eval_content']}</p>", unsafe_allow_html=True)
-                
-                if st.button("🗑 刪除此筆", key=f"del_{row['id']}"):
-                    conn = get_conn()
-                    conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
-                    conn.commit()
-                    conn.close()
-                    st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
+    for _, row in eval_df.iterrows():
+        st.markdown(f"""<div class='assistant-card'>
+            <div style='font-size:{font_size+4}px; color:#E67E22; font-weight:bold;'>🌸 {row['assistant_name']} | 📅 {row['eval_date']}</div>
+            <div style='font-size:{font_size}px;'>
+            <b>項目:</b> {row['eval_item']} | <b>指標:</b> {row['eval_target']} | <b>紀錄:</b> {row['eval_content']}
+            </div></div>""", unsafe_allow_html=True)
