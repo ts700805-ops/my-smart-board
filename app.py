@@ -830,7 +830,7 @@ if menu == "🎀 助理績效考核區":
     # 密碼保護
     if 'eval_auth' not in st.session_state: st.session_state.eval_auth = False
     if not st.session_state.eval_auth:
-        pwd = st.text_input("🔑 請輸入密碼 (0000)", type="password")
+        pwd = st.text_input("🔑 請輸入密碼 (00000)", type="password")
         if pwd == "0000": st.session_state.eval_auth = True; st.rerun()
         st.stop()
 
