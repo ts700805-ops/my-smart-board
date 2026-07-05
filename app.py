@@ -827,7 +827,7 @@ if menu == "🔴 專案管理首頁":
 
 
 # =========================================================
-# 🎀 助理績效考核區 (已修正：強制建立表格以防 DatabaseError)
+# 🎀 助理績效考核區 (修正版：強制連結至後台名單表)
 # =========================================================
 if menu == "🎀 助理績效考核區":
     # 密碼保護
@@ -839,43 +839,44 @@ if menu == "🎀 助理績效考核區":
 
     st.subheader("🎀 助理績效考核管理系統")
     
-    # 1. 強制連線並確保資料表結構存在 (解決 DatabaseError 的關鍵)
+    # 1. 統一開啟資料庫連線 (使用與公佈欄相同的 bulletin.db)
+    # 請確認您的 get_conn() 函數定義中，連線的是同一個 .db 檔案
     conn = get_conn()
-    conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
-    conn.execute("CREATE TABLE IF NOT EXISTS assistant_evaluations (id INTEGER PRIMARY KEY, eval_date TEXT, assistant_name TEXT, eval_item TEXT, eval_target TEXT, eval_content TEXT, is_deleted INTEGER DEFAULT 0)")
-    conn.commit() # 確保表格結構建立完成
     
-    # 2. 讀取資料
-    # 從統一的 assistant_list_exclusive 讀取名單
-    staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
-    staff_list = staff_df['name'].tolist()
-    
+    # 2. 直接讀取「管理後台」儲存名單的資料表 (assistant_list_exclusive)
+    # 若此處報錯，請確認該表在後台新增名單時確實已經建立
+    try:
+        staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
+        staff_list = staff_df['name'].tolist()
+    except:
+        staff_list = []
+        st.warning("⚠️ 尚未偵測到助理名單，請先至管理後台新增。")
+
     # 讀取考核紀錄
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
     conn.close()
 
-    # 3. 顯示考核新增介面
+    # 3. 顯示下拉選單 (直接連結後台名單)
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
-        # 若資料表為空，顯示提示
-        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["⚠️ 請先至管理後台新增人員"])
+        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["無人員資料"])
         txt_item = st.text_area("📊 考核項目")
         txt_target = st.text_area("🎯 考核指標")
         txt_content = st.text_area("✨ 考核紀錄")
         
         if st.form_submit_button("💝 立即存檔紀錄"):
-            if sel_assistant != "⚠️ 請先至管理後台新增人員":
+            if sel_assistant != "無人員資料":
                 conn = get_conn()
                 conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
                              (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
                 conn.commit()
                 conn.close()
-                st.success("存檔成功！")
+                st.success("紀錄已存檔")
                 st.rerun()
             else:
-                st.error("請先在管理後台新增助理名單")
+                st.error("請先前往管理後台新增人員名單")
 
-    # 4. 顯示紀錄總覽
+    # 4. 顯示考核紀錄列表
     st.markdown("---")
     st.markdown("### 📜 績效考核紀錄總覽")
     for _, row in eval_df.iterrows():
