@@ -836,11 +836,12 @@ if menu == "🎀 助理績效考核區":
 
     st.subheader("🎀 助理績效考核管理系統")
     
-    # 字體設定：固定為 30
+    # 字體設定：基準為 25
+    font_size = st.slider("調整顯示文字大小", 16, 56, 25)
     st.markdown(f"""
         <style>
         .custom-text {{ 
-            font-size: 30px !important; 
+            font-size: {font_size}px !important; 
             font-weight: bold !important; 
             word-wrap: break-word !important; 
             white-space: pre-wrap !important; 
@@ -859,8 +860,7 @@ if menu == "🎀 助理績效考核區":
     staff_list = staff_df['name'].tolist()
     conn.close()
 
-    # 1. 績效考核紀錄總覽
-    st.markdown("### 📜 績效考核紀錄總覽")
+    # 紀錄總覽 (已移除標題顯示)
     for index, row in eval_df.iterrows():
         st.markdown("---")
         unique_key = f"row_{row['id']}_{index}" 
@@ -918,7 +918,7 @@ if menu == "🎀 助理績效考核區":
             conn.close()
             st.rerun()
 
-    # 3. 獨立助理名單維護 (使用您要求的逗號樣式)
+    # 3. 獨立助理名單維護
     st.markdown("---")
     st.markdown("### ⚙️ 助理名單維護")
     st.info("請輸入姓名，若要一次新增多位，請用逗號分隔，例如：王小明, 李小華")
@@ -936,14 +936,15 @@ if menu == "🎀 助理績效考核區":
             conn.close()
             st.rerun()
     
-    # 顯示目前名單
     st.markdown("#### 目前助理名單：")
     conn = get_conn()
-    current_staff = pd.read_sql("SELECT * FROM assistant_list_exclusive", conn)
+    try:
+        current_staff = pd.read_sql("SELECT * FROM assistant_list_exclusive", conn)
+    except:
+        current_staff = pd.DataFrame()
     conn.close()
     
     if not current_staff.empty:
-        # 將名單以逗號並排顯示，並提供刪除按鈕
         cols = st.columns(5)
         for idx, row in current_staff.iterrows():
             with cols[idx % 5]:
