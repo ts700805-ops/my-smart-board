@@ -857,24 +857,30 @@ if menu == "🎀 助理績效考核區":
     # =====================================================
     st.markdown(f"""
         <style>
-        /* 紀錄總覽一般文字 */
-        .custom-text {{ font-size: {current_size}px !important; }}
+        /* 紀錄總覽一般文字：優化換行與行高配置，徹底解決字體放大後被格子遮擋的問題 */
+        .custom-text {{ 
+            font-size: {current_size}px !important; 
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+            white-space: normal !important;
+            line-height: 1.5 !important;
+        }}
         
         /* 區塊主標題加大加粗 */
         .custom-header {{ font-size: {label_size}px !important; font-weight: bold !important; }}
         
-        /* ✅ 1. 表單內紅框四個欄位標籤 (字體放大兩倍、粗體) */
+        /* 表單內紅框四個欄位標籤 (字體放大兩倍、粗體) */
         div[data-testid="stForm"] label p {{
             font-size: {label_size}px !important;
             font-weight: bold !important;
         }}
         
-        /* ✅ 2. 下拉選單文字放大 */
+        /* 下拉選單文字放大 */
         div[data-baseweb="select"] * {{
             font-size: {current_size}px !important;
         }}
         
-        /* ✅ 3. TextArea 文字放大 */
+        /* TextArea 文字放大 */
         div[data-baseweb="textarea"] textarea {{
             font-size: {current_size}px !important;
         }}
@@ -953,8 +959,8 @@ if menu == "🎀 助理績效考核區":
     else:
         for _, row in eval_df.iterrows():
             st.markdown("---")
-            # 微調比例：為最後一欄(c6)騰出編輯與刪除按鈕的空間
-            c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.8, 1.2])
+            # ✅ 放大紅框處的底部格子：調大文字欄位的相對權重比例，給予考核內容充足展現空間
+            c1, c2, c3, c4, c5, c6 = st.columns([1.0, 1.0, 2.2, 2.2, 2.5, 1.5])
             
             c1.markdown(f"<div class='custom-text'>{row['eval_date']}</div>", unsafe_allow_html=True)
             c2.markdown(f"<div class='custom-text'>{row['assistant_name']}</div>", unsafe_allow_html=True)
@@ -962,14 +968,13 @@ if menu == "🎀 助理績效考核區":
             c4.markdown(f"<div class='custom-text'>{row['eval_target']}</div>", unsafe_allow_html=True)
             c5.markdown(f"<div class='custom-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
 
-            # ✅ 編輯與刪除功能區塊
+            # 編輯與刪除功能區塊
             btn_edit, btn_del = c6.columns(2)
 
             # 📝 編輯功能 (比照專案管理模組 popover)
             with btn_edit.popover("📝 編輯"):
                 e_date = st.date_input("日期", value=datetime.strptime(row['eval_date'], '%Y-%m-%d'), key=f"e_date_{row['id']}")
                 
-                # 自動對齊原紀錄的助理姓名
                 try:
                     default_index = staff_list.index(row['assistant_name']) if row['assistant_name'] in staff_list else 0
                 except:
