@@ -824,65 +824,79 @@ if menu == "🔴 專案管理首頁":
                 st.markdown(f"📅 **指派日期：** {row['assign_date']} ｜ **預計完工：** {row['expected_date']} ｜ 🏁 **實際完工時間：** `{row['finish_date']}`")
                 st.markdown(f"📝 **完整執行內容：**\n{task_desc}")
 
-# --- 🎀 助理績效考核區 (完整修正版) ---
+# --- 🎀 助理績效考核區 (完整修正版：含密碼保護與編輯刪除) ---
 if menu == "🎀 助理績效考核區":
-    # 🦄 風格與字體設定
-    if 'eval_font_size' not in st.session_state: st.session_state.eval_font_size = 18
+    # 🦄 設定密碼保護
+    if 'eval_auth' not in st.session_state: st.session_state.eval_auth = False
     
-    st.markdown(f"""
-        <style>
-        .stApp {{ background-color: #FFF0F5 !important; }}
-        .big-font {{ font-size: {st.session_state.eval_font_size}px !important; }}
-        h2, h3 {{ color: #FF69B4 !important; }}
-        .assistant-card {{ background-color: #FFFFFF; border: 2px solid #FFB6C1; border-radius: 15px; padding: 20px; margin-bottom: 20px; }}
-        </style>
-    """, unsafe_allow_html=True)
-
-    st.subheader("🎀 助理績效考核管理系統")
-    st.session_state.eval_font_size = st.slider("調整顯示文字大小", 14, 30, st.session_state.eval_font_size)
-
-    # --- 1. 歷史考核紀錄查詢區 ---
-    st.markdown("### 📜 歷史考核項目")
-    conn = get_conn()
-    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
-    conn.close()
-
-    if eval_df.empty:
-        st.info("🧁 目前暫無考核紀錄。")
+    if not st.session_state.eval_auth:
+        pwd = st.text_input("🔑 請輸入進入績效考核區的密碼 (0000)", type="password")
+        if pwd == "0000":
+            st.session_state.eval_auth = True
+            st.rerun()
+        elif pwd != "":
+            st.error("❌ 密碼錯誤，請重新輸入")
     else:
-        for _, row in eval_df.iterrows():
-            st.markdown(f"""<div class='assistant-card'>
-                <div style='font-size:{st.session_state.eval_font_size+4}px; color:#E67E22; font-weight:bold;'>🌸 助理：{row['assistant_name']} | 📅 日期：{row['eval_date']}</div>
-                <div style='font-size:{st.session_state.eval_font_size}px;'>
-                <b>項目:</b> {row['eval_item']} | <b>指標:</b> {row['eval_target']} | <b>紀錄:</b> {row['eval_content']}
-                </div></div>""", unsafe_allow_html=True)
+        # ✅ 密碼正確後顯示頁面
+        st.subheader("🎀 助理績效考核管理系統")
+        
+        # 1. 績效考核項目紀錄查詢
+        st.markdown("### 📜 績效考核項目")
+        conn = get_conn()
+        eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
+        conn.close()
 
-    st.markdown("---")
-    
-    # --- 2. 新增考核紀錄區 (移至下方) ---
-    st.markdown("### ✍️ 新增助理考核紀錄")
-    with st.form("assistant_add_form", clear_on_submit=True):
-        # 改為手動輸入助理姓名
-        col_a, col_b = st.columns(2)
-        with col_a:
-            new_name = st.text_input("🎀 輸入助理姓名")
-        with col_b:
-            new_eval_date = st.date_input("📅 考核日期", datetime.today().date())
+        if eval_df.empty:
+            st.info("🧁 目前暫無考核紀錄。")
+        else:
+            for _, row in eval_df.iterrows():
+                with st.expander(f"🌸 {row['assistant_name']} | 📅 {row['eval_date']} (點擊展開編輯/刪除)"):
+                    # 編輯功能
+                    with st.form(f"edit_form_{row['id']}"):
+                        u_name = st.text_input("助理姓名", value=row['assistant_name'])
+                        c1, c2, c3 = st.columns(3)
+                        u_item = c1.text_area("考核項目", value=row['eval_item'])
+                        u_target = c2.text_area("考核指標", value=row['eval_target'])
+                        u_content = c3.text_area("考核紀錄", value=row['eval_content'])
+                        
+                        if st.form_submit_button("💾 儲存修改"):
+                            conn = get_conn()
+                            conn.execute("UPDATE assistant_evaluations SET assistant_name=?, eval_item=?, eval_target=?, eval_content=? WHERE id=?", 
+                                         (u_name, u_item, u_target, u_content, row['id']))
+                            conn.commit()
+                            conn.close()
+                            st.success("✨ 修改成功！")
+                            st.rerun()
+                            
+                    if st.button("🗑 刪除此筆紀錄", key=f"del_{row['id']}"):
+                        conn = get_conn()
+                        conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
+                        conn.commit()
+                        conn.close()
+                        st.rerun()
+
+        st.markdown("---")
         
-        c1, c2, c3 = st.columns(3)
-        with c1: txt_item = st.text_area("📊 考核項目")
-        with c2: txt_target = st.text_area("🎯 考核指標")
-        with c3: txt_content = st.text_area("✨ 考核紀錄")
+        # 2. 新增績效考核區 (在最下方)
+        st.markdown("### ✍️ 新增績效考核紀錄")
         
-        if st.form_submit_button("💝 立即存檔紀錄"):
-            if new_name:
-                conn = get_conn()
-                conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
-                             (str(new_eval_date), new_name, txt_item, txt_target, txt_content))
-                conn.commit()
-                conn.close()
-                st.success("💖 已新增紀錄！")
-                time.sleep(1)
-                st.rerun()
-            else:
-                st.error("⚠️ 請輸入助理姓名！")
+        # 助理姓名設定 (本頁手動輸入)
+        new_name = st.text_input("🎀 請輸入助理姓名")
+        
+        with st.form("add_form", clear_on_submit=True):
+            col1, col2, col3 = st.columns(3)
+            with col1: txt_item = st.text_area("📊 考核項目")
+            with col2: txt_target = st.text_area("🎯 考核指標")
+            with col3: txt_content = st.text_area("✨ 考核紀錄")
+            
+            if st.form_submit_button("💝 立即存檔紀錄"):
+                if new_name:
+                    conn = get_conn()
+                    conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
+                                 (datetime.today().strftime('%Y-%m-%d'), new_name, txt_item, txt_target, txt_content))
+                    conn.commit()
+                    conn.close()
+                    st.success("💖 已新增紀錄！")
+                    st.rerun()
+                else:
+                    st.error("⚠️ 請務必輸入助理姓名！")
