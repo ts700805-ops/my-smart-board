@@ -827,45 +827,57 @@ if menu == "🔴 專案管理首頁":
 
 
 # =========================================================
-# 🎀 助理績效考核區 (精簡連結版：直連 GitHub bulletin.db)
+# 🎀 助理績效考核區 (已修復連結：同步讀取系統總名單)
 # =========================================================
 if menu == "🎀 助理績效考核區":
+    # 密碼保護 (維持您現有的設定)
+    if 'eval_auth' not in st.session_state: st.session_state.eval_auth = False
+    if not st.session_state.eval_auth:
+        pwd = st.text_input("🔑 請輸入密碼 (0000)", type="password")
+        if pwd == "0000": st.session_state.eval_auth = True; st.rerun()
+        st.stop()
+
     st.subheader("🎀 助理績效考核管理系統")
 
-    # 1. 直接連線，不經過任何 get_conn 轉換，確保直連 GitHub 資料庫
-    db_path = 'bulletin.db'
+    # 【關鍵修改】：統一使用系統標準的 get_conn()
+    # 這樣才能確保讀取到的是 GitHub bulletin.db 中真正的總名單
+    conn = get_conn()
     
-    # 2. 強制讀取名單 (這段程式碼與您公告系統的類別讀取寫法完全同步)
+    # 讀取人員名單 (直接從系統共同的名單表讀取)
+    # 注意：請確保您的後台是用此名稱儲存名單的，如果後台是用其他表，請替換名稱
     try:
-        conn = sqlite3.connect(db_path)
-        # 直接抓取後台名單
         staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
         staff_list = staff_df['name'].tolist()
-        conn.close()
     except:
         staff_list = []
+        st.warning("⚠️ 尚未偵測到人員名單，請確認後台是否已正確建立名單表。")
 
-    # 3. 考核表單 (比照公告輸入介面)
+    # 讀取考核紀錄
+    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
+    conn.close()
+
+    # 下拉選單連結
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
-        # 這裡是核心：直接使用 staff_list
-        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["⚠️ 尚無人員名單"])
+        sel_assistant = st.selectbox(
+            "🎀 選擇助理姓名", 
+            staff_list if staff_list else ["⚠️ 請先至管理後台新增人員"]
+        )
         
         txt_item = st.text_area("📊 考核項目")
         txt_target = st.text_area("🎯 考核指標")
         txt_content = st.text_area("✨ 考核紀錄")
         
         if st.form_submit_button("💝 立即存檔紀錄"):
-            if sel_assistant != "⚠️ 尚無人員名單":
-                conn = sqlite3.connect(db_path)
+            if staff_list:
+                conn = get_conn()
                 conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
                              (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
                 conn.commit()
                 conn.close()
-                st.success("存檔成功！")
-                st.rerun()
+                st.success("存檔成功！"); st.rerun()
             else:
-                st.error("請先在後台建立助理名單")
+                st.error("名單為空，無法存檔")
 
     # 4. 考核列表 (顯示區)
     st.markdown("---")
