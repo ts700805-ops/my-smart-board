@@ -826,7 +826,6 @@ if menu == "🔴 專案管理首頁":
 
 
 
-
 if menu == "🎀 助理績效考核區":
     # 密碼保護
     if 'eval_auth' not in st.session_state: st.session_state.eval_auth = False
@@ -837,13 +836,21 @@ if menu == "🎀 助理績效考核區":
 
     st.subheader("🎀 助理績效考核管理系統")
     
-    # CSS 設定
-    st.markdown("""
+    # 字體設定：放大 2 倍，範圍 32-56，預設 40
+    font_size = st.slider("調整顯示文字大小", 32, 56, 40)
+    st.markdown(f"""
         <style>
-        .custom-text { font-weight: bold !important; word-wrap: break-word !important; white-space: pre-wrap !important; }
+        .custom-text {{ 
+            font-size: {font_size}px !important; 
+            font-weight: bold !important; 
+            word-wrap: break-word !important; 
+            white-space: pre-wrap !important; 
+            line-height: 1.2 !important;
+        }}
         </style>
     """, unsafe_allow_html=True)
 
+    # 關鍵修改：使用專用資料表
     conn = get_conn()
     conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
@@ -855,12 +862,12 @@ if menu == "🎀 助理績效考核區":
     st.markdown("### 📜 績效考核紀錄總覽")
     for index, row in eval_df.iterrows():
         st.markdown("---")
-        # 使用 row['id'] 作為唯一識別碼，確保 key 不重複
         unique_key = f"row_{row['id']}_{index}" 
         
         raw_date = str(row['eval_date'])
         display_date = raw_date.split('] ')[-1] if ']' in raw_date else raw_date
         
+        # 欄位：[日期] [姓名] [項目] [指標] [紀錄] [按鈕區]
         c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 0.8])
         c1.markdown(f"<div class='custom-text'>{display_date}</div>", unsafe_allow_html=True)
         c2.markdown(f"<div class='custom-text'>{row['assistant_name']}</div>", unsafe_allow_html=True)
