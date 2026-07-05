@@ -857,27 +857,26 @@ if menu == "🎀 助理績效考核區":
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
     conn.close()
 
-    # 2. 新增考核紀錄
+    # 2. 新增考核區 - 將 key 修改為唯一名稱
+    st.markdown("---")
     st.markdown("### ✍️ 新增績效考核紀錄")
-    with st.form("add_form", clear_on_submit=True):
-        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["⚠️ 後台尚未建立名單"])
+    # 將 "add_form" 改為 "eval_add_form_unique"
+    with st.form("eval_add_form_unique", clear_on_submit=True):
+        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["請先至下方新增名單"])
         c1, c2, c3 = st.columns(3)
         txt_item = c1.text_area("📊 考核項目")
         txt_target = c2.text_area("🎯 考核指標")
         txt_content = c3.text_area("✨ 考核紀錄")
         
         if st.form_submit_button("💝 立即存檔紀錄"):
-            if staff_list:
-                conn = get_main_db()
-                conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
-                             (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
-                conn.commit()
-                conn.close()
-                # 存檔後呼叫 GitHub 同步，確保後台檔案更新
-                if 'sync_to_github' in globals(): sync_to_github("考核新增")
-                st.success("紀錄已存檔至 GitHub 資料庫"); st.rerun()
-            else:
-                st.error("名單未連結，請至後台確認")
+            conn = sqlite3.connect('bulletin.db') # 直接指定讀取 GitHub 的檔案
+            conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
+                         (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
+            conn.commit()
+            conn.close()
+            # 確保同步到 GitHub
+            if 'sync_to_github' in globals(): sync_to_github("考核新增")
+            st.rerun()
 
 
     # 3. 新增考核區 (下拉選單直接引用 staff_list)
