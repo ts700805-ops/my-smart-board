@@ -836,36 +836,28 @@ if menu == "🎀 助理績效考核區":
 
     st.subheader("🎀 助理績效考核管理系統")
     
-    # 字體設定：基準為 25
-    font_size = st.slider("調整顯示文字大小", 16, 56, 22)
+    # 字體滑桿 (保留)
+    font_size = st.slider("調整顯示文字大小", 16, 56, 25)
     st.markdown(f"""
         <style>
-        .custom-text {{ 
-            font-size: {font_size}px !important; 
-            font-weight: bold !important; 
-            word-wrap: break-word !important; 
-            white-space: pre-wrap !important; 
-            line-height: 1.2 !important;
-        }}
+        .custom-text {{ font-size: {font_size}px !important; font-weight: bold !important; word-wrap: break-word !important; white-space: pre-wrap !important; }}
         </style>
     """, unsafe_allow_html=True)
 
-    # 資料庫連線與初始化
+    # 資料庫連線初始化
     conn = get_conn()
     conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
     
-    # 讀取考核與名單
+    # 讀取考核紀錄與助理名單
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
-    staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
+    staff_df = pd.read_sql("SELECT id, name FROM assistant_list_exclusive", conn)
     staff_list = staff_df['name'].tolist()
     conn.close()
 
-    # 1. 績效考核紀錄 (已移除標題)
+    # 1. 績效考核紀錄總覽 (僅顯示紀錄)
     for index, row in eval_df.iterrows():
         st.markdown("---")
         unique_key = f"row_{row['id']}_{index}" 
-        
-        # 顯示日期 (移除可能的舊流水碼)
         raw_date = str(row['eval_date'])
         display_date = raw_date.split('] ')[-1] if ']' in raw_date else raw_date
         
@@ -877,7 +869,7 @@ if menu == "🎀 助理績效考核區":
         c5.markdown(f"<div class='custom-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
         
         with c6:
-            if st.button("🗑️", key=f"del_btn_{unique_key}"):
+            if st.button("🗑️", key=f"del_record_{row['id']}"):
                 conn = get_conn()
                 conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
                 conn.commit()
@@ -888,7 +880,7 @@ if menu == "🎀 助理績效考核區":
     st.markdown("---")
     st.markdown("### ✍️ 新增績效考核紀錄")
     with st.form("add_form", clear_on_submit=True):
-        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["請先至下方新增名單"])
+        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["無人員，請下方新增"])
         c1, c2, c3 = st.columns(3)
         txt_item = c1.text_area("📊 考核項目")
         txt_target = c2.text_area("🎯 考核指標")
@@ -901,28 +893,29 @@ if menu == "🎀 助理績效考核區":
             conn.close()
             st.rerun()
 
-    # 3. 助理名單維護
+    # 3. 助理名單維護 (最穩定的 SQLite 連結模式)
     st.markdown("---")
     st.markdown("### ⚙️ 助理名單維護")
-    new_staff_input = st.text_input("輸入新助理姓名 (支援逗號分隔)")
+    new_staff = st.text_input("輸入新助理姓名 (用逗號分隔新增)")
     if st.button("➕ 加入名單"):
-        if new_staff_input.strip():
-            names = [n.strip() for n in new_staff_input.split(',')]
+        if new_staff.strip():
+            names = [n.strip() for n in new_staff.split(',')]
             conn = get_conn()
             for name in names:
-                if name:
-                    try: conn.execute("INSERT INTO assistant_list_exclusive (name) VALUES (?)", (name,))
-                    except: continue
+                try: conn.execute("INSERT INTO assistant_list_exclusive (name) VALUES (?)", (name,))
+                except: continue
             conn.commit()
             conn.close()
             st.rerun()
     
     st.markdown("#### 目前助理名單：")
+    # 這裡直接從資料庫讀取最新的名單
     conn = get_conn()
     current_staff = pd.read_sql("SELECT * FROM assistant_list_exclusive", conn)
     conn.close()
     
     if not current_staff.empty:
+        # 顯示名單與刪除按鈕
         cols = st.columns(5)
         for idx, row in current_staff.iterrows():
             with cols[idx % 5]:
@@ -933,4 +926,4 @@ if menu == "🎀 助理績效考核區":
                     conn.close()
                     st.rerun()
     else:
-        st.warning("目前尚無助理名單")
+        st.write("目前尚無名單")
