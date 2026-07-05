@@ -851,27 +851,31 @@ if menu == "🎀 助理績效考核區":
     staff_list = staff_df['name'].tolist()
     conn.close()
 
-    # 1. 績效考核紀錄總覽 (已移除流水碼顯示)
+  # 1. 績效考核紀錄總覽
     st.markdown("### 📜 績效考核紀錄總覽")
     for _, row in eval_df.iterrows():
         st.markdown("---")
-        # 欄位：[日期] [姓名] [項目] [指標] [紀錄] [編輯/刪除]
-        c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 1])
+        # 欄位：[日期] [姓名] [項目] [指標] [紀錄] [按鈕區]
+        c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 0.8])
         c1.markdown(f"<div class='custom-text'>{row['eval_date']}</div>", unsafe_allow_html=True)
         c2.markdown(f"<div class='custom-text'>{row['assistant_name']}</div>", unsafe_allow_html=True)
         c3.markdown(f"<div class='custom-text'>{row['eval_item']}</div>", unsafe_allow_html=True)
         c4.markdown(f"<div class='custom-text'>{row['eval_target']}</div>", unsafe_allow_html=True)
         c5.markdown(f"<div class='custom-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
         
+        # 編輯與刪除放在同一排 (使用 st.columns 在 c6 內部進一步分割)
         with c6:
-            if st.button("✏️", key=f"edit_{row['id']}"): st.session_state[f"edit_mode_{row['id']}"] = True
-            if st.button("🗑️", key=f"del_{row['id']}"):
+            btn_col1, btn_col2 = st.columns(2)
+            if btn_col1.button("✏️", key=f"edit_{row['id']}"): 
+                st.session_state[f"edit_mode_{row['id']}"] = True
+            if btn_col2.button("🗑️", key=f"del_{row['id']}"):
                 conn = get_conn()
                 conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
                 conn.commit()
                 conn.close()
                 st.rerun()
             
+            # 編輯介面
             if st.session_state.get(f"edit_mode_{row['id']}"):
                 with st.form(f"f_{row['id']}"):
                     n_date = st.date_input("日期", value=datetime.strptime(row['eval_date'], '%Y-%m-%d'))
