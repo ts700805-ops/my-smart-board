@@ -850,15 +850,16 @@ if menu == "🎀 助理績效考核區":
     st.markdown("### 📜 績效考核紀錄總覽")
     for _, row in eval_df.iterrows():
         st.markdown("---")
-        # 欄位：[日期/姓名] [項目] [指標] [紀錄] [編輯/刪除按鈕]
-        c1, c2, c3, c4, c5 = st.columns([1, 2, 2, 2, 1])
-        c1.markdown(f"<div class='custom-text'>{row['assistant_name']}<br>{row['eval_date']}</div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='custom-text'>{row['eval_item']}</div>", unsafe_allow_html=True)
-        c3.markdown(f"<div class='custom-text'>{row['eval_target']}</div>", unsafe_allow_html=True)
-        c4.markdown(f"<div class='custom-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
+        # [日期] [姓名] [項目] [指標] [紀錄] [編輯/刪除]
+        c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 1])
+        c1.markdown(f"<div class='custom-text'>{row['eval_date']}</div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='custom-text'>{row['assistant_name']}</div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='custom-text'>{row['eval_item']}</div>", unsafe_allow_html=True)
+        c4.markdown(f"<div class='custom-text'>{row['eval_target']}</div>", unsafe_allow_html=True)
+        c5.markdown(f"<div class='custom-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
         
         # 編輯與刪除在最右側
-        with c5:
+        with c6:
             if st.button("✏️", key=f"edit_{row['id']}"): st.session_state[f"edit_mode_{row['id']}"] = True
             if st.button("🗑️", key=f"del_{row['id']}"):
                 conn = get_conn()
@@ -881,7 +882,7 @@ if menu == "🎀 助理績效考核區":
                         st.session_state[f"edit_mode_{row['id']}"] = False
                         st.rerun()
 
-    # 2. 新增考核區
+    # 2. 新增考核區 (包含本頁助理姓名下拉選單)
     st.markdown("---")
     st.markdown("### ✍️ 新增績效考核紀錄")
     with st.form("add_form", clear_on_submit=True):
