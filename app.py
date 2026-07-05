@@ -70,7 +70,7 @@ st.markdown("""
 # 🏠 側邊欄配置：中秋佳節新氣象
 # =========================================================
 with st.sidebar:
-    # 📌 流水碼更新為 20260705013
+    # 📌 流水碼更新為 20260705025
     st.markdown("<h4 style='color: #F1C40F; margin-bottom: 5px;'>系統版本：20260705013</h4>", unsafe_allow_html=True)
     
     # 渲染照片區
@@ -955,8 +955,7 @@ if menu == "🎀 助理績效考核區":
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown("---")
     
-    # --- 新增考核表單區 ---
- # --- 新增考核表單區 (已修改為同一列排版) ---
+# --- 新增考核表單區 (已修改為同一列排版) ---
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
         sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list)
