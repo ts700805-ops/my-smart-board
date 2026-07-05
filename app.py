@@ -824,7 +824,6 @@ if menu == "🔴 專案管理首頁":
                 st.markdown(f"📅 **指派日期：** {row['assign_date']} ｜ **預計完工：** {row['expected_date']} ｜ 🏁 **實際完工時間：** `{row['finish_date']}`")
                 st.markdown(f"📝 **完整執行內容：**\n{task_desc}")
 
-# --- 🎀 助理績效考核區 (最新修正版) ---
 if menu == "🎀 助理績效考核區":
     # 密碼保護
     if 'eval_auth' not in st.session_state: st.session_state.eval_auth = False
@@ -833,20 +832,17 @@ if menu == "🎀 助理績效考核區":
         if pwd == "0000": st.session_state.eval_auth = True; st.rerun()
         st.stop()
 
-    st.subheader("🎀 助理績效考核管理系統 [20260705001]")
+    st.subheader("🎀 助理績效考核管理系統")
     
-    # 調整字體設定
-    font_size = st.slider("調整顯示文字大小 (粗體)", 16, 30, 20)
-    st.markdown(f"""
-        <style>
-        .custom-text {{ font-size: {font_size}px !important; font-weight: bold !important; color: #333; }}
-        </style>
-    """, unsafe_allow_html=True)
+    # 字體大小設定 (僅作用於本頁)
+    font_size = st.slider("調整顯示文字大小", 16, 28, 20)
+    st.markdown(f"<style>.custom-text {{ font-size: {font_size}px !important; font-weight: bold !important; }}</style>", unsafe_allow_html=True)
 
     # 讀取資料
     conn = get_conn()
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
-    staff_df = pd.read_sql("SELECT name FROM staff", conn)
+    # 讀取「本頁專用」助理名單
+    staff_df = pd.read_sql("SELECT name FROM staff", conn) 
     staff_list = staff_df['name'].tolist()
     conn.close()
 
@@ -854,26 +850,42 @@ if menu == "🎀 助理績效考核區":
     st.markdown("### 📜 績效考核紀錄總覽")
     for _, row in eval_df.iterrows():
         st.markdown("---")
-        # 調整欄位比例，讓按鈕在最右側
+        # 欄位：[日期/姓名] [項目] [指標] [紀錄] [編輯/刪除按鈕]
         c1, c2, c3, c4, c5 = st.columns([1, 2, 2, 2, 1])
         c1.markdown(f"<div class='custom-text'>{row['assistant_name']}<br>{row['eval_date']}</div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='custom-text'>項目: {row['eval_item']}</div>", unsafe_allow_html=True)
-        c3.markdown(f"<div class='custom-text'>指標: {row['eval_target']}</div>", unsafe_allow_html=True)
-        c4.markdown(f"<div class='custom-text'>紀錄: {row['eval_content']}</div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='custom-text'>{row['eval_item']}</div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='custom-text'>{row['eval_target']}</div>", unsafe_allow_html=True)
+        c4.markdown(f"<div class='custom-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
         
-        # 刪除功能在最右側
-        if c5.button("🗑️ 刪除", key=f"del_{row['id']}"):
-            conn = get_conn()
-            conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
-            conn.commit()
-            conn.close()
-            st.rerun()
+        # 編輯與刪除在最右側
+        with c5:
+            if st.button("✏️", key=f"edit_{row['id']}"): st.session_state[f"edit_mode_{row['id']}"] = True
+            if st.button("🗑️", key=f"del_{row['id']}"):
+                conn = get_conn()
+                conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
+                conn.commit()
+                conn.close()
+                st.rerun()
+            
+            # 編輯介面
+            if st.session_state.get(f"edit_mode_{row['id']}"):
+                with st.form(f"f_{row['id']}"):
+                    n_item = st.text_area("項目", row['eval_item'])
+                    n_target = st.text_area("指標", row['eval_target'])
+                    n_content = st.text_area("紀錄", row['eval_content'])
+                    if st.form_submit_button("儲存"):
+                        conn = get_conn()
+                        conn.execute("UPDATE assistant_evaluations SET eval_item=?, eval_target=?, eval_content=? WHERE id=?", (n_item, n_target, n_content, row['id']))
+                        conn.commit()
+                        conn.close()
+                        st.session_state[f"edit_mode_{row['id']}"] = False
+                        st.rerun()
 
     # 2. 新增考核區
     st.markdown("---")
     st.markdown("### ✍️ 新增績效考核紀錄")
     with st.form("add_form", clear_on_submit=True):
-        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["請先至下方新增人員"])
+        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["請先至下方新增名單"])
         c1, c2, c3 = st.columns(3)
         txt_item = c1.text_area("📊 考核項目")
         txt_target = c2.text_area("🎯 考核指標")
@@ -888,13 +900,11 @@ if menu == "🎀 助理績效考核區":
 
     # 3. 獨立助理名單維護
     st.markdown("---")
-    st.markdown("### ⚙️ 助理名單維護 (專用區)")
+    st.markdown("### ⚙️ 助理名單維護 (本頁專用)")
     new_staff = st.text_input("輸入新助理姓名")
-    if st.button("➕ 新增助理到名單"):
+    if st.button("➕ 加入名單"):
         conn = get_conn()
-        try:
-            conn.execute("INSERT INTO staff (name) VALUES (?)", (new_staff,))
-            conn.commit()
-        except: st.error("人員已存在")
+        conn.execute("INSERT INTO staff (name) VALUES (?)", (new_staff,))
+        conn.commit()
         conn.close()
         st.rerun()
