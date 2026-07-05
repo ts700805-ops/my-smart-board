@@ -153,6 +153,15 @@ def init_db():
                     task_content TEXT,
                     status TEXT DEFAULT '待處理',
                     complete_date TEXT)''')
+    
+    # 🎀 新增助理績效考核資料表
+    c.execute('''CREATE TABLE IF NOT EXISTS assistant_evaluations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    eval_date TEXT,
+                    assistant_name TEXT,
+                    eval_item TEXT,
+                    eval_content TEXT,
+                    is_deleted INTEGER DEFAULT 0)''')
     conn.commit()
     conn.close()
 
@@ -171,6 +180,7 @@ with st.sidebar:
             "⚠️ 品質異常首頁",
             "🛠️ 製造部待處理清單",
             "🔴 專案管理首頁",
+            "🎀 助理績效考核區",
             "--------------------", 
             "✍️ 撰寫新公告", 
             "📝 撰寫品質",
@@ -512,7 +522,7 @@ elif menu == "⚙️ 管理後台":
                     new_post_date = st.date_input("修改日期", value=curr_date_val, key=f"ep_date_{r['id']}")
                     
                     nc = st.text_area("修改內容", value=r['content'], key=f"ep_{r['id']}")
-                    if st.button("💾 儲儲", key=f"sp_{r['id']}"):
+                    if st.button("💾 儲存", key=f"sp_{r['id']}"):
                         conn = get_conn()
                         formatted_date = new_post_date.strftime('%Y-%m-%d')
                         if " " in r['date']: 
@@ -787,7 +797,7 @@ if menu == "🔴 專案管理首頁":
                     st.error("密碼錯誤")
 
     # =========================================================
-    # ✨ 完整保留：🟢 已完工歷史專案清單顯示於頁面下方
+    # 完整保留：🟢 已完工歷史專案清單顯示於頁面下方
     # =========================================================
     st.markdown("---")
     st.markdown("### 🟢 已完工歷史專案清單")
@@ -807,3 +817,144 @@ if menu == "🔴 專案管理首頁":
                 st.markdown(f"✅ **製令：** {row['order_no']} ｜ **指派：** {row['author_name']} ｜ **執行：** {row['worker_name']}")
                 st.markdown(f"📅 **指派日期：** {row['assign_date']} ｜ **預計完工：** {row['expected_date']} ｜ 🏁 **實際完工時間：** `{row['finish_date']}`")
                 st.markdown(f"📝 **完整執行內容：**\n{task_desc}")
+
+
+# --- 🎀 助理績效考核區 (獨立功能活頁，完美少女風格) ---
+if menu == "🎀 助理績效考核區":
+    st.subheader("🎀 助理績效考核管理系統")
+    
+    if st.text_input("🔐 請輸入考核授權密碼", type="password", key="assistant_auth_pwd") == "0000":
+        # 🦄 注入專屬助理的粉嫩可愛少女風格 CSS
+        st.markdown("""
+            <style>
+            .stApp {
+                background-color: #FFF0F5 !important;  /* 浪漫薰衣草粉紅底 */
+            }
+            h2, h3 {
+                color: #FF69B4 !important;  /* 浪漫草莓粉紅標題 */
+            }
+            .assistant-card {
+                background-color: #FFFFFF;
+                border: 2px solid #FFB6C1;
+                border-radius: 15px;
+                padding: 15px;
+                margin-bottom: 15px;
+                box-shadow: 0 4px 10px rgba(255,182,193,0.3);
+            }
+            .assistant-title {
+                color: #D2691E;
+                font-size: 18px;
+                font-weight: bold;
+                border-bottom: 1px dashed #FFB6C1;
+                padding-bottom: 5px;
+                margin-bottom: 8px;
+            }
+            .assistant-text {
+                font-size: 16px;
+                color: #333333;
+                line-height: 1.6;
+                white-space: pre-wrap; /* 完美換行，不黏在一起 */
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("### 📅 1. 考核日期設定 (最上面獨立編輯區)")
+        eval_date = st.date_input("請選擇考核日期", value=datetime.today().date(), key="main_eval_date")
+        
+        st.markdown("---")
+        st.markdown("### 📝 2. 新增助理考核紀錄")
+        
+        # 撈取目前已有的人員清單作為下拉選單
+        conn = get_conn()
+        staff_df = pd.read_sql("SELECT name FROM staff", conn)
+        conn.close()
+        staff_list = staff_df['name'].tolist()
+        
+        if not staff_list:
+            st.warning("⚠️ 目前系統中尚無人員名單，請先至「管理後台 ➜ 人員管理」新增名單。")
+            staff_list = ["請先新增人員"]
+            
+        with st.form("assistant_add_form", clear_on_submit=True):
+            sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list)
+            txt_item = st.text_area("📊 考核項目 (支援換行)", placeholder="例如：\n1. 現場表單追蹤速度\n2. 跨部門協調態度")
+            txt_content = st.text_area("✨ 考核詳細內容與評語 (支援換行)", placeholder="請輸入詳細內容說明...")
+            
+            if st.form_submit_button("💝 立即存檔紀錄"):
+                if txt_item.strip() and txt_content.strip():
+                    conn = get_conn()
+                    conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_content) VALUES (?, ?, ?, ?)",
+                                 (str(eval_date), sel_assistant, txt_item, txt_content))
+                    conn.commit()
+                    conn.close()
+                    sync_to_github("Add Assistant Eval - 2026070502")
+                    st.success(f"💖 {sel_assistant} 的考核紀錄已成功保存！")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("❌ 項目與詳細內容皆為必填項目喔！")
+                    
+        st.markdown("---")
+        st.markdown("### 📜 3. 助理考核紀錄顯示區 (同名助理集中排列)")
+        
+        conn = get_conn()
+        # 依助理姓名(assistant_name)排序，確保同一人的項目擺在一起，再依日期新舊排序
+        eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY assistant_name ASC, eval_date DESC", conn)
+        conn.close()
+        
+        if eval_df.empty:
+            st.caption("🧁 目前還沒有任何助理考核紀錄喔。")
+        else:
+            for _, row in eval_df.iterrows():
+                # 使用獨立可愛卡片封裝
+                st.markdown(f"""
+                <div class="assistant-card">
+                    <div class="assistant-title">🌸 助理姓名：{row['assistant_name']} ｜ 📅 考核日期：{row['eval_date']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # 配置左右排版：左邊呈現多行資料，右邊放控制按鈕
+                c_left, c_right = st.columns([7, 3])
+                with c_left:
+                    st.markdown(f"**📊 考核項目：**")
+                    st.markdown(f"<div class='assistant-text'>{row['eval_item']}</div>", unsafe_allow_html=True)
+                    st.markdown(f"**✨ 考核內容與評語：**")
+                    st.markdown(f"<div class='assistant-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
+                
+                with c_right:
+                    st.markdown("<div style='text-align: right;'>", unsafe_allow_html=True)
+                    btn_edit = st.checkbox("📝 編輯此筆", key=f"chk_ae_{row['id']}")
+                    if st.button("🗑️ 刪除紀錄", key=f"btn_ad_{row['id']}"):
+                        conn = get_conn()
+                        conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
+                        conn.commit()
+                        conn.close()
+                        sync_to_github("Delete Assistant Eval - 2026070502")
+                        st.success("🌸 紀錄已刪除！")
+                        time.sleep(1)
+                        st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
+                
+                # 編輯區間直接顯示在該筆紀錄的下方 (同頁面展開)
+                if btn_edit:
+                    st.markdown("#### 🛠️ 編輯考核內容")
+                    try:
+                        curr_d_val = datetime.strptime(row['eval_date'], '%Y-%m-%d').date()
+                    except:
+                        curr_d_val = datetime.today().date()
+                        
+                    up_date = st.date_input("修正考核日期", value=curr_d_val, key=f"u_ad_date_{row['id']}")
+                    up_assistant = st.selectbox("修正助理姓名", staff_list, index=staff_list.index(row['assistant_name']) if row['assistant_name'] in staff_list else 0, key=f"u_an_{row['id']}")
+                    up_item = st.text_area("修正考核項目", value=row['eval_item'], key=f"u_ai_{row['id']}")
+                    up_content = st.text_area("修正考核詳細內容", value=row['eval_content'], key=f"u_ac_{row['id']}")
+                    
+                    if st.button("💾 儲存修改內容", key=f"u_asave_{row['id']}"):
+                        conn = get_conn()
+                        conn.execute("UPDATE assistant_evaluations SET eval_date=?, assistant_name=?, eval_item=?, eval_content=? WHERE id=?",
+                                     (str(up_date), up_assistant, up_item, up_content, row['id']))
+                        conn.commit()
+                        conn.close()
+                        sync_to_github("Edit Assistant Eval - 2026070502")
+                        st.success("✨ 修改已安全保存！")
+                        time.sleep(1)
+                        st.rerun()
+                st.markdown("<hr style='border-color: rgba(255,182,193,0.2);'>", unsafe_allow_html=True)
