@@ -826,28 +826,59 @@ if menu == "🔴 專案管理首頁":
 
 
 
+# =========================================================
+# 🎀 助理績效考核區 (強制連結 GitHub 公用資料庫版)
+# =========================================================
 if menu == "🎀 助理績效考核區":
-    # 密碼保護
+    # 密碼保護維持不變
     if 'eval_auth' not in st.session_state: st.session_state.eval_auth = False
     if not st.session_state.eval_auth:
-        pwd = st.text_input("🔑 請輸入密碼 (00000)", type="password")
+        pwd = st.text_input("🔑 請輸入密碼 (0000)", type="password")
         if pwd == "0000": st.session_state.eval_auth = True; st.rerun()
         st.stop()
 
     st.subheader("🎀 助理績效考核管理系統")
     
-    # 1. 強制確保資料表存在 (這確保了讀寫來源一致)
-    conn = get_conn()
-    conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
-    conn.commit()
-    conn.close()
+    # 【關鍵修正】：強制使用與全系統完全一致的連線方式，確保直連 GitHub 的 bulletin.db
+    def get_main_db():
+        # 直接指定檔案路徑，確保與其他導航頁面讀到的是同一個檔案
+        return sqlite3.connect('bulletin.db')
 
-    # 2. 統一讀取名單與紀錄
-    conn = get_conn()
-    staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
-    staff_list = staff_df['name'].tolist()
+    # 1. 讀取名單 (直接抓取後台維護的總表)
+    conn = get_main_db()
+    try:
+        # 請確保這裡的表名 'assistant_list_exclusive' 與您後台管理員新增名單時寫入的表名完全一致
+        staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
+        staff_list = staff_df['name'].tolist()
+    except:
+        staff_list = []
+    
+    # 讀取考核紀錄
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
     conn.close()
+
+    # 2. 新增考核紀錄
+    st.markdown("### ✍️ 新增績效考核紀錄")
+    with st.form("add_form", clear_on_submit=True):
+        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["⚠️ 後台尚未建立名單"])
+        c1, c2, c3 = st.columns(3)
+        txt_item = c1.text_area("📊 考核項目")
+        txt_target = c2.text_area("🎯 考核指標")
+        txt_content = c3.text_area("✨ 考核紀錄")
+        
+        if st.form_submit_button("💝 立即存檔紀錄"):
+            if staff_list:
+                conn = get_main_db()
+                conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
+                             (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
+                conn.commit()
+                conn.close()
+                # 存檔後呼叫 GitHub 同步，確保後台檔案更新
+                if 'sync_to_github' in globals(): sync_to_github("考核新增")
+                st.success("紀錄已存檔至 GitHub 資料庫"); st.rerun()
+            else:
+                st.error("名單未連結，請至後台確認")
+
 
     # 3. 新增考核區 (下拉選單直接引用 staff_list)
     st.markdown("### ✍️ 新增績效考核紀錄")
