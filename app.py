@@ -826,19 +826,6 @@ if menu == "🔴 專案管理首頁":
 
 
 
-import streamlit as st
-import pandas as pd
-from datetime import datetime
-import firebase_admin
-from firebase_admin import credentials, db
-
-# 初始化 Firebase (請確保路徑正確)
-if not firebase_admin._apps:
-    cred = credentials.Certificate("serviceAccountKey.json") # 請確認此檔案名稱正確
-    firebase_admin.initialize_app(cred, {
-        'databaseURL': 'https://您的專案名稱.firebaseio.com/' # 請填入您的 Firebase Realtime Database URL
-    })
-
 if menu == "🎀 助理績效考核區":
     # 密碼保護
     if 'eval_auth' not in st.session_state: st.session_state.eval_auth = False
@@ -863,22 +850,32 @@ if menu == "🎀 助理績效考核區":
         </style>
     """, unsafe_allow_html=True)
 
-    # 1. 績效考核紀錄邏輯 (保留原樣)
+    # 資料庫連線與初始化
     conn = get_conn()
+    conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
+    
+    # 讀取考核與名單
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
+    staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
+    staff_list = staff_df['name'].tolist()
     conn.close()
 
+    # 1. 績效考核紀錄 (已移除標題)
     for index, row in eval_df.iterrows():
         st.markdown("---")
         unique_key = f"row_{row['id']}_{index}" 
+        
+        # 顯示日期 (移除可能的舊流水碼)
         raw_date = str(row['eval_date'])
         display_date = raw_date.split('] ')[-1] if ']' in raw_date else raw_date
+        
         c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 0.8])
         c1.markdown(f"<div class='custom-text'>{display_date}</div>", unsafe_allow_html=True)
         c2.markdown(f"<div class='custom-text'>{row['assistant_name']}</div>", unsafe_allow_html=True)
         c3.markdown(f"<div class='custom-text'>{row['eval_item']}</div>", unsafe_allow_html=True)
         c4.markdown(f"<div class='custom-text'>{row['eval_target']}</div>", unsafe_allow_html=True)
         c5.markdown(f"<div class='custom-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
+        
         with c6:
             if st.button("🗑️", key=f"del_btn_{unique_key}"):
                 conn = get_conn()
@@ -887,13 +884,9 @@ if menu == "🎀 助理績效考核區":
                 conn.close()
                 st.rerun()
 
-    # 2. 新增考核區 (從 Firebase 讀取名單)
+    # 2. 新增考核區
     st.markdown("---")
     st.markdown("### ✍️ 新增績效考核紀錄")
-    ref = db.reference('assistant_list')
-    firebase_staff = ref.get()
-    staff_list = list(firebase_staff.values()) if firebase_staff else []
-
     with st.form("add_form", clear_on_submit=True):
         sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["請先至下方新增名單"])
         c1, c2, c3 = st.columns(3)
@@ -908,7 +901,7 @@ if menu == "🎀 助理績效考核區":
             conn.close()
             st.rerun()
 
-   # 3. 獨立助理名單維護 (使用 SQLite，不會報錯)
+    # 3. 助理名單維護
     st.markdown("---")
     st.markdown("### ⚙️ 助理名單維護")
     new_staff_input = st.text_input("輸入新助理姓名 (支援逗號分隔)")
@@ -926,7 +919,6 @@ if menu == "🎀 助理績效考核區":
     
     st.markdown("#### 目前助理名單：")
     conn = get_conn()
-    # 確保連線讀取正確
     current_staff = pd.read_sql("SELECT * FROM assistant_list_exclusive", conn)
     conn.close()
     
