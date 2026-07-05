@@ -837,18 +837,71 @@ if menu == "🎀 助理績效考核區":
 
     st.subheader("🎀 助理績效考核管理系統")
     
-    # 字體設定
-    font_size = st.slider("調整顯示文字大小", 16, 28, 20)
-    st.markdown(f"<style>.custom-text {{ font-size: {font_size}px !important; font-weight: bold !important; }}</style>", unsafe_allow_html=True)
+    # CSS 設定 (加入自動換行)
+    st.markdown("""
+        <style>
+        .custom-text { font-weight: bold !important; word-wrap: break-word !important; white-space: pre-wrap !important; }
+        </style>
+    """, unsafe_allow_html=True)
 
-    # --- 關鍵修改：使用專用資料表 ---
     conn = get_conn()
-    # 確保有專用名單表 (若無則自動建立)
+    # 確保資料表結構存在
     conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
-    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
-    # 僅讀取本頁專用名單
-    staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
-    staff_list = staff_df['name'].tolist()
+    
+    # 1. 讀取並顯示總覽 (強制只顯示日期與內容，不顯示流水碼)
+    st.markdown("### 📜 績效考核紀錄總覽")
+    # 修正 SQL：確保不讀取到亂碼，只拿取您需要的欄位
+    eval_data = conn.execute("SELECT id, eval_date, assistant_name, eval_item, eval_target, eval_content FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC").fetchall()
+    
+    for row in eval_data:
+        # row: id, date, name, item, target, content
+        st.markdown("---")
+        c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 0.8])
+        # 顯示日期時，直接切割掉可能的流水碼，只顯示日期部分
+        display_date = str(row[1]).split('] ')[-1] if ']' in str(row[1]) else row[1]
+        c1.markdown(f"<div class='custom-text'>{display_date}</div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='custom-text'>{row[2]}</div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='custom-text'>{row[3]}</div>", unsafe_allow_html=True)
+        c4.markdown(f"<div class='custom-text'>{row[4]}</div>", unsafe_allow_html=True)
+        c5.markdown(f"<div class='custom-text'>{row[5]}</div>", unsafe_allow_html=True)
+        
+        with c6:
+            if st.button("🗑️", key=f"del_{row[0]}"):
+                conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row[0],))
+                conn.commit()
+                st.rerun()
+
+    # 2. 獨立名單維護與新增
+    st.markdown("---")
+    st.markdown("### ✍️ 新增績效考核紀錄")
+    
+    # 讀取專用名單
+    staff_list = [r[0] for r in conn.execute("SELECT name FROM assistant_list_exclusive").fetchall()]
+    
+    with st.form("add_form", clear_on_submit=True):
+        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["請先至下方新增名單"])
+        c1, c2, c3 = st.columns(3)
+        txt_item = c1.text_area("📊 考核項目")
+        txt_target = c2.text_area("🎯 考核指標")
+        txt_content = c3.text_area("✨ 考核紀錄")
+        if st.form_submit_button("💝 立即存檔紀錄"):
+            conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
+                         (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
+            conn.commit()
+            st.rerun()
+
+    # 3. 助理名單管理
+    st.markdown("---")
+    st.markdown("### ⚙️ 助理名單維護 (本頁專用)")
+    new_staff = st.text_input("輸入新助理姓名")
+    if st.button("➕ 加入名單"):
+        if new_staff.strip():
+            try:
+                conn.execute("INSERT INTO assistant_list_exclusive (name) VALUES (?)", (new_staff.strip(),))
+                conn.commit()
+                st.rerun()
+            except: st.error("人員已存在")
+    
     conn.close()
 
   # 1. 績效考核紀錄總覽
