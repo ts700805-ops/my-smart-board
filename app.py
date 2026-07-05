@@ -832,6 +832,7 @@ if menu == "🎀 助理績效考核區":
         if pwd == "0000": st.session_state.eval_auth = True; st.rerun()
         st.stop()
 
+    # --- 修正後的乾淨標題 (移除流水碼) ---
     st.subheader("🎀 助理績效考核管理系統")
     
     # 字體大小設定 (僅作用於本頁)
@@ -858,7 +859,7 @@ if menu == "🎀 助理績效考核區":
         c4.markdown(f"<div class='custom-text'>{row['eval_target']}</div>", unsafe_allow_html=True)
         c5.markdown(f"<div class='custom-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
         
-        # 編輯與刪除在最右側
+        # 編輯與刪除在最右側 (c6)
         with c6:
             if st.button("✏️", key=f"edit_{row['id']}"): st.session_state[f"edit_mode_{row['id']}"] = True
             if st.button("🗑️", key=f"del_{row['id']}"):
