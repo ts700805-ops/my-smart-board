@@ -955,7 +955,7 @@ if menu == "🎀 助理績效考核區":
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown("---")
     
-# --- 新增考核表單區 (已修改為同一列排版) ---
+# --- 新增考核表單區 (修正排版：強制並列) ---
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
         #
