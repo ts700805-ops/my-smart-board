@@ -879,24 +879,6 @@ if menu == "🎀 助理績效考核區":
             st.rerun()
 
 
-    # 3. 新增考核區 (下拉選單直接引用 staff_list)
-    st.markdown("### ✍️ 新增績效考核紀錄")
-    with st.form("add_form", clear_on_submit=True):
-        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["請先至下方新增名單"])
-        c1, c2, c3 = st.columns(3)
-        txt_item = c1.text_area("📊 考核項目")
-        txt_target = c2.text_area("🎯 考核指標")
-        txt_content = c3.text_area("✨ 考核紀錄")
-        if st.form_submit_button("💝 立即存檔紀錄"):
-            if staff_list:
-                conn = get_conn()
-                conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
-                             (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
-                conn.commit()
-                conn.close()
-                st.success("存檔成功！"); st.rerun()
-            else:
-                st.error("名單為空，無法存檔")
 
     # 4. 績效考核紀錄總覽
     st.markdown("### 📜 績效考核紀錄總覽")
