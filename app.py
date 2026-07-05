@@ -826,7 +826,7 @@ if menu == "🔴 專案管理首頁":
 
 
 
-# --- 助理績效考核區 (僅保留考核功能) ---
+# --- 助理績效考核區 ---
 if menu == "🎀 助理績效考核區":
     # 密碼保護
     if 'eval_auth' not in st.session_state: st.session_state.eval_auth = False
@@ -836,22 +836,20 @@ if menu == "🎀 助理績效考核區":
         st.stop()
 
     st.subheader("🎀 助理績效考核管理系統")
-    
-    # 字體設定基準 25
     font_size = st.slider("調整顯示文字大小", 16, 56, 25)
-    st.markdown(f"""
-        <style>
-        .custom-text {{ font-size: {font_size}px !important; font-weight: bold !important; }}
-        </style>
-    """, unsafe_allow_html=True)
+    st.markdown(f"<style>.custom-text {{ font-size: {font_size}px !important; font-weight: bold !important; }}</style>", unsafe_allow_html=True)
 
     conn = get_conn()
+    # 【修正點】：確保讀取前資料表一定存在
+    conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
+    conn.execute("CREATE TABLE IF NOT EXISTS assistant_evaluations (id INTEGER PRIMARY KEY, eval_date TEXT, assistant_name TEXT, eval_item TEXT, eval_target TEXT, eval_content TEXT, is_deleted INTEGER DEFAULT 0)")
+    
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
     staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
     staff_list = staff_df['name'].tolist()
     conn.close()
 
-    # 績效考核紀錄
+    # (績效考核區邏輯維持原樣...)
     for index, row in eval_df.iterrows():
         st.markdown("---")
         c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 0.8])
@@ -860,7 +858,6 @@ if menu == "🎀 助理績效考核區":
         c3.markdown(f"<div class='custom-text'>{row['eval_item']}</div>", unsafe_allow_html=True)
         c4.markdown(f"<div class='custom-text'>{row['eval_target']}</div>", unsafe_allow_html=True)
         c5.markdown(f"<div class='custom-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
-        
         with c6:
             if st.button("🗑️", key=f"del_rec_{row['id']}"):
                 conn = get_conn()
@@ -885,12 +882,11 @@ if menu == "🎀 助理績效考核區":
             conn.close()
             st.rerun()
 
-# --- 管理後台 (移入助理名單維護) ---
+# --- 管理後台 ---
 elif menu == "⚙️ 管理後台":
     st.subheader("⚙️ 管理後台")
     st.markdown("### 👤 助理名單管理")
     
-    # 確保資料表存在
     conn = get_conn()
     conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
     conn.close()
