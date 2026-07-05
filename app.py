@@ -824,79 +824,69 @@ if menu == "🔴 專案管理首頁":
                 st.markdown(f"📅 **指派日期：** {row['assign_date']} ｜ **預計完工：** {row['expected_date']} ｜ 🏁 **實際完工時間：** `{row['finish_date']}`")
                 st.markdown(f"📝 **完整執行內容：**\n{task_desc}")
 
-# --- 🎀 助理績效考核區 (完整修正版：含密碼保護與編輯刪除) ---
 if menu == "🎀 助理績效考核區":
-    # 🦄 設定密碼保護
+    # 密碼保護
     if 'eval_auth' not in st.session_state: st.session_state.eval_auth = False
-    
     if not st.session_state.eval_auth:
-        pwd = st.text_input("🔑 請輸入進入績效考核區的密碼 (0000)", type="password")
-        if pwd == "0000":
-            st.session_state.eval_auth = True
-            st.rerun()
-        elif pwd != "":
-            st.error("❌ 密碼錯誤，請重新輸入")
-    else:
-        # ✅ 密碼正確後顯示頁面
-        st.subheader("🎀 助理績效考核管理系統")
-        
-        # 1. 績效考核項目紀錄查詢
-        st.markdown("### 📜 績效考核項目")
-        conn = get_conn()
-        eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
-        conn.close()
+        pwd = st.text_input("🔑 請輸入密碼 (0000)", type="password")
+        if pwd == "0000": st.session_state.eval_auth = True; st.rerun()
+        if pwd: st.error("密碼錯誤")
+        st.stop()
 
-        if eval_df.empty:
-            st.info("🧁 目前暫無考核紀錄。")
-        else:
-            for _, row in eval_df.iterrows():
-                with st.expander(f"🌸 {row['assistant_name']} | 📅 {row['eval_date']} (點擊展開編輯/刪除)"):
-                    # 編輯功能
-                    with st.form(f"edit_form_{row['id']}"):
-                        u_name = st.text_input("助理姓名", value=row['assistant_name'])
-                        c1, c2, c3 = st.columns(3)
-                        u_item = c1.text_area("考核項目", value=row['eval_item'])
-                        u_target = c2.text_area("考核指標", value=row['eval_target'])
-                        u_content = c3.text_area("考核紀錄", value=row['eval_content'])
-                        
-                        if st.form_submit_button("💾 儲存修改"):
-                            conn = get_conn()
-                            conn.execute("UPDATE assistant_evaluations SET assistant_name=?, eval_item=?, eval_target=?, eval_content=? WHERE id=?", 
-                                         (u_name, u_item, u_target, u_content, row['id']))
-                            conn.commit()
-                            conn.close()
-                            st.success("✨ 修改成功！")
-                            st.rerun()
-                            
-                    if st.button("🗑 刪除此筆紀錄", key=f"del_{row['id']}"):
-                        conn = get_conn()
-                        conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
-                        conn.commit()
-                        conn.close()
-                        st.rerun()
+    st.subheader("🎀 助理績效考核管理系統")
+    font_size = st.slider("調整顯示文字大小", 14, 24, 18)
 
+    # 1. 績效考核紀錄查詢 (舊式：一整行顯示)
+    st.markdown("### 📜 績效考核紀錄總覽")
+    conn = get_conn()
+    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
+    staff_df = pd.read_sql("SELECT name FROM staff", conn)
+    staff_list = staff_df['name'].tolist()
+    conn.close()
+
+    for _, row in eval_df.iterrows():
         st.markdown("---")
+        c1, c2, c3, c4 = st.columns([1, 2, 2, 2])
+        c1.markdown(f"**{row['assistant_name']}**<br>{row['eval_date']}", unsafe_allow_html=True)
+        c2.markdown(f"**項目:** {row['eval_item']}")
+        c3.markdown(f"**指標:** {row['eval_target']}")
+        c4.markdown(f"**紀錄:** {row['eval_content']}")
         
-        # 2. 新增績效考核區 (在最下方)
-        st.markdown("### ✍️ 新增績效考核紀錄")
+        # 刪除與編輯功能按鈕
+        if c4.button("🗑️ 刪除", key=f"del_{row['id']}"):
+            conn = get_conn()
+            conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
+            conn.commit()
+            conn.close()
+            st.rerun()
+
+    st.markdown("---")
+    # 2. 新增績效考核區
+    st.markdown("### ✍️ 新增績效考核紀錄")
+    with st.form("add_form", clear_on_submit=True):
+        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["請先至下方維護名單"])
+        c1, c2, c3 = st.columns(3)
+        txt_item = c1.text_area("📊 考核項目")
+        txt_target = c2.text_area("🎯 考核指標")
+        txt_content = c3.text_area("✨ 考核紀錄")
         
-        # 助理姓名設定 (本頁手動輸入)
-        new_name = st.text_input("🎀 請輸入助理姓名")
-        
-        with st.form("add_form", clear_on_submit=True):
-            col1, col2, col3 = st.columns(3)
-            with col1: txt_item = st.text_area("📊 考核項目")
-            with col2: txt_target = st.text_area("🎯 考核指標")
-            with col3: txt_content = st.text_area("✨ 考核紀錄")
-            
-            if st.form_submit_button("💝 立即存檔紀錄"):
-                if new_name:
-                    conn = get_conn()
-                    conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
-                                 (datetime.today().strftime('%Y-%m-%d'), new_name, txt_item, txt_target, txt_content))
-                    conn.commit()
-                    conn.close()
-                    st.success("💖 已新增紀錄！")
-                    st.rerun()
-                else:
-                    st.error("⚠️ 請務必輸入助理姓名！")
+        if st.form_submit_button("💝 立即存檔紀錄"):
+            conn = get_conn()
+            conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
+                         (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
+            conn.commit()
+            conn.close()
+            st.rerun()
+
+    # 3. 最下方：人員維護區
+    st.markdown("---")
+    st.markdown("### ⚙️ 助理名單維護 (後台管理)")
+    new_staff = st.text_input("輸入新助理姓名")
+    if st.button("➕ 新增人員"):
+        conn = get_conn()
+        try:
+            conn.execute("INSERT INTO staff (name) VALUES (?)", (new_staff,))
+            conn.commit()
+        except: st.error("人員已存在")
+        conn.close()
+        st.rerun()
