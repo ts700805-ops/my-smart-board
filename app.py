@@ -148,12 +148,6 @@ with st.sidebar:
     # 系統版本號與最新流水碼連動
     st.markdown(f"<h4 style='color: #F1C40F; margin-bottom: 5px;'>系統版本：{current_sys_version}</h4>", unsafe_allow_html=True)
     
-    # 【修正核心】：補回主選單定義，避免下方 if menu 發生 NameError 錯誤
-    menu = st.selectbox(
-        "功能選單",
-        ["🏠 公佈欄首頁", "⚠️ 品質異常首頁", "🛠️ 製造部待處理清單", "✍️ 撰寫新公告", "📝 撰寫品質", "🔴 專案管理首頁", "🎀 助理績效考核區", "📜 所有紀錄", "⚙️ 管理後台"]
-    )
-    
     # 渲染照片區
     try:
         festive_img = Image.open("image_b13023.jpg")
@@ -442,7 +436,7 @@ elif menu == "🛠️ 製造部待處理清單":
                 c2.markdown(f"<span class='large-text-label'>🔢 製令：</span><span class='large-text-value'>{t_order}</span>", unsafe_allow_html=True)
                 c3.markdown(f"<div style='text-align: right; font-size: {value_size}px;'>🥮</div>", unsafe_allow_html=True)
                 
-                st.markdown("<div style='text-align: right; margin-top: 10px; margin-bottom: 10px; border-top: 1px dashed #DDD;'></div>", unsafe_allow_html=True)
+                st.markdown("<div style='margin-top: 10px; margin-bottom: 10px; border-top: 1px dashed #DDD;'></div>", unsafe_allow_html=True)
                 st.markdown(f"<div class='large-text-content'><b>📋 任務內容：</b>\n{t_content}</div>", unsafe_allow_html=True)
 
 # 4. 撰寫一般公告
