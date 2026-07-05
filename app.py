@@ -70,8 +70,8 @@ st.markdown("""
 # 🏠 側邊欄配置：中秋佳節新氣象
 # =========================================================
 with st.sidebar:
-    # 📌 流水碼更新為 20260705013
-    st.markdown("<h4 style='color: #F1C40F; margin-bottom: 5px;'>系統版本：20260705013</h4>", unsafe_allow_html=True)
+    # 📌 流水碼更新為 20260705021
+    st.markdown("<h4 style='color: #F1C40F; margin-bottom: 5px;'>系統版本：20260705021</h4>", unsafe_allow_html=True)
     
     # 渲染照片區
     try:
@@ -89,10 +89,12 @@ with st.sidebar:
 # =========================================================
 st.markdown("""
     <div style="padding: 10px 0px 20px 0px;">
-        <h1 style="margin: 0; padding: 0; display: flex; align-items: center; font-size: 32px;">
+        <h1 style="margin: 0; padding: 0; display: flex; align-items: center;
+        font-size: 32px;">
             🏭 &lt;超慧&gt;製造部-雲端公佈欄
         </h1>
-        <p style="margin: 5px 0 0 0; color: #1B263B; font-size: 15px; font-weight: 500;">
+        <p style="margin: 5px 0 0 0;
+        color: #1B263B; font-size: 15px; font-weight: 500;">
             🌕 <b>花好月圓 ‧ 粽去柚來</b> ｜ 專業效率如滿月，製造品質皆圓滿
         </p>
     </div>
@@ -416,7 +418,9 @@ elif menu == "🛠️ 製造部待處理清單":
     
     if df_task.empty:
         st.markdown(f"""
-            <div style="background-color: #FFFDF3; border: 1px solid #F1C40F; padding: 25px; border-radius: 8px; text-align: center; color: #0D1B2A; font-size: {value_size}px; font-weight: bold;">
+            <div style="background-color: #FFFDF3;
+            border: 1px solid #F1C40F; padding: 25px; border-radius: 8px; text-align: center; color: #0D1B2A; font-size: {value_size}px;
+            font-weight: bold;">
                 🎉 <b>目前暫無待處理事項！所有任務皆已順利完工圓滿！</b>
             </div>
         """, unsafe_allow_html=True)
@@ -455,7 +459,8 @@ elif menu == "✍️ 撰寫新公告":
             conn.execute("INSERT INTO posts (date, author, content, image_path, is_deleted) VALUES (?, ?, ?, ?, 0)", (t, author, msg, p))
             conn.commit()
             conn.close()
-            sync_to_github("New Post - 20260705013"); st.balloons(); st.success("發布成功！"); time.sleep(1.5);
+            sync_to_github("New Post - 20260705021")
+            st.balloons(); st.success("發布成功！"); time.sleep(1.5);
             st.rerun()
 
 # 5. 撰寫品質
@@ -470,7 +475,7 @@ elif menu == "📝 撰寫品質":
         s_list = pd.read_sql("SELECT name FROM staff", conn)['name'].tolist()
         conn.close()
         q_staff = st.selectbox("相關人員", s_list)
-    
+     
     q_content = st.text_area("異常描述")
     q_file = st.file_uploader("🖼️ 現場照片", type=['jpg', 'png', 'jpeg'])
     if st.button("🚨 提交紀錄"):
@@ -484,7 +489,7 @@ elif menu == "📝 撰寫品質":
             conn.execute("INSERT INTO quality_posts (date, order_no, content, category, staff_name, image_path, is_deleted) VALUES (?, ?, ?, ?, ?, ?, 0)", (t, order_no, q_content, q_cat, q_staff, p))
             conn.commit()
             conn.close()
-            sync_to_github("New Quality Alert - 20260705013"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5);
+            sync_to_github("New Quality Alert - 20260705021"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5);
             st.rerun()
 
 # 6. 所有紀錄
@@ -512,7 +517,7 @@ elif menu == "⚙️ 管理後台":
     st.subheader("🛠️ 管理系統")
     if st.text_input("請輸入管理密碼", type="password") == "0000":
         t1, t2, t3, t4 = st.tabs(["公告管理", "品質紀錄管理", "人員管理", "待處理事項管理"])
-     
+      
         with t1:
             conn = get_conn()
             df = pd.read_sql("SELECT * FROM posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
@@ -528,6 +533,7 @@ elif menu == "⚙️ 管理後台":
                     new_post_date = st.date_input("修改日期", value=curr_date_val, key=f"ep_date_{r['id']}")
                     
                     nc = st.text_area("修改內容", value=r['content'], key=f"ep_{r['id']}")
+    
                     if st.button("💾 儲存", key=f"sp_{r['id']}"):
                         conn = get_conn()
                         formatted_date = new_post_date.strftime('%Y-%m-%d')
@@ -535,9 +541,9 @@ elif menu == "⚙️ 管理後台":
                             formatted_date += " " + r['date'].split(" ", 1)[1]
                         conn.execute("UPDATE posts SET date = ?, content = ? WHERE id = ?", (formatted_date, nc, r['id']))
                         conn.commit(); conn.close()
-                        sync_to_github("Edit Post - 20260705013"); st.rerun()
+                        sync_to_github("Edit Post - 20260705021"); st.rerun()
                 if c3.button("🗑️ 刪除", key=f"dp_{r['id']}"):
-                    conn = get_conn(); conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Post - 20260705013"); st.rerun()
+                    conn = get_conn(); conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Post - 20260705021"); st.rerun()
 
         with t2:
             conn = get_conn()
@@ -553,6 +559,7 @@ elif menu == "⚙️ 管理後台":
                         curr_q_date_val = datetime.strptime(r['date'].split(" ")[0], '%Y-%m-%d').date()
                     except:
                         curr_q_date_val = datetime.today().date()
+                
                     new_q_date = st.date_input("修改日期", value=curr_q_date_val, key=f"uq_date_{r['id']}")
                     
                     new_order = st.text_input("製令編號", value=r['order_no'], key=f"uo_{r['id']}")
@@ -575,9 +582,9 @@ elif menu == "⚙️ 管理後台":
                             formatted_q_date += " " + r['date'].split(" ", 1)[1]
                         conn.execute("UPDATE quality_posts SET date=?, order_no=?, category=?, staff_name=?, content=?, image_path=? WHERE id=?", 
                                      (formatted_q_date, new_order, new_cat, new_staff, new_content, p, r['id']))
-                        conn.commit(); conn.close(); sync_to_github("Edit Quality - 20260705013"); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github("Edit Quality - 20260705021"); st.rerun()
                 if qc3.button("🗑️ 刪除", key=f"dq_{r['id']}"):
-                    conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality - 20260705013"); st.rerun()
+                    conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality - 20260705021"); st.rerun()
 
         with t3:
             st.write("### 👥 人員名單管理")
@@ -587,7 +594,7 @@ elif menu == "⚙️ 管理後台":
                     conn = get_conn()
                     try:
                         conn.execute("INSERT INTO staff (name) VALUES (?)", (new_n,))
-                        conn.commit(); conn.close(); sync_to_github(f"Add {new_n} - 20260705013"); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github(f"Add {new_n} - 20260705021"); st.rerun()
                     except: conn.close(); st.error("人員已存在")
             st.markdown("---")
             conn = get_conn()
@@ -597,7 +604,7 @@ elif menu == "⚙️ 管理後台":
                 col1, col2 = st.columns([8, 2])
                 col1.write(f"👤 {row['name']}")
                 if col2.button("🗑️ 刪除人員", key=f"ds_{row['id']}"):
-                    conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff - 20260705013"); st.rerun()
+                    conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff - 20260705021"); st.rerun()
 
         with t4:
             st.write("### 📝 新增待處理事項")
@@ -611,7 +618,7 @@ elif menu == "⚙️ 管理後台":
                         conn = get_conn()
                         conn.execute("INSERT INTO pending_tasks (date, order_no, task_content) VALUES (?, ?, ?)", 
                                      (str(t_date), t_order, t_msg))
-                        conn.commit(); conn.close(); sync_to_github("Add Task - 20260705013"); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github("Add Task - 20260705021"); st.rerun()
 
             st.markdown("---")
             st.write("### ⏳ 目前待處理清單")
@@ -621,31 +628,19 @@ elif menu == "⚙️ 管理後台":
             for _, task in active_tasks.iterrows():
                 tc1, tc2, tc3 = st.columns([6, 2, 2])
                 tc1.warning(f"📅 {task['date']} | 製令: {task['order_no']} \n\n內容: {task['task_content']}")
-                
-                with tc2.popover("📝 編輯"):
-                    try: curr_d = datetime.strptime(task['date'], '%Y-%m-%d')
-                    except: curr_d = datetime.now()
-                    
-                    e_date = st.date_input("修改日期", value=curr_d, key=f"edt_{task['id']}")
-                    e_order = st.text_input("修改製令", value=task['order_no'], key=f"eord_{task['id']}")
-                    e_task = st.text_area("修改內容", value=task['task_content'], key=f"etxt_{task['id']}")
-                    
-                    if st.button("💾 儲存修改", key=f"esv_{task['id']}"):
-                        conn = get_conn()
-                        conn.execute("UPDATE pending_tasks SET date=?, order_no=?, task_content=? WHERE id=?", 
-                                     (str(e_date), e_order, e_task, task['id']))
-                        conn.commit(); conn.close(); sync_to_github("Edit Task - 20260705013"); st.rerun()
-
-                if tc3.button("✅ 完成", key=f"finish_{task['id']}"):
-                    now_t = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
+                if tc2.button("✅ 完工", key=f"c_task_{task['id']}"):
                     conn = get_conn()
-                    conn.execute("UPDATE pending_tasks SET status='已完成', complete_date=? WHERE id=?", (now_t, task['id']))
-                    conn.commit(); conn.close(); sync_to_github("Finish Task - 20260705013"); st.rerun()
+                    now_str = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
+                    conn.execute("UPDATE pending_tasks SET status = '已完成', complete_date = ? WHERE id = ?", (now_str, task['id']))
+                    conn.commit(); conn.close(); sync_to_github("Complete Task - 20260705021"); st.rerun()
+                if tc3.button("🗑️ 刪除", key=f"d_task_{task['id']}"):
+                    conn = get_conn()
+                    conn.execute("DELETE FROM pending_tasks WHERE id = ?", (task['id'],))
+                    conn.commit(); conn.close(); sync_to_github("Delete Task - 20260705021"); st.rerun()
 
-# --- 🔴 專案管理首頁 (獨立功能活頁) ---
-if menu == "🔴 專案管理首頁":
+# 8. 專案管理首頁
+elif menu == "🔴 專案管理首頁":
     st.subheader("📋 專案進度追蹤看板")
-    
     if "project_font_scale" not in st.session_state:
         st.session_state.project_font_scale = 130
         
@@ -657,45 +652,39 @@ if menu == "🔴 專案管理首頁":
         step=10,
         key="project_font_slider"
     )
-    
     p_font_scale = st.session_state.project_font_scale
-    
+
     st.markdown(f"""
         <style>
-        div[data-testid="stNotification"] *, 
-        div[data-testid="stNotificationContent"], 
-        div[data-testid="stNotificationContent"] p, 
-        div[data-testid="stNotificationContent"] span {{
+        div[data-testid="stNotification"] *, div[data-testid="stNotificationContent"], div[data-testid="stNotificationContent"] p, div[data-testid="stNotificationContent"] span {{
             font-size: {int(16 * (p_font_scale / 100))}px !important;
             line-height: 1.6 !important;
         }}
         </style>
     """, unsafe_allow_html=True)
-    
+
     db_conn = sqlite3.connect('bulletin.db')
     try:
         db_conn.execute('''CREATE TABLE IF NOT EXISTS project_tasks (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        order_no TEXT,
-                        assign_date TEXT,
-                        author_name TEXT,
-                        worker_name TEXT,
-                        expected_date TEXT,
-                        task_content TEXT DEFAULT '',
-                        finish_date TEXT DEFAULT '',
-                        is_finished INTEGER DEFAULT 0,
-                        is_deleted INTEGER DEFAULT 0)''')
-        
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_no TEXT,
+            assign_date TEXT,
+            author_name TEXT,
+            worker_name TEXT,
+            expected_date TEXT,
+            task_content TEXT DEFAULT '',
+            finish_date TEXT DEFAULT '',
+            is_finished INTEGER DEFAULT 0,
+            is_deleted INTEGER DEFAULT 0)''')
         db_conn.execute('''CREATE TABLE IF NOT EXISTS project_settings (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        config_key TEXT UNIQUE,
-                        config_value TEXT)''')
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            config_key TEXT UNIQUE,
+            config_value TEXT)''')
         db_conn.commit()
         
         cursor = db_conn.cursor()
         cursor.execute("PRAGMA table_info(project_tasks)")
         columns = [row[1] for row in cursor.fetchall()]
-        
         if "task_content" not in columns:
             db_conn.execute("ALTER TABLE project_tasks ADD COLUMN task_content TEXT DEFAULT ''")
             db_conn.commit()
@@ -709,12 +698,11 @@ if menu == "🔴 專案管理首頁":
         row_mapping = c.fetchone()
     finally:
         db_conn.close()
-    
+
     mapping_text = row_mapping[0] if row_mapping else "組長A:成員1,成員2\n組長B:成員3,成員4"
     
-    author_options = []  
-    worker_options = []  
-    
+    author_options = []
+    worker_options = []
     for line in mapping_text.split("\n"):
         if ":" in line:
             leader, members = line.split(":", 1)
@@ -723,7 +711,6 @@ if menu == "🔴 專案管理首頁":
                 author_options.append(leader)
             if leader not in worker_options:
                 worker_options.append(leader)
-            
             for m in members.split(","):
                 m = m.strip()
                 if m and m not in worker_options:
@@ -733,20 +720,19 @@ if menu == "🔴 專案管理首頁":
     if not worker_options: worker_options = ["請先到下方設定對照表"]
 
     st.markdown("### 🟡 進行中專案清單")
-    
     db_conn = sqlite3.connect('bulletin.db')
     try:
         df_active = pd.read_sql("SELECT * FROM project_tasks WHERE is_finished = 0 AND is_deleted = 0 ORDER BY id DESC", db_conn)
     finally:
         db_conn.close()
-    
+
     if df_active.empty:
         st.info("目前沒有進行中的專案任務。")
     else:
         for _, row in df_active.iterrows():
             m1, m2, m3, m4 = st.columns([5, 1.5, 1.5, 1.5])
-            
             task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "未填寫執行內容"
+            
             m1.info(f"**製令：** {row['order_no']} | **指派日：** {row['assign_date']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}\n\n**📝 執行內容：** {task_desc}")
             
             if m2.button("🟢 點我完工", key=f"f_btn_{row['id']}"):
@@ -757,13 +743,13 @@ if menu == "🔴 專案管理首頁":
                     db_conn.commit()
                 finally:
                     db_conn.close()
-                sync_to_github("Finish Project Task - 20260705013"); st.rerun()
+                sync_to_github("Complete Project Task - 20260705021")
+                st.rerun()
                 
             with m3.popover("📝 編輯"):
                 pwd_edit = st.text_input("驗證管理密碼", type="password", key=f"pwd_e_{row['id']}")
                 if pwd_edit == "0000":
                     e_order = st.text_input("修改製令", value=row['order_no'], key=f"eo_{row['id']}")
-                    
                     try: def_auth_idx = author_options.index(row['author_name'])
                     except: def_auth_idx = 0
                     try: def_work_idx = worker_options.index(row['worker_name'])
@@ -780,14 +766,15 @@ if menu == "🔴 專案管理首頁":
                         db_conn = sqlite3.connect('bulletin.db')
                         try:
                             db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, expected_date=?, task_content=? WHERE id=?", 
-                                         (e_order, e_author, e_worker, str(e_exp), e_content, row['id']))
+                                           (e_order, e_author, e_worker, str(e_exp), e_content, row['id']))
                             db_conn.commit()
                         finally:
                             db_conn.close()
-                        sync_to_github("Edit Project Task - 20260705013"); st.rerun()
+                        sync_to_github("Edit Project Task - 20260705021")
+                        st.rerun()
                 elif pwd_edit:
                     st.error("密碼錯誤")
-
+                    
             with m4.popover("🗑️ 刪除"):
                 pwd_del = st.text_input("驗證管理密碼", type="password", key=f"pwd_d_{row['id']}")
                 if pwd_del == "0000":
@@ -798,22 +785,19 @@ if menu == "🔴 專案管理首頁":
                             db_conn.commit()
                         finally:
                             db_conn.close()
-                        sync_to_github("Delete Project Task - 20260705013"); st.rerun()
+                        sync_to_github("Delete Project Task - 20260705021")
+                        st.rerun()
                 elif pwd_del:
                     st.error("密碼錯誤")
 
-    # =========================================================
-    # 完整保留：🟢 已完工歷史專案清單顯示於頁面下方
-    # =========================================================
     st.markdown("---")
     st.markdown("### 🟢 已完工歷史專案清單")
-    
     db_conn = sqlite3.connect('bulletin.db')
     try:
         db_finished = pd.read_sql("SELECT * FROM project_tasks WHERE is_finished = 1 AND is_deleted = 0 ORDER BY finish_date DESC", db_conn)
     finally:
         db_conn.close()
-        
+
     if db_finished.empty:
         st.caption("目前尚無已完工的歷史專案。")
     else:
@@ -824,61 +808,101 @@ if menu == "🔴 專案管理首頁":
                 st.markdown(f"📅 **指派日期：** {row['assign_date']} ｜ **預計完工：** {row['expected_date']} ｜ 🏁 **實際完工時間：** `{row['finish_date']}`")
                 st.markdown(f"📝 **完整執行內容：**\n{task_desc}")
 
+    st.markdown("---")
+    st.markdown("### ✍️ 指派新專案任務")
+    with st.form("project_task_form", clear_on_submit=True):
+        p_order = st.text_input("工單/製令編號")
+        p_author = st.selectbox("任務指派人 (組長)", author_options)
+        p_worker = st.selectbox("指定執行人員", worker_options)
+        p_exp_date = st.date_input("預計完工日期")
+        p_content = st.text_area("執行內容與品質要求")
+        
+        if st.form_submit_button("🚀 發布指派任務"):
+            if p_order and p_content:
+                t_now = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
+                db_conn = sqlite3.connect('bulletin.db')
+                try:
+                    db_conn.execute("INSERT INTO project_tasks (order_no, assign_date, author_name, worker_name, expected_date, task_content, is_finished, is_deleted) VALUES (?, ?, ?, ?, ?, ?, 0, 0)", 
+                                   (p_order, t_now, p_author, p_worker, str(p_exp_date), p_content))
+                    db_conn.commit()
+                finally:
+                    db_conn.close()
+                sync_to_github("Add Project Task - 20260705021")
+                st.toast("🚀 專案任務指派成功！")
+                st.rerun()
 
-# --- 🎀 助理績效考核區 (獨立活頁，全新可愛少女風格，移除密碼，修正排版順序) ---
-if menu == "🎀 助理績效考核區":
-    # 🦄 注入專屬助理的粉嫩可愛少女風格 CSS
+    st.markdown("---")
+    st.markdown("### ⚙️ 專案人員對照表配置後台")
+    with st.expander("🛠️ 點擊展開：變更組長與成員對照關係 (免授權驗證)"):
+        db_conn = sqlite3.connect('bulletin.db')
+        try:
+            c = db_conn.cursor()
+            c.execute("SELECT config_value FROM project_settings WHERE config_key = 'team_mapping'")
+            row_map = c.fetchone()
+        finally:
+            db_conn.close()
+            
+        current_map_text = row_map[0] if row_map else "組長A:成員1,成員2\n組長B:成員3,成員4"
+        new_map_text = st.text_area("請輸入最新組織對照表關係", value=current_map_text, height=150, help="格式範例：\n組長張三:助理李四,助理王五\n組長趙六:助理陳七")
+        
+        if st.button("💾 儲存對照關係設定"):
+            db_conn = sqlite3.connect('bulletin.db')
+            try:
+                db_conn.execute("INSERT OR REPLACE INTO project_settings (config_key, config_value) VALUES ('team_mapping', ?)", (new_map_text,))
+                db_conn.commit()
+            finally:
+                db_conn.close()
+            sync_to_github("Update Team Mapping - 20260705021")
+            st.success("💾 對照表更新成功！")
+            st.rerun()
+
+# 9. 助理績效考核區
+elif menu == "🎀 助理績效考核區":
     st.markdown("""
-        <style>
-        .stApp {
-            background-color: #FFF0F5 !important;  /* 浪漫粉紅薰衣草底色 */
-        }
-        h2, h3, h4 {
-            color: #FF69B4 !important;  /* 蜜糖草莓色系標題 */
-            font-family: "Microsoft JhengHei", sans-serif;
-        }
-        .assistant-card {
-            background-color: #FFFFFF;
-            border: 2px solid #FFB6C1;
-            border-radius: 15px;
-            padding: 18px;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 12px rgba(255,182,193,0.3);
-        }
-        .assistant-title {
-            color: #E67E22;
-            font-size: 19px;
-            font-weight: bold;
-            border-bottom: 1px dashed #FFB6C1;
-            padding-bottom: 6px;
-            margin-bottom: 10px;
-        }
-        .assistant-text {
-            font-size: 16px;
-            color: #2C3E50;
-            line-height: 1.7;
-            background-color: #FFF5F7;
-            padding: 10px 15px;
-            border-radius: 8px;
-            margin-bottom: 12px;
-            white-space: pre-wrap; /* 完美支援跨行換行呈现，文字絕不相黏 */
-        }
-        </style>
+    <style>
+    .stApp {
+        background-color: #FFF0F5 !important; /* 浪漫粉紅薰衣草底色 */
+    }
+    h2, h3, h4 {
+        color: #FF69B4 !important; /* 蜜糖草莓色系標題 */
+        font-family: "Microsoft JhengHei", sans-serif;
+    }
+    .assistant-card {
+        background-color: #FFFFFF;
+        border: 2px solid #FFB6C1;
+        border-radius: 15px;
+        padding: 18px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 12px rgba(255,182,193,0.3);
+    }
+    .assistant-title {
+        font-size: 18px;
+        font-weight: bold;
+        color: #D81B60;
+        border-bottom: 2px dashed #FFB6C1;
+        padding-bottom: 6px;
+        margin-bottom: 10px;
+    }
+    .assistant-text {
+        font-size: 16px;
+        line-height: 1.6;
+        color: #444444;
+        background-color: #FFF9FA;
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        white-space: pre-wrap;
+    }
+    </style>
     """, unsafe_allow_html=True)
     
-    st.subheader("🎀 助理績效考核管理系統")
-    
-    # --- 頂部獨立日期編輯區 ---
-    st.markdown("### 📅 考核日期設定")
-    eval_date = st.date_input("請選擇考核日期", value=datetime.today().date(), key="main_eval_date", label_visibility="collapsed")
+    st.markdown("## 🎀 助理月度績效考核與指標追蹤區")
+    st.markdown("💬 *精準記錄每位助理的卓越貢獻，攜手打造製造部卓越品質團隊。*")
     st.markdown("---")
     
-    # --- 【第11項修改】：將考核紀錄顯示區調移至畫面最上方呈現 ---
-    st.markdown("### 📜 歷史考核紀錄查詢")
-    
+    # 讀取助理歷史紀錄
     conn = get_conn()
-    # 依助理姓名進行排序，將同一助理的所有項目聚集在一起，再依日期排序
-    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY assistant_name ASC, eval_date DESC", conn)
+    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY id DESC", conn)
     staff_df = pd.read_sql("SELECT name FROM staff", conn)
     conn.close()
     
@@ -902,13 +926,11 @@ if menu == "🎀 助理績效考核區":
                 with c_left:
                     st.markdown("**📊 考核項目：**")
                     st.markdown(f"<div class='assistant-text'>{row['eval_item']}</div>", unsafe_allow_html=True)
-                    
                     st.markdown("**🎯 考核指標：**")
                     st.markdown(f"<div class='assistant-text'>{row['eval_target'] if row['eval_target'] else ''}</div>", unsafe_allow_html=True)
-                    
                     st.markdown("**📝 考核紀錄：**")
                     st.markdown(f"<div class='assistant-text'>{row['eval_content'] if row['eval_content'] else ''}</div>", unsafe_allow_html=True)
-                
+                    
                 with c_right:
                     st.markdown("<div style='text-align: right; margin-top: 10px;'>", unsafe_allow_html=True)
                     btn_edit = st.checkbox("📝 編輯此筆", key=f"chk_ae_{row['id']}")
@@ -917,64 +939,71 @@ if menu == "🎀 助理績效考核區":
                         conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
                         conn.commit()
                         conn.close()
-                        sync_to_github("Delete Assistant Eval - 20260705013")
+                        sync_to_github("Delete Assistant Eval - 20260705021")
                         st.success("🌸 考核紀錄已安全移除！")
                         time.sleep(1)
                         st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
                 
-                # 【第7項】編輯功能直接呈現在同分頁顯示區的下方
+                # 編輯功能直接呈現在同分頁顯示區的下方
                 if btn_edit:
                     st.markdown("<div style='background-color:#FFF; padding:15px; border-radius:10px; border:1px solid #FFB6C1;'>", unsafe_allow_html=True)
-                    st.markdown("#### 🛠️ 編輯考核明細")
-                    try:
-                        curr_d_val = datetime.strptime(row['eval_date'], '%Y-%m-%d').date()
-                    except:
-                        curr_d_val = datetime.today().date()
-                        
-                    up_date = st.date_input("修正考核日期", value=curr_d_val, key=f"u_ad_date_{row['id']}")
-                    up_assistant = st.selectbox("修正助理姓名", staff_list, index=staff_list.index(row['assistant_name']) if row['assistant_name'] in staff_list else 0, key=f"u_an_{row['id']}")
-                    up_item = st.text_area("修正考核項目", value=row['eval_item'], key=f"u_ai_{row['id']}")
-                    up_target = st.text_area("修正考核指標", value=row['eval_target'], key=f"u_at_{row['id']}")
-                    up_content = st.text_area("修正考核紀錄", value=row['eval_content'], key=f"u_ac_{row['id']}")
+                    st.markdown("#### ✍️ 編輯考核紀錄內容")
                     
-                    if st.button("💾 儲存修改內容", key=f"u_asave_{row['id']}"):
+                    try:
+                        curr_eval_date = datetime.strptime(row['eval_date'].split(" ")[0], '%Y-%m-%d').date()
+                    except:
+                        curr_eval_date = datetime.today().date()
+                        
+                    edit_date = st.date_input("修改考核日期", value=curr_eval_date, key=f"ed_date_{row['id']}")
+                    
+                    try: def_ast_idx = staff_list.index(row['assistant_name'])
+                    except: def_ast_idx = 0
+                    edit_ast = st.selectbox("修改助理姓名", staff_list, index=def_ast_idx, key=f"ed_ast_{row['id']}")
+                    
+                    edit_item = st.text_area("修改考核項目", value=row['eval_item'], key=f"ed_item_{row['id']}")
+                    edit_target = st.text_area("修改考核指標", value=row['eval_target'] if row['eval_target'] else '', key=f"ed_target_{row['id']}")
+                    edit_content = st.text_area("修改考核紀錄", value=row['eval_content'] if row['eval_content'] else '', key=f"ed_content_{row['id']}")
+                    
+                    if st.button("💖 儲存修改內容 💖", key=f"btn_save_ae_{row['id']}"):
                         conn = get_conn()
+                        formatted_e_date = edit_date.strftime('%Y-%m-%d')
                         conn.execute("UPDATE assistant_evaluations SET eval_date=?, assistant_name=?, eval_item=?, eval_target=?, eval_content=? WHERE id=?",
-                                     (str(up_date), up_assistant, up_item, up_target, up_content, row['id']))
+                                     (formatted_e_date, edit_ast, edit_item, edit_target, edit_content, row['id']))
                         conn.commit()
                         conn.close()
-                        sync_to_github("Edit Assistant Eval - 20260705013")
-                        st.success("✨ 修改內容已成功保存！")
+                        sync_to_github("Edit Assistant Eval - 20260705021")
+                        st.success("✨ 考核紀錄修改成功！")
                         time.sleep(1)
                         st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
-                    
+                
                 st.markdown("<hr style='border-color: rgba(255,182,193,0.3);'>", unsafe_allow_html=True)
 
     st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("---")
+    st.markdown("-----")
     
     # --- 新增考核表單區 ---
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
         sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list)
-        txt_item = st.text_area("📊 考核項目", placeholder="請填寫本次考核的主題或項目名稱...")
+        txt_item = st.text_area("📊 考核項目", placeholder=\"請填寫本次考核的主題或項目名稱...\")
         
-        # 【第14項修改】：將原本的詳細內容拆分為獨立兩格「考核指標」與「考核紀錄」
-        txt_target = st.text_area("🎯 考核指標", placeholder="請填寫此項目的達成指標或要求準則...")
-        txt_content = st.text_area("✨ 考核紀錄", placeholder="請詳細填寫助理實際的執行進度、表現狀況與評語...")
+        # 拆分為獨立兩格「考核指標」與「考核紀錄」
+        txt_target = st.text_area("🎯 考核指標", placeholder=\"請填寫此項目的達成指標或要求準則...\")
+        txt_content = st.text_area("✨ 考核紀錄", placeholder=\"請詳細填寫助理實際的執行進度、表現狀況與評語...\")
         
         if st.form_submit_button("💝 💝 立即存檔紀錄 💝 💝"):
             if txt_item.strip() and txt_target.strip() and txt_content.strip():
                 conn = get_conn()
-                conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
-                             (str(eval_date), sel_assistant, txt_item, txt_target, txt_content))
+                conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content, is_deleted) VALUES (?, ?, ?, ?, ?, 0)",
+                             ((datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d"), sel_assistant, txt_item, txt_target, txt_content))
                 conn.commit()
                 conn.close()
-                sync_to_github("Add Assistant Eval - 20260705013")
-                st.success(f"💖 {sel_assistant} 的考評資料已成功登錄！")
+                sync_to_github("Add Assistant Eval - 20260705021")
+                st.balloons()
+                st.success("💝 新的考核紀錄已成功存檔！")
                 time.sleep(1)
                 st.rerun()
             else:
-                st.error("❌ 所有輸入格欄位皆為必填項目，請檢查是否有未填寫的格子。")
+                st.error("⚠️ 請完整填寫考核項目、考核指標與考核紀錄，欄位均不可空白！")
