@@ -827,31 +827,33 @@ if menu == "🔴 專案管理首頁":
 
 
 # =========================================================
-# 🎀 助理績效考核區 (比照「撰寫新公告」的下拉選單寫法)
+# 🎀 助理績效考核區 - 下拉選單強制同步版
 # =========================================================
 if menu == "🎀 助理績效考核區":
     st.subheader("🎀 助理績效考核管理系統")
     
-    # 【核心連結】：嚴格使用與公佈欄相同的 bulletin.db
-    db_path = 'bulletin.db'
-    
-    # 1. 讀取名單 (比照公告寫法，直接從資料庫撈取)
-    conn = sqlite3.connect(db_path)
-    # 確保表格存在
-    conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
-    # 讀取人員名單
-    staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
-    staff_list = staff_df['name'].tolist()
-    conn.close()
+    # 【關鍵】強制指定絕對路徑，確保與公佈欄讀取的是同一個檔案
+    # 如果您的 bulletin.db 在根目錄，請直接使用 './bulletin.db'
+    db_path = './bulletin.db'
 
-    # 2. 下拉式選單 (與公告頁面邏輯一致)
+    # 讀取人員名單 (比照「撰寫新公告」的邏輯)
+    try:
+        conn = sqlite3.connect(db_path)
+        staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
+        staff_list = staff_df['name'].tolist()
+        conn.close()
+    except Exception as e:
+        staff_list = []
+        st.error(f"⚠️ 無法讀取名單 (資料庫路徑可能錯誤): {e}")
+
+    # 下拉選單 (如果 staff_list 為空，顯示提示)
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
-        # 如果 staff_list 為空，顯示提示
         sel_assistant = st.selectbox(
             "🎀 選擇助理姓名", 
-            staff_list if staff_list else ["⚠️ 尚無人員名單，請先至管理後台新增"]
+            staff_list if staff_list else ["⚠️ 請先至管理後台新增人員"]
         )
+        # ... 後續考核欄位與存檔邏輯 ...
         
         txt_item = st.text_area("📊 考核項目")
         txt_target = st.text_area("🎯 考核指標")
