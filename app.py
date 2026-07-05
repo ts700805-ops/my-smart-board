@@ -827,7 +827,7 @@ if menu == "🔴 專案管理首頁":
 
 
 # =========================================================
-# 🎀 助理績效考核區 (修正版 - 強制連結至後台統一資料表)
+# 🎀 助理績效考核區 (已修正：強制建立表格以防 DatabaseError)
 # =========================================================
 if menu == "🎀 助理績效考核區":
     # 密碼保護
@@ -839,11 +839,14 @@ if menu == "🎀 助理績效考核區":
 
     st.subheader("🎀 助理績效考核管理系統")
     
-    # 統一連結資料表 (與管理後台完全一致)
+    # 1. 強制連線並確保資料表結構存在 (解決 DatabaseError 的關鍵)
     conn = get_conn()
+    conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
+    conn.execute("CREATE TABLE IF NOT EXISTS assistant_evaluations (id INTEGER PRIMARY KEY, eval_date TEXT, assistant_name TEXT, eval_item TEXT, eval_target TEXT, eval_content TEXT, is_deleted INTEGER DEFAULT 0)")
+    conn.commit() # 確保表格結構建立完成
     
-    # 讀取名單 (從統一的資料表 assistant_list_exclusive 讀取)
-    # 如果執行到這裡報錯，請確認您的 get_conn() 有正確連到同一個 .db 檔案
+    # 2. 讀取資料
+    # 從統一的 assistant_list_exclusive 讀取名單
     staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
     staff_list = staff_df['name'].tolist()
     
@@ -851,10 +854,10 @@ if menu == "🎀 助理績效考核區":
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
     conn.close()
 
-    # --- 1. 新增考核表單 ---
+    # 3. 顯示考核新增介面
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
-        # 這裡會自動顯示從「管理後台」存入的名單
+        # 若資料表為空，顯示提示
         sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["⚠️ 請先至管理後台新增人員"])
         txt_item = st.text_area("📊 考核項目")
         txt_target = st.text_area("🎯 考核指標")
@@ -870,9 +873,9 @@ if menu == "🎀 助理績效考核區":
                 st.success("存檔成功！")
                 st.rerun()
             else:
-                st.error("請先選擇有效的助理名稱")
+                st.error("請先在管理後台新增助理名單")
 
-    # --- 2. 顯示考核紀錄 ---
+    # 4. 顯示紀錄總覽
     st.markdown("---")
     st.markdown("### 📜 績效考核紀錄總覽")
     for _, row in eval_df.iterrows():
