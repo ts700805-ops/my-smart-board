@@ -16,7 +16,8 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 🖼️ 處理圖片背景轉為 Base64 (安全不卡死機制) ---\ndef get_base64_image(image_path):
+# --- 🖼️ 處理圖片背景轉為 Base64 (安全不卡死機制) ---
+def get_base64_image(image_path):
     try:
         with open(image_path, "rb") as img_file:
             return base64.b64encode(img_file.read()).decode()
@@ -26,7 +27,8 @@ st.set_page_config(
 # 讀取圖片背景
 img_base64 = get_base64_image("image_b13023.jpg")
 
-# --- 🎑 中秋節高質感金秋月夜氣氛 CSS 注入 ---\nst.markdown("""
+# --- 🎑 中秋節高質感金秋月夜氣氛 CSS 注入 ---
+st.markdown("""
     <style>
     /* 全域背景顏色：淡淡的柔和月光黃 */
     .stApp {
@@ -359,7 +361,7 @@ elif st.session_state.current_page == "🛠️ 公告後台管理系統":
         df_all = pd.read_sql_query("SELECT id, publish_date, category, title, status, close_reason FROM system_bulletin ORDER BY id DESC", conn)
         
         if df_all.empty:
-            st.caption("目前無任何公告紀錄。")
+            st.caption("目前無 any 公告紀錄。")
         else:
             st.dataframe(df_all, use_container_width=True)
             
@@ -439,7 +441,6 @@ elif st.session_state.current_page == "👥 人員權限名單維護":
         if not df_staff_show.empty:
             del_name = st.selectbox("選擇要辦理離職除名的人員", df_staff_show["name"].tolist())
             if st.button("🏃 設定該人員為離職狀態", use_container_width=True):
-                # 為了避免直接刪除破壞歷史簽到資料完整性，改用改狀態方式
                 conn.execute("UPDATE staff_list SET status='離職' WHERE name=?", (del_name,))
                 conn.commit()
                 st.warning(f"💼 {del_name} 已設定為離職，系統簽到與下拉選單已同步將其除名。")
@@ -494,7 +495,6 @@ elif st.session_state.current_page == "⚠️ 品質異常公告系統":
     st.markdown("### 🔍 當前異常通報看板 (進行中與已解決)")
     
     conn = get_conn()
-    # 查詢未刪除的紀錄
     df_qa_board = pd.read_sql_query("SELECT * FROM quality_abnormalities WHERE is_deleted=0 ORDER BY id DESC", conn)
     conn.close()
     
@@ -518,7 +518,6 @@ elif st.session_state.current_page == "⚠️ 品質異常公告系統":
                     <p style='font-size: 15px; color: #333;'><strong>❌ 異常描述：</strong><br>{row['problem_description']}</p>
             """, unsafe_allow_html=True)
             
-            # 處理照片顯示
             if row['photo_path'] and os.path.exists(row['photo_path']):
                 try:
                     img = Image.open(row['photo_path'])
@@ -542,8 +541,6 @@ elif st.session_state.current_page == "🕵️ 品質異常後台管理":
     st.markdown("---")
     
     conn = get_conn()
-    
-    # 【新增功能】：提供切換開關，決定是否包含已刪除紀錄
     show_deleted = st.checkbox("🔍 顯示包含刪除的所有紀錄(歷史紀錄找回模式)", value=False)
     
     if show_deleted:
@@ -559,7 +556,6 @@ elif st.session_state.current_page == "🕵️ 品質異常後台管理":
         st.markdown("### 🛠️ 處置與維護特定流水號項目")
         sel_qa_id = st.selectbox("請選擇欲處理的異常 ID", df_m_qa["id"].tolist())
         
-        # 抓取該筆詳細資料
         c = conn.cursor()
         c.execute("SELECT * FROM quality_abnormalities WHERE id=?", (int(sel_qa_id),))
         curr_row = c.fetchone()
@@ -567,7 +563,6 @@ elif st.session_state.current_page == "🕵️ 品質異常後台管理":
         if curr_row:
             st.write(f"**目前處置對象：** ID #{curr_row[0]} | 品項：`{curr_row[3]}` | 狀態：`{curr_row[6]}` | 刪除狀態：`{'已刪除' if curr_row[10]==1 else '正常'}`")
             
-            # 如果是已被標記刪除的，提供找回按鈕
             if curr_row[10] == 1:
                 if st.button("🔄 找回此被刪除的紀錄", use_container_width=True):
                     conn.execute("UPDATE quality_abnormalities SET is_deleted=0 WHERE id=?", (int(sel_qa_id),))
@@ -576,7 +571,6 @@ elif st.session_state.current_page == "🕵️ 品質異常後台管理":
                     time.sleep(0.5)
                     st.rerun()
             else:
-                # 正常處置
                 if curr_row[6] == '未解決':
                     st.markdown("#### 🟢 填寫處置結案對策")
                     with st.form(f"solve_form_{sel_qa_id}", clear_on_submit=False):
@@ -602,7 +596,6 @@ elif st.session_state.current_page == "🕵️ 品質異常後台管理":
                     st.success("🌟 本項目已是結案完成狀態。")
                     
                 st.markdown("<br>", unsafe_allow_html=True)
-                # 提供軟刪除功能
                 if st.button("🗑️ 刪除此異常紀錄(轉入歷史紀錄庫)", use_container_width=True):
                     conn.execute("UPDATE quality_abnormalities SET is_deleted=1 WHERE id=?", (int(sel_qa_id),))
                     conn.commit()
@@ -644,7 +637,6 @@ elif st.session_state.current_page == "📊 助理考核紀錄系統":
                         </div>
                 """, unsafe_allow_html=True)
                 
-                # 在考核清單的每筆項目右下角加上刪除考核按鈕
                 del_eva_col1, del_eva_col2 = st.columns([5, 1])
                 with del_eva_col2:
                     if st.button("🗑️ 刪除", key=f"del_eva_{row['id']}", use_container_width=True):
@@ -664,7 +656,7 @@ elif st.session_state.current_page == "📊 助理考核紀錄系統":
     # --- 新增考核表單區 ---
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
-        # 🟢 【20260705017版本修改】：使用 st.columns 將表單輸入元件排成水平一整排顯示
+        # 🟢 排成一整排顯示
         row_col1, row_col2, row_col3, row_col4 = st.columns([1.5, 2, 2.5, 4])
         
         with row_col1:
