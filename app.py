@@ -824,19 +824,26 @@ if menu == "🔴 專案管理首頁":
                 st.markdown(f"📅 **指派日期：** {row['assign_date']} ｜ **預計完工：** {row['expected_date']} ｜ 🏁 **實際完工時間：** `{row['finish_date']}`")
                 st.markdown(f"📝 **完整執行內容：**\n{task_desc}")
 
-# --- 🎀 助理績效考核區 (修正版) ---
+# --- 修正後的助理頁面讀取邏輯 ---
 if menu == "🎀 助理績效考核區":
-    # 🦄 風格 CSS
-    st.markdown("""
-        <style>
-        .stApp { background-color: #FFF0F5 !important; }
-        .big-font { font-size: 18px !important; }
-        h2, h3 { color: #FF69B4 !important; }
-        .assistant-card { background-color: #FFFFFF; border: 2px solid #FFB6C1; border-radius: 15px; padding: 20px; margin-bottom: 20px; }
-        </style>
-    """, unsafe_allow_html=True)
+    # 1. 先定義與讀取資料庫，確保 staff_list 有值
+    conn = get_conn()
+    try:
+        staff_df = pd.read_sql("SELECT name FROM staff", conn)
+        staff_list = staff_df['name'].tolist()
+        if not staff_list:
+            staff_list = ["請先新增人員"]
+    except:
+        staff_list = ["請先新增人員"]
+    conn.close()
 
+    # 2. 注入 CSS (原本的風格代碼放在這)
+    st.markdown("""<style>...</style>""", unsafe_allow_html=True)
+
+    # 3. 顯示你的考核表單 (這裡現在就可以安全地使用 staff_list 了)
     st.subheader("🎀 助理績效考核管理系統")
+    
+    # ... 後續的 form 與顯示邏輯 ...
 
     # 1. 字體調整滑桿 (移至上方)
     font_size = st.slider("調整顯示文字大小", 14, 30, 18)
