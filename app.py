@@ -846,12 +846,17 @@ if menu == "🎀 助理績效考核區":
 
     st.subheader("🎀 助理績效考核管理系統")
 
-    # --- 新增字體大小微調功能 ---
+    # --- 字體大小微調功能 ---
+    # 調整範圍 50%~200%，基礎預設為 25px
     font_ratio = st.slider("調整字體大小 (%)", 50, 200, 120)
-    font_size = int(25 * (font_ratio / 100))
+    base_size = 25
+    current_size = int(base_size * (font_ratio / 100))
+    
+    # 定義樣式：.custom-text 為一般內容，.custom-header 為加大加粗標題
     st.markdown(f"""
         <style>
-        .custom-text {{ font-size: {font_size}px !important; }}
+        .custom-text {{ font-size: {current_size}px !important; }}
+        .custom-header {{ font-size: {current_size * 2}px !important; font-weight: bold !important; }}
         </style>
     """, unsafe_allow_html=True)
 
@@ -873,15 +878,8 @@ if menu == "🎀 助理績效考核區":
         )
     """)
 
-    # ★★★★★
     # 直接讀取【管理後台】的人員名單
-    # staff 資料表
-    # ★★★★★
-    staff_df = pd.read_sql(
-        "SELECT name FROM staff ORDER BY name",
-        db_conn
-    )
-
+    staff_df = pd.read_sql("SELECT name FROM staff ORDER BY name", db_conn)
     staff_list = staff_df["name"].tolist()
 
     eval_df = pd.read_sql("""
@@ -896,100 +894,57 @@ if menu == "🎀 助理績效考核區":
     # =====================================================
     # 新增考核
     # =====================================================
-    st.markdown("### ✍️ 新增績效考核紀錄")
+    st.markdown("<div class='custom-header'>✍️ 新增績效考核紀錄</div>", unsafe_allow_html=True)
 
     with st.form("add_eval_form", clear_on_submit=True):
-
         sel_assistant = st.selectbox(
             "🎀 選擇助理姓名",
             staff_list if staff_list else ["⚠️ 請先到【⚙️管理後台 → 👥人員名單管理】新增人員"]
         )
 
         c1, c2, c3 = st.columns(3)
-
         txt_item = c1.text_area("📊 考核項目")
         txt_target = c2.text_area("🎯 考核指標")
         txt_content = c3.text_area("✨ 考核紀錄")
 
         if st.form_submit_button("💝 立即存檔紀錄"):
-
             if not staff_list:
                 st.error("請先至【⚙️管理後台 → 👥人員名單管理】新增人員")
             else:
-
                 db_conn = sqlite3.connect("bulletin.db")
-
                 db_conn.execute("""
-                    INSERT INTO assistant_evaluations
-                    (
-                        eval_date,
-                        assistant_name,
-                        eval_item,
-                        eval_target,
-                        eval_content
-                    )
-                    VALUES
-                    (?, ?, ?, ?, ?)
-                """,
-                (
-                    datetime.today().strftime("%Y-%m-%d"),
-                    sel_assistant,
-                    txt_item,
-                    txt_target,
-                    txt_content
-                ))
-
+                    INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (datetime.today().strftime("%Y-%m-%d"), sel_assistant, txt_item, txt_target, txt_content))
                 db_conn.commit()
                 db_conn.close()
-
                 sync_to_github("Add Evaluation")
-
                 st.success("✅ 存檔成功")
                 st.rerun()
 
     # =====================================================
     # 紀錄總覽
     # =====================================================
-    st.markdown("### 📜 績效考核紀錄總覽")
+    st.markdown("<div class='custom-header'>📜 績效考核紀錄總覽</div>", unsafe_allow_html=True)
 
     if eval_df.empty:
         st.info("目前尚無任何考核紀錄")
-
     else:
-
         for _, row in eval_df.iterrows():
-
             st.markdown("---")
-
-            c1, c2, c3, c4, c5, c6 = st.columns(
-                [1,1,1.5,1.5,1.8,0.8]
-            )
-
-            # 套用字體樣式
+            c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.8, 0.8])
+            
             c1.markdown(f"<div class='custom-text'>{row['eval_date']}</div>", unsafe_allow_html=True)
             c2.markdown(f"<div class='custom-text'>{row['assistant_name']}</div>", unsafe_allow_html=True)
             c3.markdown(f"<div class='custom-text'>{row['eval_item']}</div>", unsafe_allow_html=True)
             c4.markdown(f"<div class='custom-text'>{row['eval_target']}</div>", unsafe_allow_html=True)
             c5.markdown(f"<div class='custom-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
 
-            if c6.button(
-                "🗑️ 刪除",
-                key=f"del_eval_{row['id']}"
-            ):
-
+            if c6.button("🗑️ 刪除", key=f"del_eval_{row['id']}"):
                 db_conn = sqlite3.connect("bulletin.db")
-
-                db_conn.execute("""
-                    UPDATE assistant_evaluations
-                    SET is_deleted = 1
-                    WHERE id = ?
-                """,
-                (row["id"],))
-
+                db_conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row["id"],))
                 db_conn.commit()
                 db_conn.close()
-
                 sync_to_github("Delete Evaluation")
-
                 st.success("已刪除")
                 st.rerun()
