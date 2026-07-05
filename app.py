@@ -869,25 +869,33 @@ if menu == "🎀 助理績效考核區":
                 conn.close()
                 st.rerun()
             
-            # 編輯介面 (新增了日期編輯功能)
+            # 編輯介面
             if st.session_state.get(f"edit_mode_{row['id']}"):
                 with st.form(f"f_{row['id']}"):
-                    # 允許修改日期
-                    n_date = st.date_input("日期", value=datetime.strptime(row['eval_date'], '%Y-%m-%d'))
+                    # --- 修正後的安全日期轉換 ---
+                    try:
+                        # 嘗試將資料庫日期轉換為 date 物件
+                        default_date = datetime.strptime(str(row['eval_date']), '%Y-%m-%d').date()
+                    except:
+                        # 若轉換失敗（格式不符或空值），預設為今天
+                        default_date = datetime.today().date()
+                    
+                    n_date = st.date_input("日期", value=default_date)
+                    # ----------------------------
+                    
                     n_item = st.text_area("項目", row['eval_item'])
                     n_target = st.text_area("指標", row['eval_target'])
                     n_content = st.text_area("紀錄", row['eval_content'])
                     
                     if st.form_submit_button("儲存"):
                         conn = get_conn()
-                        # 更新 SQL 加入 eval_date
+                        # 更新 SQL
                         conn.execute("UPDATE assistant_evaluations SET eval_date=?, eval_item=?, eval_target=?, eval_content=? WHERE id=?", 
                                      (str(n_date), n_item, n_target, n_content, row['id']))
                         conn.commit()
                         conn.close()
                         st.session_state[f"edit_mode_{row['id']}"] = False
                         st.rerun()
-
     # 2. 新增考核區 (包含本頁助理姓名下拉選單)
     st.markdown("---")
     st.markdown("### ✍️ 新增績效考核紀錄")
