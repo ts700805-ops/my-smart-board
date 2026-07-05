@@ -908,26 +908,37 @@ if menu == "🎀 助理績效考核區":
             conn.close()
             st.rerun()
 
-    # 3. 獨立助理名單維護 (Firebase 寫入)
+   # 3. 獨立助理名單維護 (使用 SQLite，不會報錯)
     st.markdown("---")
     st.markdown("### ⚙️ 助理名單維護")
     new_staff_input = st.text_input("輸入新助理姓名 (支援逗號分隔)")
     if st.button("➕ 加入名單"):
         if new_staff_input.strip():
             names = [n.strip() for n in new_staff_input.split(',')]
+            conn = get_conn()
             for name in names:
                 if name:
-                    # 使用 push 將新姓名加入 Firebase
-                    ref.push(name)
+                    try: conn.execute("INSERT INTO assistant_list_exclusive (name) VALUES (?)", (name,))
+                    except: continue
+            conn.commit()
+            conn.close()
             st.rerun()
     
     st.markdown("#### 目前助理名單：")
-    if firebase_staff:
+    conn = get_conn()
+    # 確保連線讀取正確
+    current_staff = pd.read_sql("SELECT * FROM assistant_list_exclusive", conn)
+    conn.close()
+    
+    if not current_staff.empty:
         cols = st.columns(5)
-        for i, (key, name) in enumerate(firebase_staff.items()):
-            with cols[i % 5]:
-                if st.button(f"🗑️ {name}", key=f"del_f_{key}"):
-                    db.reference(f'assistant_list/{key}').delete()
+        for idx, row in current_staff.iterrows():
+            with cols[idx % 5]:
+                if st.button(f"🗑️ {row['name']}", key=f"del_staff_{row['id']}"):
+                    conn = get_conn()
+                    conn.execute("DELETE FROM assistant_list_exclusive WHERE id = ?", (row['id'],))
+                    conn.commit()
+                    conn.close()
                     st.rerun()
     else:
         st.warning("目前尚無助理名單")
