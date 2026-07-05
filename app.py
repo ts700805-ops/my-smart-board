@@ -832,26 +832,25 @@ if menu == "🎀 助理績效考核區":
         if pwd == "0000": st.session_state.eval_auth = True; st.rerun()
         st.stop()
 
-    # --- 修正後的乾淨標題 (移除流水碼) ---
+    # --- 這裡已經徹底移除流水碼 ---
     st.subheader("🎀 助理績效考核管理系統")
     
-    # 字體大小設定 (僅作用於本頁)
+    # 字體大小設定
     font_size = st.slider("調整顯示文字大小", 16, 28, 20)
     st.markdown(f"<style>.custom-text {{ font-size: {font_size}px !important; font-weight: bold !important; }}</style>", unsafe_allow_html=True)
 
     # 讀取資料
     conn = get_conn()
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
-    # 讀取「本頁專用」助理名單
     staff_df = pd.read_sql("SELECT name FROM staff", conn) 
     staff_list = staff_df['name'].tolist()
     conn.close()
 
-    # 1. 績效考核紀錄總覽
+    # 績效考核紀錄總覽
     st.markdown("### 📜 績效考核紀錄總覽")
     for _, row in eval_df.iterrows():
         st.markdown("---")
-        # [日期] [姓名] [項目] [指標] [紀錄] [編輯/刪除]
+        # 欄位：[日期] [姓名] [項目] [指標] [紀錄] [編輯/刪除]
         c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 1])
         c1.markdown(f"<div class='custom-text'>{row['eval_date']}</div>", unsafe_allow_html=True)
         c2.markdown(f"<div class='custom-text'>{row['assistant_name']}</div>", unsafe_allow_html=True)
@@ -868,6 +867,19 @@ if menu == "🎀 助理績效考核區":
                 conn.commit()
                 conn.close()
                 st.rerun()
+            
+            if st.session_state.get(f"edit_mode_{row['id']}"):
+                with st.form(f"f_{row['id']}"):
+                    n_item = st.text_area("項目", row['eval_item'])
+                    n_target = st.text_area("指標", row['eval_target'])
+                    n_content = st.text_area("紀錄", row['eval_content'])
+                    if st.form_submit_button("儲存"):
+                        conn = get_conn()
+                        conn.execute("UPDATE assistant_evaluations SET eval_item=?, eval_target=?, eval_content=? WHERE id=?", (n_item, n_target, n_content, row['id']))
+                        conn.commit()
+                        conn.close()
+                        st.session_state[f"edit_mode_{row['id']}"] = False
+                        st.rerun()
             
             # 編輯介面
             if st.session_state.get(f"edit_mode_{row['id']}"):
