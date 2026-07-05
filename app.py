@@ -836,7 +836,7 @@ if menu == "🎀 助理績效考核區":
 
     st.subheader("🎀 助理績效考核管理系統")
     
-    # 字體設定：基準為 25
+    # 字體設定：基準 25
     font_size = st.slider("調整顯示文字大小", 16, 56, 25)
     st.markdown(f"""
         <style>
@@ -856,11 +856,12 @@ if menu == "🎀 助理績效考核區":
     
     # 讀取考核與名單
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
+    # 強制從資料庫重新抓取名單，確保不會消失
     staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
     staff_list = staff_df['name'].tolist()
     conn.close()
 
-    # 紀錄總覽 (已移除標題顯示)
+    # 紀錄總覽 (已依要求移除標題)
     for index, row in eval_df.iterrows():
         st.markdown("---")
         unique_key = f"row_{row['id']}_{index}" 
@@ -921,8 +922,6 @@ if menu == "🎀 助理績效考核區":
     # 3. 獨立助理名單維護
     st.markdown("---")
     st.markdown("### ⚙️ 助理名單維護")
-    st.info("請輸入姓名，若要一次新增多位，請用逗號分隔，例如：王小明, 李小華")
-    
     new_staff_input = st.text_input("輸入新助理姓名 (支援逗號分隔)")
     if st.button("➕ 加入名單"):
         if new_staff_input.strip():
@@ -938,13 +937,11 @@ if menu == "🎀 助理績效考核區":
     
     st.markdown("#### 目前助理名單：")
     conn = get_conn()
-    try:
-        current_staff = pd.read_sql("SELECT * FROM assistant_list_exclusive", conn)
-    except:
-        current_staff = pd.DataFrame()
+    current_staff = pd.read_sql("SELECT * FROM assistant_list_exclusive", conn)
     conn.close()
     
     if not current_staff.empty:
+        # 將名單並排顯示，避免佔用太多空間
         cols = st.columns(5)
         for idx, row in current_staff.iterrows():
             with cols[idx % 5]:
