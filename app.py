@@ -953,3 +953,5 @@ if menu == "🎀 助理績效考核區":
                     st.rerun()
     else:
         st.warning("目前尚無助理名單")
+    else:
+        st.warning("目前尚無助理名單")
