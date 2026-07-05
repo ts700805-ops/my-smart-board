@@ -850,12 +850,34 @@ if menu == "🎀 助理績效考核區":
     font_ratio = st.slider("調整字體大小 (%)", 50, 200, 100)
     base_size = 25
     current_size = int(base_size * (font_ratio / 100))
+    label_size = current_size * 2  # 欄位標籤放大兩倍
     
-    # 定義樣式：.custom-text 為一般內容，.custom-header 為加大兩倍加粗標題
+    # =====================================================
+    # CSS 樣式注入 (包含字體放大、標題加粗、輸入框控制)
+    # =====================================================
     st.markdown(f"""
         <style>
+        /* 紀錄總覽一般文字 */
         .custom-text {{ font-size: {current_size}px !important; }}
-        .custom-header {{ font-size: {current_size * 2}px !important; font-weight: bold !important; }}
+        
+        /* 區塊主標題加大加粗 */
+        .custom-header {{ font-size: {label_size}px !important; font-weight: bold !important; }}
+        
+        /* ✅ 1. 表單內紅框四個欄位標籤 (字體放大兩倍、粗體) */
+        div[data-testid="stForm"] label p {{
+            font-size: {label_size}px !important;
+            font-weight: bold !important;
+        }}
+        
+        /* ✅ 2. 下拉選單文字放大 */
+        div[data-baseweb="select"] * {{
+            font-size: {current_size}px !important;
+        }}
+        
+        /* ✅ 3. TextArea 文字放大 */
+        div[data-baseweb="textarea"] textarea {{
+            font-size: {current_size}px !important;
+        }}
         </style>
     """, unsafe_allow_html=True)
 
@@ -877,6 +899,7 @@ if menu == "🎀 助理績效考核區":
         )
     """)
 
+    # 直接讀取【管理後台】的人員名單
     staff_df = pd.read_sql("SELECT name FROM staff ORDER BY name", db_conn)
     staff_list = staff_df["name"].tolist()
 
@@ -930,7 +953,8 @@ if menu == "🎀 助理績效考核區":
     else:
         for _, row in eval_df.iterrows():
             st.markdown("---")
-            c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.8, 0.8])
+            # 微調比例：為最後一欄(c6)騰出編輯與刪除按鈕的空間
+            c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.8, 1.2])
             
             c1.markdown(f"<div class='custom-text'>{row['eval_date']}</div>", unsafe_allow_html=True)
             c2.markdown(f"<div class='custom-text'>{row['assistant_name']}</div>", unsafe_allow_html=True)
@@ -938,12 +962,45 @@ if menu == "🎀 助理績效考核區":
             c4.markdown(f"<div class='custom-text'>{row['eval_target']}</div>", unsafe_allow_html=True)
             c5.markdown(f"<div class='custom-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
 
-            # 刪除功能
-            if c6.button("🗑️ 刪除", key=f"del_eval_{row['id']}"):
-                db_conn = sqlite3.connect("bulletin.db")
-                db_conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row["id"],))
-                db_conn.commit()
-                db_conn.close()
-                sync_to_github("Delete Evaluation")
-                st.success("已刪除")
-                st.rerun()
+            # ✅ 編輯與刪除功能區塊
+            btn_edit, btn_del = c6.columns(2)
+
+            # 📝 編輯功能 (比照專案管理模組 popover)
+            with btn_edit.popover("📝 編輯"):
+                e_date = st.date_input("日期", value=datetime.strptime(row['eval_date'], '%Y-%m-%d'), key=f"e_date_{row['id']}")
+                
+                # 自動對齊原紀錄的助理姓名
+                try:
+                    default_index = staff_list.index(row['assistant_name']) if row['assistant_name'] in staff_list else 0
+                except:
+                    default_index = 0
+                e_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else [row['assistant_name']], index=default_index, key=f"e_ast_{row['id']}")
+                
+                e_item = st.text_area("📊 考核項目", value=row['eval_item'], key=f"e_item_{row['id']}")
+                e_target = st.text_area("🎯 考核指標", value=row['eval_target'], key=f"e_target_{row['id']}")
+                e_content = st.text_area("✨ 考核紀錄", value=row['eval_content'], key=f"e_content_{row['id']}")
+                
+                if st.button("💾 儲存修改", key=f"save_e_{row['id']}"):
+                    db_conn = sqlite3.connect("bulletin.db")
+                    db_conn.execute("""
+                        UPDATE assistant_evaluations 
+                        SET eval_date=?, assistant_name=?, eval_item=?, eval_target=?, eval_content=? 
+                        WHERE id=?
+                    """, (str(e_date), e_assistant, e_item, e_target, e_content, row['id']))
+                    db_conn.commit()
+                    db_conn.close()
+                    sync_to_github("Edit Evaluation")
+                    st.success("修改成功！")
+                    st.rerun()
+
+            # 🗑️ 刪除功能
+            with btn_del.popover("🗑️ 刪除"):
+                st.warning("確定要刪除這筆紀錄嗎？")
+                if st.button("🚨 確定刪除", key=f"d_btn_{row['id']}"):
+                    db_conn = sqlite3.connect("bulletin.db")
+                    db_conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row["id"],))
+                    db_conn.commit()
+                    db_conn.close()
+                    sync_to_github("Delete Evaluation")
+                    st.success("已刪除！")
+                    st.rerun()
