@@ -824,71 +824,65 @@ if menu == "🔴 專案管理首頁":
                 st.markdown(f"📅 **指派日期：** {row['assign_date']} ｜ **預計完工：** {row['expected_date']} ｜ 🏁 **實際完工時間：** `{row['finish_date']}`")
                 st.markdown(f"📝 **完整執行內容：**\n{task_desc}")
 
-# --- 修正後的助理頁面讀取邏輯 ---
+# --- 🎀 助理績效考核區 (完整修正版) ---
 if menu == "🎀 助理績效考核區":
-    # 1. 先定義與讀取資料庫，確保 staff_list 有值
-    conn = get_conn()
-    try:
-        staff_df = pd.read_sql("SELECT name FROM staff", conn)
-        staff_list = staff_df['name'].tolist()
-        if not staff_list:
-            staff_list = ["請先新增人員"]
-    except:
-        staff_list = ["請先新增人員"]
-    conn.close()
+    # 🦄 風格與字體設定
+    if 'eval_font_size' not in st.session_state: st.session_state.eval_font_size = 18
+    
+    st.markdown(f"""
+        <style>
+        .stApp {{ background-color: #FFF0F5 !important; }}
+        .big-font {{ font-size: {st.session_state.eval_font_size}px !important; }}
+        h2, h3 {{ color: #FF69B4 !important; }}
+        .assistant-card {{ background-color: #FFFFFF; border: 2px solid #FFB6C1; border-radius: 15px; padding: 20px; margin-bottom: 20px; }}
+        </style>
+    """, unsafe_allow_html=True)
 
-    # 2. 注入 CSS (原本的風格代碼放在這)
-    st.markdown("""<style>...</style>""", unsafe_allow_html=True)
-
-    # 3. 顯示你的考核表單 (這裡現在就可以安全地使用 staff_list 了)
     st.subheader("🎀 助理績效考核管理系統")
-    
-    # ... 後續的 form 與顯示邏輯 ...
+    st.session_state.eval_font_size = st.slider("調整顯示文字大小", 14, 30, st.session_state.eval_font_size)
 
-    # 1. 字體調整滑桿 (移至上方)
-    font_size = st.slider("調整顯示文字大小", 14, 30, 18)
-
-    # 2. 新增表單 (將欄位改為並列顯示)
-    st.markdown("### ✍️ 新增助理考核紀錄")
-    
-    # 為了讓欄位並列且不報錯，我們將 Selectbox 和 Date 移到上方
-    col_a, col_b = st.columns(2)
-    with col_a:
-        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list)
-    with col_b:
-        new_eval_date = st.date_input("📅 考核日期", datetime.today().date())
-
-    # 使用 form_container 技巧來確保欄位並列
-    with st.form("my_form", clear_on_submit=True):
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            txt_item = st.text_area("📊 考核項目")
-        with c2:
-            txt_target = st.text_area("🎯 考核指標")
-        with c3:
-            txt_content = st.text_area("✨ 考核紀錄")
-        
-        submitted = st.form_submit_button("💝 立即存檔")
-        if submitted:
-            conn = get_conn()
-            conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
-                         (str(new_eval_date), sel_assistant, txt_item, txt_target, txt_content))
-            conn.commit()
-            conn.close()
-            sync_to_github("Add Assistant Eval")
-            st.success("💖 已登錄！")
-            st.rerun()
-
-    st.markdown("---")
-    st.markdown("### 📜 歷史考核紀錄")
-    
+    # --- 1. 歷史考核紀錄查詢區 ---
+    st.markdown("### 📜 歷史考核項目")
     conn = get_conn()
     eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
     conn.close()
 
-    for _, row in eval_df.iterrows():
-        st.markdown(f"""<div class='assistant-card'>
-            <div style='font-size:{font_size+4}px; color:#E67E22; font-weight:bold;'>🌸 {row['assistant_name']} | 📅 {row['eval_date']}</div>
-            <div style='font-size:{font_size}px;'>
-            <b>項目:</b> {row['eval_item']} | <b>指標:</b> {row['eval_target']} | <b>紀錄:</b> {row['eval_content']}
-            </div></div>""", unsafe_allow_html=True)
+    if eval_df.empty:
+        st.info("🧁 目前暫無考核紀錄。")
+    else:
+        for _, row in eval_df.iterrows():
+            st.markdown(f"""<div class='assistant-card'>
+                <div style='font-size:{st.session_state.eval_font_size+4}px; color:#E67E22; font-weight:bold;'>🌸 助理：{row['assistant_name']} | 📅 日期：{row['eval_date']}</div>
+                <div style='font-size:{st.session_state.eval_font_size}px;'>
+                <b>項目:</b> {row['eval_item']} | <b>指標:</b> {row['eval_target']} | <b>紀錄:</b> {row['eval_content']}
+                </div></div>""", unsafe_allow_html=True)
+
+    st.markdown("---")
+    
+    # --- 2. 新增考核紀錄區 (移至下方) ---
+    st.markdown("### ✍️ 新增助理考核紀錄")
+    with st.form("assistant_add_form", clear_on_submit=True):
+        # 改為手動輸入助理姓名
+        col_a, col_b = st.columns(2)
+        with col_a:
+            new_name = st.text_input("🎀 輸入助理姓名")
+        with col_b:
+            new_eval_date = st.date_input("📅 考核日期", datetime.today().date())
+        
+        c1, c2, c3 = st.columns(3)
+        with c1: txt_item = st.text_area("📊 考核項目")
+        with c2: txt_target = st.text_area("🎯 考核指標")
+        with c3: txt_content = st.text_area("✨ 考核紀錄")
+        
+        if st.form_submit_button("💝 立即存檔紀錄"):
+            if new_name:
+                conn = get_conn()
+                conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
+                             (str(new_eval_date), new_name, txt_item, txt_target, txt_content))
+                conn.commit()
+                conn.close()
+                st.success("💖 已新增紀錄！")
+                time.sleep(1)
+                st.rerun()
+            else:
+                st.error("⚠️ 請輸入助理姓名！")
