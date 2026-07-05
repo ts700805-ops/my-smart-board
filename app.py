@@ -837,47 +837,68 @@ if menu == "🎀 助理績效考核區":
 
     st.subheader("🎀 助理績效考核管理系統")
     
-    # CSS 設定 (加入自動換行)
+    # CSS 設定：確保文字自動換行
     st.markdown("""
         <style>
         .custom-text { font-weight: bold !important; word-wrap: break-word !important; white-space: pre-wrap !important; }
         </style>
     """, unsafe_allow_html=True)
 
+    # 資料庫連線與初始化
     conn = get_conn()
-    # 確保資料表結構存在
     conn.execute("CREATE TABLE IF NOT EXISTS assistant_list_exclusive (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
     
-    # 1. 讀取並顯示總覽 (強制只顯示日期與內容，不顯示流水碼)
+    # 讀取資料並轉為 DataFrame 確保 row.iterrows() 可用
+    eval_df = pd.read_sql("SELECT * FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC", conn)
+    staff_df = pd.read_sql("SELECT name FROM assistant_list_exclusive", conn)
+    staff_list = staff_df['name'].tolist()
+    conn.close()
+
+    # 1. 績效考核紀錄總覽
     st.markdown("### 📜 績效考核紀錄總覽")
-    # 修正 SQL：確保不讀取到亂碼，只拿取您需要的欄位
-    eval_data = conn.execute("SELECT id, eval_date, assistant_name, eval_item, eval_target, eval_content FROM assistant_evaluations WHERE is_deleted = 0 ORDER BY eval_date DESC").fetchall()
-    
-    for row in eval_data:
-        # row: id, date, name, item, target, content
+    for _, row in eval_df.iterrows():
         st.markdown("---")
+        # 清理日期流水碼：若含有 [xxx] 則切除
+        raw_date = str(row['eval_date'])
+        display_date = raw_date.split('] ')[-1] if ']' in raw_date else raw_date
+        
         c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1.5, 1.5, 1.5, 0.8])
-        # 顯示日期時，直接切割掉可能的流水碼，只顯示日期部分
-        display_date = str(row[1]).split('] ')[-1] if ']' in str(row[1]) else row[1]
         c1.markdown(f"<div class='custom-text'>{display_date}</div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='custom-text'>{row[2]}</div>", unsafe_allow_html=True)
-        c3.markdown(f"<div class='custom-text'>{row[3]}</div>", unsafe_allow_html=True)
-        c4.markdown(f"<div class='custom-text'>{row[4]}</div>", unsafe_allow_html=True)
-        c5.markdown(f"<div class='custom-text'>{row[5]}</div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='custom-text'>{row['assistant_name']}</div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='custom-text'>{row['eval_item']}</div>", unsafe_allow_html=True)
+        c4.markdown(f"<div class='custom-text'>{row['eval_target']}</div>", unsafe_allow_html=True)
+        c5.markdown(f"<div class='custom-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
         
         with c6:
-            if st.button("🗑️", key=f"del_{row[0]}"):
-                conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row[0],))
+            btn_col1, btn_col2 = st.columns(2)
+            if btn_col1.button("✏️", key=f"edit_{row['id']}"): st.session_state[f"edit_mode_{row['id']}"] = True
+            if btn_col2.button("🗑️", key=f"del_{row['id']}"):
+                conn = get_conn()
+                conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row['id'],))
                 conn.commit()
+                conn.close()
                 st.rerun()
+            
+            if st.session_state.get(f"edit_mode_{row['id']}"):
+                with st.form(f"f_{row['id']}"):
+                    try: default_date = datetime.strptime(display_date, '%Y-%m-%d').date()
+                    except: default_date = datetime.today().date()
+                    n_date = st.date_input("日期", value=default_date)
+                    n_item = st.text_area("項目", row['eval_item'])
+                    n_target = st.text_area("指標", row['eval_target'])
+                    n_content = st.text_area("紀錄", row['eval_content'])
+                    if st.form_submit_button("儲存"):
+                        conn = get_conn()
+                        conn.execute("UPDATE assistant_evaluations SET eval_date=?, eval_item=?, eval_target=?, eval_content=? WHERE id=?", 
+                                     (str(n_date), n_item, n_target, n_content, row['id']))
+                        conn.commit()
+                        conn.close()
+                        st.session_state[f"edit_mode_{row['id']}"] = False
+                        st.rerun()
 
-    # 2. 獨立名單維護與新增
+    # 2. 新增考核區
     st.markdown("---")
     st.markdown("### ✍️ 新增績效考核紀錄")
-    
-    # 讀取專用名單
-    staff_list = [r[0] for r in conn.execute("SELECT name FROM assistant_list_exclusive").fetchall()]
-    
     with st.form("add_form", clear_on_submit=True):
         sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["請先至下方新增名單"])
         c1, c2, c3 = st.columns(3)
@@ -885,22 +906,41 @@ if menu == "🎀 助理績效考核區":
         txt_target = c2.text_area("🎯 考核指標")
         txt_content = c3.text_area("✨ 考核紀錄")
         if st.form_submit_button("💝 立即存檔紀錄"):
+            conn = get_conn()
             conn.execute("INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content) VALUES (?, ?, ?, ?, ?)",
                          (datetime.today().strftime('%Y-%m-%d'), sel_assistant, txt_item, txt_target, txt_content))
             conn.commit()
+            conn.close()
             st.rerun()
 
-    # 3. 助理名單管理
+    # 3. 獨立助理名單維護
     st.markdown("---")
     st.markdown("### ⚙️ 助理名單維護 (本頁專用)")
     new_staff = st.text_input("輸入新助理姓名")
     if st.button("➕ 加入名單"):
         if new_staff.strip():
+            conn = get_conn()
             try:
                 conn.execute("INSERT INTO assistant_list_exclusive (name) VALUES (?)", (new_staff.strip(),))
                 conn.commit()
-                st.rerun()
             except: st.error("人員已存在")
+            conn.close()
+            st.rerun()
+    
+    st.markdown("#### 目前助理名單：")
+    conn = get_conn()
+    current_staff = pd.read_sql("SELECT * FROM assistant_list_exclusive", conn)
+    conn.close()
+    
+    for _, staff in current_staff.iterrows():
+        c1, c2 = st.columns([4, 1])
+        c1.write(f"👤 {staff['name']}")
+        if c2.button("🗑️ 刪除", key=f"del_staff_{staff['id']}"):
+            conn = get_conn()
+            conn.execute("DELETE FROM assistant_list_exclusive WHERE id = ?", (staff['id'],))
+            conn.commit()
+            conn.close()
+            st.rerun()
     
     conn.close()
 
