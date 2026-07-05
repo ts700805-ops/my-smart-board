@@ -908,11 +908,11 @@ if menu == "🎀 助理績效考核區":
             conn.close()
             st.rerun()
 
-    # 3. 獨立助理名單維護 (本頁專用 - 新增了下方清單顯示與刪除功能)
+   # 3. 獨立助理名單維護 (本頁專用 - 確保與上方下拉選單連動)
     st.markdown("---")
     st.markdown("### ⚙️ 助理名單維護 (本頁專用)")
     
-    # 輸入新助理
+    # 輸入與新增
     new_staff = st.text_input("輸入新助理姓名")
     if st.button("➕ 加入名單"):
         if new_staff.strip():
@@ -922,15 +922,14 @@ if menu == "🎀 助理績效考核區":
                 conn.commit()
             except: st.error("人員已存在")
             conn.close()
-            st.rerun()
+            st.rerun() # 新增後重跑，下拉選單與下方列表同時更新
     
-    # --- 下方顯示名單與刪除功能 ---
+    # 顯示目前助理名單與刪除功能
     st.markdown("#### 目前助理名單：")
     conn = get_conn()
     current_staff = pd.read_sql("SELECT * FROM assistant_list_exclusive", conn)
     conn.close()
     
-    # 使用 columns 來排列名單，避免佔用太多空間
     for _, staff in current_staff.iterrows():
         c1, c2 = st.columns([4, 1])
         c1.write(f"👤 {staff['name']}")
@@ -939,4 +938,4 @@ if menu == "🎀 助理績效考核區":
             conn.execute("DELETE FROM assistant_list_exclusive WHERE id = ?", (staff['id'],))
             conn.commit()
             conn.close()
-            st.rerun()
+            st.rerun() # 刪除後重跑，下拉選單與下方列表同時更新
