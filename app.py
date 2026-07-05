@@ -837,7 +837,7 @@ if menu == "🎀 助理績效考核區":
     st.subheader("🎀 助理績效考核管理系統")
     
     # 字體設定：預設值改為 30
-    font_size = st.slider("調整顯示文字大小", 16, 56, 30)
+    font_size = st.slider("調整顯示文字大小", 16, 56, 25)
     st.markdown(f"""
         <style>
         .custom-text {{ 
