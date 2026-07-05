@@ -13,7 +13,7 @@ import base64
 # =========================================================
 st.set_page_config(
     page_title="超慧製造部-雲端公佈欄", 
-    page_icon="🍃", 
+    page_icon="🥮", 
     layout="wide"
 )
 
@@ -25,36 +25,36 @@ def get_base64_image(image_path):
     except:
         return ""
 
-# 讀取您的端午美圖
+# 讀取圖片背景
 img_base64 = get_base64_image("image_b13023.jpg")
 
-# --- 🎋 端午節高質感節慶氣氛 CSS 注入 ---
+# --- 🎑 中秋節高質感金秋月夜氣氛 CSS 注入 ---
 st.markdown("""
     <style>
-    /* 全域背景顏色：淡淡的優雅竹青色 */
+    /* 全域背景顏色：淡淡的柔和月光黃 */
     .stApp {
-        background-color: #F2F8F3 !important;
+        background-color: #FDFBF0 !important;
     }
 
-    /* 頂部導航列細條裝飾顏色：深翠綠 */
+    /* 頂部導航列細條裝飾顏色：深邃月夜藍 */
     header[data-testid="stHeader"] {
-        background-color: #1E4D2B !important;
-        border-bottom: 3px solid #D4AF37 !important;
+        background-color: #0D1B2A !important;
+        border-bottom: 3px solid #F1C40F !important;
     }
 
-    /* 側邊欄風格：高質感深色竹綠底 */
+    /* 側邊欄風格：高質感深藍月夜底 */
     [data-testid="stSidebar"] {
-        background-color: #1F3E29 !important;
+        background-color: #112233 !important;
     }
     
-    /* 確保側邊欄文字、選單全部清晰呈現白色 */
+    /* 確保側邊欄文字、選單全部清晰呈現白色與金黃色 */
     [data-testid="stSidebar"] *, [data-testid="stSidebar"] span, [data-testid="stSidebar"] p {
         color: #FFFFFF !important;
     }
 
-    /* 網頁主標題與各級標題字體顏色統一為深翠綠 */
+    /* 網頁主標題與各級標題字體顏色統一為深藍夜色 */
     h1, h2, h3 {
-        color: #1E4D2B !important;
+        color: #0D1B2A !important;
         font-family: "Microsoft JhengHei", sans-serif;
     }
 
@@ -67,22 +67,22 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # =========================================================
-# 🏠 側邊欄配置：完美融入您的「端午安康」精美賀圖
+# 🏠 側邊欄配置：中秋佳節新氣象
 # =========================================================
 with st.sidebar:
-    # 📌 依照您的要求，在導航左上方加上版本別 (流水碼依據今日日期更新為 2026070501)
-    st.markdown("<h4 style='color: #D4AF37; margin-bottom: 5px;'>系統版本：2026070501</h4>", unsafe_allow_html=True)
+    # 📌 流水碼依據今日日期與要求碼次+1 更新為 2026070502
+    st.markdown("<h4 style='color: #F1C40F; margin-bottom: 5px;'>系統版本：2026070502</h4>", unsafe_allow_html=True)
     
-    # 完美渲染您的節慶照片
+    # 渲染照片區
     try:
         festive_img = Image.open("image_b13023.jpg")
         st.image(festive_img, use_container_width=True)
     except:
-        st.caption("🍃 端午安康 · 萬事包中 🍃")
+        st.caption("🌕 歲歲年年 ‧ 月圓人安 🌕")
     
     st.markdown("<hr style='border-color: rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
-    st.markdown("### 🐲 製造部端午公告")
-    st.caption("痛苦的7.8月沒節日，期待9/25中秋節.")
+    st.markdown("### 🥮 製造部中秋公告")
+    st.caption("告別端午，喜迎 9/25 中秋佳節 ─ 柚香傳情，事事圓滿！")
 
 # =========================================================
 # 🚀 唯一主頁標題區
@@ -92,8 +92,8 @@ st.markdown("""
         <h1 style="margin: 0; padding: 0; display: flex; align-items: center; font-size: 32px;">
             🏭 &lt;超慧&gt;製造部-雲端公佈欄
         </h1>
-        <p style="margin: 5px 0 0 0; color: #3A7D44; font-size: 15px; font-weight: 500;">
-            🍃 <b>齊心協力 ‧ 粽志成城</b> ｜ 專業與節慶同步，效率與安康共存
+        <p style="margin: 5px 0 0 0; color: #1B263B; font-size: 15px; font-weight: 500;">
+            🌕 <b>花好月圓 ‧ 粽去柚來</b> ｜ 專業效率如滿月，製造品質皆圓滿
         </p>
     </div>
 """, unsafe_allow_html=True)
@@ -145,7 +145,7 @@ def init_db():
                     is_deleted INTEGER DEFAULT 0)''')
     c.execute('CREATE TABLE IF NOT EXISTS staff (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)')
     
-    # 新增：製造部待處理事項資料表
+    # 製造部待處理事項資料表
     c.execute('''CREATE TABLE IF NOT EXISTS pending_tasks (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     date TEXT,
@@ -207,7 +207,7 @@ if menu == "🏠 公佈欄首頁":
         .home-info-label {{
             font-size: {info_label_size}px !important;
             font-weight: bold !important;
-            color: #1E4D2B;
+            color: #0D1B2A;
             margin-bottom: 8px;
         }}
         .home-info-content {{
@@ -215,10 +215,10 @@ if menu == "🏠 公佈欄首頁":
             line-height: 1.7 !important;
             font-weight: 500 !important;
             color: #111111 !important;
-            background-color: #F4F9F5;
+            background-color: #FFFEEF;
             padding: 15px;
             border-radius: 8px;
-            border-left: 5px solid #3A7D44;
+            border-left: 5px solid #F1C40F;
             margin-bottom: 12px;
             white-space: pre-wrap;
         }}
@@ -330,13 +330,13 @@ elif menu == "🛠️ 製造部待處理清單":
     st.markdown(f"""
         <style>
         .duanwu-header {{
-            background: linear-gradient(135deg, #1E4D2B 0%, #3A7D44 100%);
+            background: linear-gradient(135deg, #0D1B2A 0%, #1B263B 100%);
             padding: 20px;
             border-radius: 12px;
             color: #FFFFFF;
             margin-bottom: 25px;
-            box-shadow: 0 4px 15px rgba(30,77,43,0.2);
-            border-left: 6px solid #D4AF37;
+            box-shadow: 0 4px 15px rgba(13,27,42,0.2);
+            border-left: 6px solid #F1C40F;
         }}
         .duanwu-title {{
             font-size: {title_size}px !important;
@@ -359,8 +359,8 @@ elif menu == "🛠️ 製造部待處理清單":
         .large-text-value {{
             font-size: {value_size}px !important;
             font-weight: 800 !important;
-            color: #1E4D2B;
-            background-color: #EBF5EE;
+            color: #0D1B2A;
+            background-color: #FFFEE0;
             padding: 2px 8px;
             border-radius: 6px;
         }}
@@ -376,8 +376,8 @@ elif menu == "🛠️ 製造部待處理清單":
 
     st.markdown("""
         <div class="duanwu-header">
-            <div class="duanwu-title">🍃 🛠️ 製造部待處理事項清單 (包中看板)</div>
-            <div class="duanwu-subtitle">齊心協力 · 萬事包中 ｜ 如同端午精準包粽，每項任務皆能完美達標</div>
+            <div class="duanwu-title">🌕 🛠️ 製造部待處理事項清單 (月圓看板)</div>
+            <div class="duanwu-subtitle">眾志成城 · 事事圓滿 ｜ 如同秋節精準製餅，每項任務皆能完美達標</div>
         </div>
     """, unsafe_allow_html=True)
     
@@ -386,9 +386,9 @@ elif menu == "🛠️ 製造部待處理清單":
         st.markdown("<p style='font-size: 15px; color:#555555;'>💡 <b>提示：</b>本清單僅顯示狀態為「待處理」之製造任務，依據日期由遠至近排序，請優先處理急件。</p>", unsafe_allow_html=True)
     with col_img:
         st.markdown("""
-            <div style="text-align: right; font-size: 14px; color: #3A7D44; line-height: 1.3;">
-                ▲ <b>端午安康</b><br>
-                <span style="color:#D4AF37; font-weight:bold;">✨ 任務包中 ✨</span>
+            <div style="text-align: right; font-size: 14px; color: #0D1B2A; line-height: 1.3;">
+                ▲ <b>中秋佳節</b><br>
+                <span style="color:#F1C40F; font-weight:bold;">✨ 任務圓滿 ✨</span>
             </div>
         """, unsafe_allow_html=True)
 
@@ -400,8 +400,8 @@ elif menu == "🛠️ 製造部待處理清單":
     
     if df_task.empty:
         st.markdown(f"""
-            <div style="background-color: #FFFDF3; border: 1px solid #D4AF37; padding: 25px; border-radius: 8px; text-align: center; color: #1E4D2B; font-size: {value_size}px; font-weight: bold;">
-                🎉 <b>目前暫無待處理事項！所有任務皆已順利「包中」完工！</b>
+            <div style="background-color: #FFFDF3; border: 1px solid #F1C40F; padding: 25px; border-radius: 8px; text-align: center; color: #0D1B2A; font-size: {value_size}px; font-weight: bold;">
+                🎉 <b>目前暫無待處理事項！所有任務皆已順利完工圓滿！</b>
             </div>
         """, unsafe_allow_html=True)
     else:
@@ -412,9 +412,9 @@ elif menu == "🛠️ 製造部待處理清單":
             
             with st.container(border=True):
                 c1, c2, c3 = st.columns([3.5, 3.5, 1])
-                c1.markdown(f"<span class='large-text-label'>🟢 📅 發佈日期：</span><span class='large-text-value'>{t_date}</span>", unsafe_allow_html=True)
+                c1.markdown(f"<span class='large-text-label'>🌕 📅 發佈日期：</span><span class='large-text-value'>{t_date}</span>", unsafe_allow_html=True)
                 c2.markdown(f"<span class='large-text-label'>🔢 製令：</span><span class='large-text-value'>{t_order}</span>", unsafe_allow_html=True)
-                c3.markdown(f"<div style='text-align: right; font-size: {value_size}px;'>🫔</div>", unsafe_allow_html=True)
+                c3.markdown(f"<div style='text-align: right; font-size: {value_size}px;'>🥮</div>", unsafe_allow_html=True)
                 
                 st.markdown("<div style='margin-top: 10px; margin-bottom: 10px; border-top: 1px dashed #DDD;'></div>", unsafe_allow_html=True)
                 st.markdown(f"<div class='large-text-content'><b>📋 任務內容：</b>\n{t_content}</div>", unsafe_allow_html=True)
@@ -439,7 +439,7 @@ elif menu == "✍️ 撰寫新公告":
             conn.execute("INSERT INTO posts (date, author, content, image_path, is_deleted) VALUES (?, ?, ?, ?, 0)", (t, author, msg, p))
             conn.commit()
             conn.close()
-            sync_to_github("New Post - 2026070501"); st.balloons(); st.success("發布成功！"); time.sleep(1.5);
+            sync_to_github("New Post - 2026070502"); st.balloons(); st.success("發布成功！"); time.sleep(1.5);
             st.rerun()
 
 # 5. 撰寫品質
@@ -468,7 +468,7 @@ elif menu == "📝 撰寫品質":
             conn.execute("INSERT INTO quality_posts (date, order_no, content, category, staff_name, image_path, is_deleted) VALUES (?, ?, ?, ?, ?, ?, 0)", (t, order_no, q_content, q_cat, q_staff, p))
             conn.commit()
             conn.close()
-            sync_to_github("New Quality Alert - 2026070501"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5);
+            sync_to_github("New Quality Alert - 2026070502"); st.balloons(); st.success("紀錄已存檔！"); time.sleep(1.5);
             st.rerun()
 
 # 6. 所有紀錄
@@ -512,16 +512,16 @@ elif menu == "⚙️ 管理後台":
                     new_post_date = st.date_input("修改日期", value=curr_date_val, key=f"ep_date_{r['id']}")
                     
                     nc = st.text_area("修改內容", value=r['content'], key=f"ep_{r['id']}")
-                    if st.button("💾 儲存", key=f"sp_{r['id']}"):
+                    if st.button("💾 儲儲", key=f"sp_{r['id']}"):
                         conn = get_conn()
                         formatted_date = new_post_date.strftime('%Y-%m-%d')
                         if " " in r['date']: 
                             formatted_date += " " + r['date'].split(" ", 1)[1]
                         conn.execute("UPDATE posts SET date = ?, content = ? WHERE id = ?", (formatted_date, nc, r['id']))
                         conn.commit(); conn.close()
-                        sync_to_github("Edit Post - 2026070501"); st.rerun()
+                        sync_to_github("Edit Post - 2026070502"); st.rerun()
                 if c3.button("🗑️ 刪除", key=f"dp_{r['id']}"):
-                    conn = get_conn(); conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Post - 2026070501"); st.rerun()
+                    conn = get_conn(); conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Post - 2026070502"); st.rerun()
 
         with t2:
             conn = get_conn()
@@ -559,9 +559,9 @@ elif menu == "⚙️ 管理後台":
                             formatted_q_date += " " + r['date'].split(" ", 1)[1]
                         conn.execute("UPDATE quality_posts SET date=?, order_no=?, category=?, staff_name=?, content=?, image_path=? WHERE id=?", 
                                      (formatted_q_date, new_order, new_cat, new_staff, new_content, p, r['id']))
-                        conn.commit(); conn.close(); sync_to_github("Edit Quality - 2026070501"); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github("Edit Quality - 2026070502"); st.rerun()
                 if qc3.button("🗑️ 刪除", key=f"dq_{r['id']}"):
-                    conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality - 2026070501"); st.rerun()
+                    conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality - 2026070502"); st.rerun()
 
         with t3:
             st.write("### 👥 人員名單管理")
@@ -571,7 +571,7 @@ elif menu == "⚙️ 管理後台":
                     conn = get_conn()
                     try:
                         conn.execute("INSERT INTO staff (name) VALUES (?)", (new_n,))
-                        conn.commit(); conn.close(); sync_to_github(f"Add {new_n} - 2026070501"); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github(f"Add {new_n} - 2026070502"); st.rerun()
                     except: conn.close(); st.error("人員已存在")
             st.markdown("---")
             conn = get_conn()
@@ -581,7 +581,7 @@ elif menu == "⚙️ 管理後台":
                 col1, col2 = st.columns([8, 2])
                 col1.write(f"👤 {row['name']}")
                 if col2.button("🗑️ 刪除人員", key=f"ds_{row['id']}"):
-                    conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff - 2026070501"); st.rerun()
+                    conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff - 2026070502"); st.rerun()
 
         with t4:
             st.write("### 📝 新增待處理事項")
@@ -595,7 +595,7 @@ elif menu == "⚙️ 管理後台":
                         conn = get_conn()
                         conn.execute("INSERT INTO pending_tasks (date, order_no, task_content) VALUES (?, ?, ?)", 
                                      (str(t_date), t_order, t_msg))
-                        conn.commit(); conn.close(); sync_to_github("Add Task - 2026070501"); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github("Add Task - 2026070502"); st.rerun()
 
             st.markdown("---")
             st.write("### ⏳ 目前待處理清單")
@@ -618,13 +618,13 @@ elif menu == "⚙️ 管理後台":
                         conn = get_conn()
                         conn.execute("UPDATE pending_tasks SET date=?, order_no=?, task_content=? WHERE id=?", 
                                      (str(e_date), e_order, e_task, task['id']))
-                        conn.commit(); conn.close(); sync_to_github("Edit Task - 2026070501"); st.rerun()
+                        conn.commit(); conn.close(); sync_to_github("Edit Task - 2026070502"); st.rerun()
 
                 if tc3.button("✅ 完成", key=f"finish_{task['id']}"):
                     now_t = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
                     conn = get_conn()
                     conn.execute("UPDATE pending_tasks SET status='已完成', complete_date=? WHERE id=?", (now_t, task['id']))
-                    conn.commit(); conn.close(); sync_to_github("Finish Task - 2026070501"); st.rerun()
+                    conn.commit(); conn.close(); sync_to_github("Finish Task - 2026070502"); st.rerun()
 
 # --- 🔴 專案管理首頁 (獨立功能活頁) ---
 if menu == "🔴 專案管理首頁":
@@ -644,7 +644,6 @@ if menu == "🔴 專案管理首頁":
     
     p_font_scale = st.session_state.project_font_scale
     
-    # 【✨核心修正】：擴大鎖定 stNotification 內部的特定渲染容器與底層所有 Markdown 標籤，徹底解決文字無反應的情況
     st.markdown(f"""
         <style>
         div[data-testid="stNotification"] *, 
@@ -742,7 +741,7 @@ if menu == "🔴 專案管理首頁":
                     db_conn.commit()
                 finally:
                     db_conn.close()
-                sync_to_github("Finish Project Task - 2026070501"); st.rerun()
+                sync_to_github("Finish Project Task - 2026070502"); st.rerun()
                 
             with m3.popover("📝 編輯"):
                 pwd_edit = st.text_input("驗證管理密碼", type="password", key=f"pwd_e_{row['id']}")
@@ -769,7 +768,7 @@ if menu == "🔴 專案管理首頁":
                             db_conn.commit()
                         finally:
                             db_conn.close()
-                        sync_to_github("Edit Project Task - 2026070501"); st.rerun()
+                        sync_to_github("Edit Project Task - 2026070502"); st.rerun()
                 elif pwd_edit:
                     st.error("密碼錯誤")
 
@@ -783,12 +782,12 @@ if menu == "🔴 專案管理首頁":
                             db_conn.commit()
                         finally:
                             db_conn.close()
-                        sync_to_github("Delete Project Task - 2026070501"); st.rerun()
+                        sync_to_github("Delete Project Task - 2026070502"); st.rerun()
                 elif pwd_del:
                     st.error("密碼錯誤")
 
     # =========================================================
-    # ✨ 依指示在此頁面下方新增：🟢 已完工歷史專案清單
+    # ✨ 完整保留：🟢 已完工歷史專案清單顯示於頁面下方
     # =========================================================
     st.markdown("---")
     st.markdown("### 🟢 已完工歷史專案清單")
