@@ -958,6 +958,7 @@ if menu == "🎀 助理績效考核區":
 # --- 新增考核表單區 (已修改為同一列排版) ---
     st.markdown("### ✍️ 新增助理考核紀錄")
     with st.form("assistant_add_form", clear_on_submit=True):
+        #
         sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list)
         
         # 使用 columns 建立三欄位
