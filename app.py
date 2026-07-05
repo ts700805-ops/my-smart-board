@@ -896,11 +896,18 @@ if menu == "🎀 助理績效考核區":
                         conn.close()
                         st.session_state[f"edit_mode_{row['id']}"] = False
                         st.rerun()
-    # 2. 新增考核區 (包含本頁助理姓名下拉選單)
+    # 2. 新增績效考核區 (包含本頁助理姓名下拉選單)
     st.markdown("---")
     st.markdown("### ✍️ 新增績效考核紀錄")
+    
+    # 重新讀取名單以確保下拉選單是最新的
+    conn = get_conn()
+    staff_df = pd.read_sql("SELECT name FROM staff", conn)
+    staff_list = staff_df['name'].tolist()
+    conn.close()
+    
     with st.form("add_form", clear_on_submit=True):
-        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["請先至下方新增名單"])
+        sel_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else ["請先至下方新增人員"])
         c1, c2, c3 = st.columns(3)
         txt_item = c1.text_area("📊 考核項目")
         txt_target = c2.text_area("🎯 考核指標")
@@ -913,7 +920,7 @@ if menu == "🎀 助理績效考核區":
             conn.close()
             st.rerun()
 
-    # 3. 獨立助理名單維護
+    # 3. 獨立助理名單維護 (本頁專用)
     st.markdown("---")
     st.markdown("### ⚙️ 助理名單維護 (本頁專用)")
     new_staff = st.text_input("輸入新助理姓名")
@@ -922,4 +929,5 @@ if menu == "🎀 助理績效考核區":
         conn.execute("INSERT INTO staff (name) VALUES (?)", (new_staff,))
         conn.commit()
         conn.close()
+        st.success(f"已新增：{new_staff}")
         st.rerun()
