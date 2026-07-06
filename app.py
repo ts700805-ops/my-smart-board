@@ -832,17 +832,18 @@ if menu == "🔴 專案管理首頁":
 if menu == "🎀 助理績效考核區":
 
     # -------------------------------
-    # 密碼保護
+    # 授權設定 (已設定為不需密碼直接放行)
     # -------------------------------
     if 'eval_auth' not in st.session_state:
-        st.session_state.eval_auth = False
+        st.session_state.eval_auth = True  # 設定為 True，直接略過密碼
 
-    if not st.session_state.eval_auth:
-        pwd = st.text_input("🔑 請輸入密碼 (0000)", type="password")
-        if pwd == "0000":
-            st.session_state.eval_auth = True
-            st.rerun()
-        st.stop()
+    # 隱藏原本的密碼輸入框區塊
+    # if not st.session_state.eval_auth:
+    #     pwd = st.text_input("🔑 請輸入密碼 (0000)", type="password")
+    #     if pwd == "0000":
+    #         st.session_state.eval_auth = True
+    #         st.rerun()
+    #     st.stop()
 
     st.subheader("🎀 助理績效考核管理系統")
 
@@ -857,15 +858,6 @@ if menu == "🎀 助理績效考核區":
     # =====================================================
     st.markdown(f"""
         <style>
-        /* 紀錄總覽一般文字：優化換行與行高配置，徹底解決字體放大後被格子遮擋的問題 */
-        .custom-text {{ 
-            font-size: {current_size}px !important; 
-            word-break: break-word !important;
-            overflow-wrap: break-word !important;
-            white-space: normal !important;
-            line-height: 1.5 !important;
-        }}
-        
         /* 區塊主標題加大加粗 */
         .custom-header {{ font-size: {label_size}px !important; font-weight: bold !important; }}
         
@@ -950,12 +942,15 @@ if menu == "🎀 助理績效考核區":
                 """, (sel_date.strftime("%Y-%m-%d"), sel_assistant, txt_item, txt_target, txt_content))
                 db_conn.commit()
                 db_conn.close()
-                sync_to_github("Add Evaluation")
+                try:
+                    sync_to_github("Add Evaluation")
+                except:
+                    pass
                 st.success("✅ 存檔成功")
                 st.rerun()
 
     # =====================================================
-    # 紀錄總覽
+    # 紀錄總覽 (互動式格子表格)
     # =====================================================
     st.markdown("<div class='custom-header'>📜 績效考核項目</div>", unsafe_allow_html=True)
 
@@ -967,7 +962,7 @@ if menu == "🎀 助理績效考核區":
     if eval_df.empty:
         st.info("目前尚無任何考核紀錄")
     else:
-        # ✅ 新增：依照篩選後的資料提供 CSV 下載按鈕
+        # 下載 CSV 功能保留
         export_df = eval_df[['eval_date', 'assistant_name', 'eval_item', 'eval_target', 'eval_content']].rename(columns={
             'eval_date': '日期',
             'assistant_name': '姓名',
@@ -975,7 +970,6 @@ if menu == "🎀 助理績效考核區":
             'eval_target': '考核指標',
             'eval_content': '考核紀錄'
         })
-        # 轉換為 CSV 格式 (加入 utf-8-sig 避免 Excel 中文亂碼)
         csv_data = export_df.to_csv(index=False).encode('utf-8-sig')
         
         st.download_button(
@@ -985,65 +979,56 @@ if menu == "🎀 助理績效考核區":
             mime="text/csv"
         )
 
-        # 2. 顯示最上方標題 (表格標頭)
         st.markdown("---")
-        hc1, hc2, hc3, hc4, hc5, hc6 = st.columns([0.8, 0.8, 3.0, 3.0, 3.5, 1.3])
-        hc1.markdown(f"<div class='custom-text' style='font-weight:bold; color:#4a4a4a;'>📅 日期</div>", unsafe_allow_html=True)
-        hc2.markdown(f"<div class='custom-text' style='font-weight:bold; color:#4a4a4a;'>👤 姓名</div>", unsafe_allow_html=True)
-        hc3.markdown(f"<div class='custom-text' style='font-weight:bold; color:#4a4a4a;'>📊 考核項目</div>", unsafe_allow_html=True)
-        hc4.markdown(f"<div class='custom-text' style='font-weight:bold; color:#4a4a4a;'>🎯 考核指標</div>", unsafe_allow_html=True)
-        hc5.markdown(f"<div class='custom-text' style='font-weight:bold; color:#4a4a4a;'>✨ 考核紀錄</div>", unsafe_allow_html=True)
-        hc6.markdown(f"<div class='custom-text' style='font-weight:bold; color:#4a4a4a;'>⚙️ 操作</div>", unsafe_allow_html=True)
+        # 💡 教學提示：告訴使用者現在可以直接點兩下編輯了
+        st.info("💡 **操作提示**：在下方表格格子內「**點選兩下**」即可直接修改文字！若要刪除資料，請將右側的「🗑️ 刪除」打勾。修改完畢後請點擊最下方的「💾 儲存表格所有修改」按鈕。")
 
-        for _, row in eval_df.iterrows():
-            st.markdown("---")
-            # 放大紅框處的格子：調大中間三個文字欄位(c3, c4, c5)的寬度比例，縮小前兩個的比例
-            c1, c2, c3, c4, c5, c6 = st.columns([0.8, 0.8, 3.0, 3.0, 3.5, 1.3])
+        # 準備丟給表格編輯器的 DataFrame，並新增一個用來勾選刪除的欄位
+        display_df = eval_df[['id', 'eval_date', 'assistant_name', 'eval_item', 'eval_target', 'eval_content']].copy()
+        display_df['🗑️ 刪除'] = False 
+
+        # ✅ 2. 顯示可編輯的資料表格 (st.data_editor)
+        edited_df = st.data_editor(
+            display_df,
+            column_config={
+                "id": None,  # 隱藏內部系統用的 ID 欄位，不讓使用者看到
+                "eval_date": st.column_config.TextColumn("📅 日期"),
+                "assistant_name": st.column_config.SelectboxColumn("👤 姓名", options=staff_list), # 變成下拉選單
+                "eval_item": st.column_config.TextColumn("📊 考核項目"),
+                "eval_target": st.column_config.TextColumn("🎯 考核指標"),
+                "eval_content": st.column_config.TextColumn("✨ 考核紀錄"),
+                "🗑️ 刪除": st.column_config.CheckboxColumn("🗑️ 刪除", default=False) # 變成打勾框
+            },
+            hide_index=True,          # 隱藏最左邊的 0,1,2,3 序號
+            use_container_width=True, # 讓表格自動延展填滿畫面寬度
+            key="eval_grid_editor"
+        )
+
+        # ✅ 3. 新增一個單一儲存按鈕，一次性把表格的更動存進資料庫
+        if st.button("💾 儲存表格所有修改", type="primary"):
+            db_conn = sqlite3.connect("bulletin.db")
             
-            c1.markdown(f"<div class='custom-text'>{row['eval_date']}</div>", unsafe_allow_html=True)
-            c2.markdown(f"<div class='custom-text'>{row['assistant_name']}</div>", unsafe_allow_html=True)
-            c3.markdown(f"<div class='custom-text'>{row['eval_item']}</div>", unsafe_allow_html=True)
-            c4.markdown(f"<div class='custom-text'>{row['eval_target']}</div>", unsafe_allow_html=True)
-            c5.markdown(f"<div class='custom-text'>{row['eval_content']}</div>", unsafe_allow_html=True)
-
-            # 編輯與刪除功能區塊
-            btn_edit, btn_del = c6.columns(2)
-
-            # 📝 編輯功能 (比照專案管理模組 popover)
-            with btn_edit.popover("📝 編輯"):
-                e_date = st.date_input("日期", value=datetime.strptime(row['eval_date'], '%Y-%m-%d'), key=f"e_date_{row['id']}")
-                
-                try:
-                    default_index = staff_list.index(row['assistant_name']) if row['assistant_name'] in staff_list else 0
-                except:
-                    default_index = 0
-                e_assistant = st.selectbox("🎀 選擇助理姓名", staff_list if staff_list else [row['assistant_name']], index=default_index, key=f"e_ast_{row['id']}")
-                
-                e_item = st.text_area("📊 考核項目", value=row['eval_item'], key=f"e_item_{row['id']}")
-                e_target = st.text_area("🎯 考核指標", value=row['eval_target'], key=f"e_target_{row['id']}")
-                e_content = st.text_area("✨ 考核紀錄", value=row['eval_content'], key=f"e_content_{row['id']}")
-                
-                if st.button("💾 儲存修改", key=f"save_e_{row['id']}"):
-                    db_conn = sqlite3.connect("bulletin.db")
+            # 迴圈檢查表格內的每一行資料
+            for index, row in edited_df.iterrows():
+                if row['🗑️ 刪除'] == True:
+                    # 如果使用者勾選了刪除，就把 is_deleted 設為 1
+                    db_conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row["id"],))
+                else:
+                    # 如果沒有勾選刪除，就更新所有欄位的內容
                     db_conn.execute("""
                         UPDATE assistant_evaluations 
                         SET eval_date=?, assistant_name=?, eval_item=?, eval_target=?, eval_content=? 
                         WHERE id=?
-                    """, (str(e_date), e_assistant, e_item, e_target, e_content, row['id']))
-                    db_conn.commit()
-                    db_conn.close()
-                    sync_to_github("Edit Evaluation")
-                    st.success("修改成功！")
-                    st.rerun()
-
-            # 🗑️ 刪除功能
-            with btn_del.popover("🗑️ 刪除"):
-                st.warning("確定要刪除這筆紀錄嗎？")
-                if st.button("🚨 確定刪除", key=f"d_btn_{row['id']}"):
-                    db_conn = sqlite3.connect("bulletin.db")
-                    db_conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row["id"],))
-                    db_conn.commit()
-                    db_conn.close()
-                    sync_to_github("Delete Evaluation")
-                    st.success("已刪除！")
-                    st.rerun()
+                    """, (row['eval_date'], row['assistant_name'], row['eval_item'], row['eval_target'], row['eval_content'], row['id']))
+            
+            db_conn.commit()
+            db_conn.close()
+            
+            try:
+                sync_to_github("Update Evaluation via Grid")
+            except:
+                pass
+                
+            st.success("✅ 所有修改與刪除已成功儲存！")
+            time.sleep(1) # 暫停 1 秒讓使用者看到成功訊息
+            st.rerun()    # 重新整理畫面載入最新資料
