@@ -832,7 +832,7 @@ if menu == "🔴 專案管理首頁":
 if menu == "🎀 助理績效考核區":
 
     # -------------------------------
-    # 密碼保護 (已移除提示，密碼為 0000)
+    # 密碼保護 (已隱藏密碼提示，密碼為 0000)
     # -------------------------------
     if 'eval_auth' not in st.session_state:
         st.session_state.eval_auth = False
@@ -993,16 +993,17 @@ if menu == "🎀 助理績效考核區":
         display_df['🗑️ 刪除'] = False 
 
         # 顯示可編輯的資料表格 (st.data_editor)
+        # 🔧 在標題前後加上隱形空格，減少被畫布邊緣裁切的機率
         edited_df = st.data_editor(
             display_df,
             column_config={
-                "id": None,  # 隱藏內部系統用的 ID 欄位，不讓使用者看到
-                "eval_date": st.column_config.TextColumn("📅 日期"),
-                "assistant_name": st.column_config.SelectboxColumn("👤 姓名", options=staff_list), 
-                "eval_item": st.column_config.TextColumn("📊 考核項目"),
-                "eval_target": st.column_config.TextColumn("🎯 考核指標"),
-                "eval_content": st.column_config.TextColumn("✨ 考核紀錄"),
-                "🗑️ 刪除": st.column_config.CheckboxColumn("🗑️ 刪除", default=False) 
+                "id": None,  # 隱藏內部系統用的 ID 欄位
+                "eval_date": st.column_config.TextColumn(" 📅 日期 "),
+                "assistant_name": st.column_config.SelectboxColumn(" 👤 姓名 ", options=staff_list), 
+                "eval_item": st.column_config.TextColumn(" 📊 考核項目 "),
+                "eval_target": st.column_config.TextColumn(" 🎯 考核指標 "),
+                "eval_content": st.column_config.TextColumn(" ✨ 考核紀錄 "),
+                "🗑️ 刪除": st.column_config.CheckboxColumn(" 🗑️ 刪除 ", default=False) 
             },
             hide_index=True,          # 隱藏最左邊的 0,1,2,3 序號
             use_container_width=True, # 讓表格自動延展填滿畫面寬度
