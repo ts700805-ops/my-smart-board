@@ -909,7 +909,7 @@ if menu == "🎀 助理績效考核區":
     staff_df = pd.read_sql("SELECT name FROM staff ORDER BY name", db_conn)
     staff_list = staff_df["name"].tolist()
 
-    # ✅ 已將 ORDER BY 修改為優先依 assistant_name 排序，讓相同人員姓名擺在一起
+    # 已將 ORDER BY 修改為優先依 assistant_name 排序，讓相同人員姓名擺在一起
     eval_df = pd.read_sql("""
         SELECT *
         FROM assistant_evaluations
@@ -960,8 +960,8 @@ if menu == "🎀 助理績效考核區":
     else:
         for _, row in eval_df.iterrows():
             st.markdown("---")
-            # 放大紅框處的底部格子：調大文字欄位的相對權重比例，給予考核內容充足展現空間
-            c1, c2, c3, c4, c5, c6 = st.columns([1.0, 1.0, 2.2, 2.2, 2.5, 1.5])
+            # ✅ 放大紅框處的格子：調大中間三個文字欄位(c3, c4, c5)的寬度比例，縮小前兩個的比例
+            c1, c2, c3, c4, c5, c6 = st.columns([0.8, 0.8, 3.0, 3.0, 3.5, 1.3])
             
             c1.markdown(f"<div class='custom-text'>{row['eval_date']}</div>", unsafe_allow_html=True)
             c2.markdown(f"<div class='custom-text'>{row['assistant_name']}</div>", unsafe_allow_html=True)
