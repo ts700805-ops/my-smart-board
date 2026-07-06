@@ -832,18 +832,17 @@ if menu == "🔴 專案管理首頁":
 if menu == "🎀 助理績效考核區":
 
     # -------------------------------
-    # 授權設定 (已設定為不需密碼直接放行)
+    # 密碼保護 (已移除提示，密碼為 0000)
     # -------------------------------
     if 'eval_auth' not in st.session_state:
-        st.session_state.eval_auth = True  # 設定為 True，直接略過密碼
+        st.session_state.eval_auth = False
 
-    # 隱藏原本的密碼輸入框區塊
-    # if not st.session_state.eval_auth:
-    #     pwd = st.text_input("🔑 請輸入密碼 (0000)", type="password")
-    #     if pwd == "0000":
-    #         st.session_state.eval_auth = True
-    #         st.rerun()
-    #     st.stop()
+    if not st.session_state.eval_auth:
+        pwd = st.text_input("🔑 請輸入密碼", type="password")
+        if pwd == "0000":
+            st.session_state.eval_auth = True
+            st.rerun()
+        st.stop()
 
     st.subheader("🎀 助理績效考核管理系統")
 
@@ -854,7 +853,7 @@ if menu == "🎀 助理績效考核區":
     label_size = current_size * 2  # 欄位標籤放大兩倍
     
     # =====================================================
-    # CSS 樣式注入 (包含字體放大、標題加粗、輸入框控制)
+    # CSS 樣式注入 (包含字體放大、標題加粗、按鈕控制)
     # =====================================================
     st.markdown(f"""
         <style>
@@ -875,6 +874,12 @@ if menu == "🎀 助理績效考核區":
         /* TextArea 文字放大 */
         div[data-baseweb="textarea"] textarea {{
             font-size: {current_size}px !important;
+        }}
+        
+        /* 放大網頁中所有按鈕的文字 (包含儲存、下載、存檔等) */
+        button p {{
+            font-size: 22px !important;
+            font-weight: bold !important;
         }}
         </style>
     """, unsafe_allow_html=True)
@@ -987,24 +992,24 @@ if menu == "🎀 助理績效考核區":
         display_df = eval_df[['id', 'eval_date', 'assistant_name', 'eval_item', 'eval_target', 'eval_content']].copy()
         display_df['🗑️ 刪除'] = False 
 
-        # ✅ 2. 顯示可編輯的資料表格 (st.data_editor)
+        # 顯示可編輯的資料表格 (st.data_editor)
         edited_df = st.data_editor(
             display_df,
             column_config={
                 "id": None,  # 隱藏內部系統用的 ID 欄位，不讓使用者看到
                 "eval_date": st.column_config.TextColumn("📅 日期"),
-                "assistant_name": st.column_config.SelectboxColumn("👤 姓名", options=staff_list), # 變成下拉選單
+                "assistant_name": st.column_config.SelectboxColumn("👤 姓名", options=staff_list), 
                 "eval_item": st.column_config.TextColumn("📊 考核項目"),
                 "eval_target": st.column_config.TextColumn("🎯 考核指標"),
                 "eval_content": st.column_config.TextColumn("✨ 考核紀錄"),
-                "🗑️ 刪除": st.column_config.CheckboxColumn("🗑️ 刪除", default=False) # 變成打勾框
+                "🗑️ 刪除": st.column_config.CheckboxColumn("🗑️ 刪除", default=False) 
             },
             hide_index=True,          # 隱藏最左邊的 0,1,2,3 序號
             use_container_width=True, # 讓表格自動延展填滿畫面寬度
             key="eval_grid_editor"
         )
 
-        # ✅ 3. 新增一個單一儲存按鈕，一次性把表格的更動存進資料庫
+        # 新增一個單一儲存按鈕，一次性把表格的更動存進資料庫
         if st.button("💾 儲存表格所有修改", type="primary"):
             db_conn = sqlite3.connect("bulletin.db")
             
