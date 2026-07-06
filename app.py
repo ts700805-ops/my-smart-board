@@ -925,10 +925,14 @@ if menu == "🎀 助理績效考核區":
     st.markdown("<div class='custom-header'>✍️ 新增績效考核紀錄</div>", unsafe_allow_html=True)
 
     with st.form("add_eval_form", clear_on_submit=True):
-        sel_assistant = st.selectbox(
+        
+        # ✅ 新增：將姓名與完成日期並排
+        top_c1, top_c2 = st.columns(2)
+        sel_assistant = top_c1.selectbox(
             "🎀 選擇助理姓名",
             staff_list if staff_list else ["⚠️ 請先到【⚙️管理後台 → 👥人員名單管理】新增人員"]
         )
+        sel_date = top_c2.date_input("📅 完成日期", value=datetime.today())
 
         c1, c2, c3 = st.columns(3)
         txt_item = c1.text_area("📊 考核項目")
@@ -943,7 +947,7 @@ if menu == "🎀 助理績效考核區":
                 db_conn.execute("""
                     INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content)
                     VALUES (?, ?, ?, ?, ?)
-                """, (datetime.today().strftime("%Y-%m-%d"), sel_assistant, txt_item, txt_target, txt_content))
+                """, (sel_date.strftime("%Y-%m-%d"), sel_assistant, txt_item, txt_target, txt_content))
                 db_conn.commit()
                 db_conn.close()
                 sync_to_github("Add Evaluation")
@@ -955,7 +959,7 @@ if menu == "🎀 助理績效考核區":
     # =====================================================
     st.markdown("<div class='custom-header'>📜 績效考核項目</div>", unsafe_allow_html=True)
 
-    # ✅ 1. 新增人員篩選功能
+    # 1. 新增人員篩選功能
     filter_staff = st.selectbox("🔍 篩選人員", ["全部"] + staff_list)
     if filter_staff != "全部":
         eval_df = eval_df[eval_df['assistant_name'] == filter_staff]
@@ -963,7 +967,7 @@ if menu == "🎀 助理績效考核區":
     if eval_df.empty:
         st.info("目前尚無任何考核紀錄")
     else:
-        # ✅ 2. 顯示最上方標題 (表格標頭)
+        # 2. 顯示最上方標題 (表格標頭)
         st.markdown("---")
         hc1, hc2, hc3, hc4, hc5, hc6 = st.columns([0.8, 0.8, 3.0, 3.0, 3.5, 1.3])
         hc1.markdown(f"<div class='custom-text' style='font-weight:bold; color:#4a4a4a;'>📅 日期</div>", unsafe_allow_html=True)
