@@ -952,7 +952,7 @@ if menu == "🎀 助理績效考核區":
     # =====================================================
     # 紀錄總覽
     # =====================================================
-    st.markdown("<div class='custom-header'>📜 績效考核紀錄總覽</div>", unsafe_allow_html=True)
+    st.markdown("<div class='custom-header'>📜 績效考核項目</div>", unsafe_allow_html=True)
 
     if eval_df.empty:
         st.info("目前尚無任何考核紀錄")
