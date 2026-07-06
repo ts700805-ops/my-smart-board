@@ -926,7 +926,7 @@ if menu == "🎀 助理績效考核區":
 
     with st.form("add_eval_form", clear_on_submit=True):
         
-        # ✅ 新增：將姓名與完成日期並排
+        # 將姓名與完成日期並排
         top_c1, top_c2 = st.columns(2)
         sel_assistant = top_c1.selectbox(
             "🎀 選擇助理姓名",
@@ -967,6 +967,24 @@ if menu == "🎀 助理績效考核區":
     if eval_df.empty:
         st.info("目前尚無任何考核紀錄")
     else:
+        # ✅ 新增：依照篩選後的資料提供 CSV 下載按鈕
+        export_df = eval_df[['eval_date', 'assistant_name', 'eval_item', 'eval_target', 'eval_content']].rename(columns={
+            'eval_date': '日期',
+            'assistant_name': '姓名',
+            'eval_item': '考核項目',
+            'eval_target': '考核指標',
+            'eval_content': '考核紀錄'
+        })
+        # 轉換為 CSV 格式 (加入 utf-8-sig 避免 Excel 中文亂碼)
+        csv_data = export_df.to_csv(index=False).encode('utf-8-sig')
+        
+        st.download_button(
+            label="📥 下載篩選結果 (CSV)",
+            data=csv_data,
+            file_name=f"績效考核紀錄_{filter_staff}.csv",
+            mime="text/csv"
+        )
+
         # 2. 顯示最上方標題 (表格標頭)
         st.markdown("---")
         hc1, hc2, hc3, hc4, hc5, hc6 = st.columns([0.8, 0.8, 3.0, 3.0, 3.5, 1.3])
