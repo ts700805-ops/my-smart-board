@@ -838,7 +838,7 @@ if menu == "🎀 助理績效考核區":
         st.session_state.eval_auth = False
 
     if not st.session_state.eval_auth:
-        pwd = st.text_input("🔑 請輸入密碼 ", type="password")
+        pwd = st.text_input("🔑 請輸入密碼 (0000)", type="password")
         if pwd == "0000":
             st.session_state.eval_auth = True
             st.rerun()
@@ -909,11 +909,12 @@ if menu == "🎀 助理績效考核區":
     staff_df = pd.read_sql("SELECT name FROM staff ORDER BY name", db_conn)
     staff_list = staff_df["name"].tolist()
 
+    # ✅ 已將 ORDER BY 修改為優先依 assistant_name 排序，讓相同人員姓名擺在一起
     eval_df = pd.read_sql("""
         SELECT *
         FROM assistant_evaluations
         WHERE is_deleted = 0
-        ORDER BY eval_date DESC,id DESC
+        ORDER BY assistant_name ASC, eval_date DESC, id DESC
     """, db_conn)
 
     db_conn.close()
@@ -959,7 +960,7 @@ if menu == "🎀 助理績效考核區":
     else:
         for _, row in eval_df.iterrows():
             st.markdown("---")
-            # ✅ 放大紅框處的底部格子：調大文字欄位的相對權重比例，給予考核內容充足展現空間
+            # 放大紅框處的底部格子：調大文字欄位的相對權重比例，給予考核內容充足展現空間
             c1, c2, c3, c4, c5, c6 = st.columns([1.0, 1.0, 2.2, 2.2, 2.5, 1.5])
             
             c1.markdown(f"<div class='custom-text'>{row['eval_date']}</div>", unsafe_allow_html=True)
