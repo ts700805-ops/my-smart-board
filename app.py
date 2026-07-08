@@ -674,8 +674,10 @@ if menu == "🔴 專案管理首頁":
         </style>
     """, unsafe_allow_html=True)
     
+    # 載入設定與初始化資料庫
     db_conn = sqlite3.connect('bulletin.db')
     try:
+        # 確保必要的表格存在
         db_conn.execute('''CREATE TABLE IF NOT EXISTS project_tasks (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         order_no TEXT,
@@ -688,159 +690,78 @@ if menu == "🔴 專案管理首頁":
                         is_finished INTEGER DEFAULT 0,
                         is_deleted INTEGER DEFAULT 0)''')
         
-        db_conn.execute('''CREATE TABLE IF NOT EXISTS project_settings (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        config_key TEXT UNIQUE,
-                        config_value TEXT)''')
-        db_conn.commit()
-        
+        # 讀取對照表設定
         cursor = db_conn.cursor()
-        cursor.execute("PRAGMA table_info(project_tasks)")
-        columns = [row[1] for row in cursor.fetchall()]
+        cursor.execute("SELECT config_value FROM project_settings WHERE config_key = 'team_mapping'")
+        row_mapping = cursor.fetchone()
+        mapping_text = row_mapping[0] if row_mapping else "林威呈:陳文山,李俊霖,陳育信,陳凱彥,蘇雍盛,鄭至賢\n組長B:成員3,成員4"
         
-        if "task_content" not in columns:
-            db_conn.execute("ALTER TABLE project_tasks ADD COLUMN task_content TEXT DEFAULT ''")
-            db_conn.commit()
+        # 整理下拉選單清單
+        author_options = []  
+        worker_options = []  
+        for line in mapping_text.split("\n"):
+            if ":" in line:
+                leader, members = line.split(":", 1)
+                leader = leader.strip()
+                if leader and leader not in author_options: author_options.append(leader)
+                if leader not in worker_options: worker_options.append(leader)
+                for m in members.split(","):
+                    m = m.strip()
+                    if m and m not in worker_options: worker_options.append(m)
     finally:
         db_conn.close()
 
-    db_conn = sqlite3.connect('bulletin.db')
-    try:
-        c = db_conn.cursor()
-        c.execute("SELECT config_value FROM project_settings WHERE config_key = 'team_mapping'")
-        row_mapping = c.fetchone()
-    finally:
-        db_conn.close()
-    
-    mapping_text = row_mapping[0] if row_mapping else "組長A:成員1,成員2\n組長B:成員3,成員4"
-    
-    author_options = []  
-    worker_options = []  
-    
-    for line in mapping_text.split("\n"):
-        if ":" in line:
-            leader, members = line.split(":", 1)
-            leader = leader.strip()
-            if leader and leader not in author_options:
-                author_options.append(leader)
-            if leader not in worker_options:
-                worker_options.append(leader)
-            
-            for m in members.split(","):
-                m = m.strip()
-                if m and m not in worker_options:
-                    worker_options.append(m)
-                    
-    if not author_options: author_options = ["請先到下方設定對照表"]
-    if not worker_options: worker_options = ["請先到下方設定對照表"]
-
-    # =========================================================
-    # ✅ 幫您補回的：「新增專案進度」表單區塊
-    # =========================================================
+    # --- 新增專案區塊 ---
     st.markdown("### ✍️ 新增專案任務")
     with st.form("add_project_form", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
         p_order = c1.text_input("製令編號")
         p_assign = c2.date_input("指派日", value=datetime.today())
         p_expect = c3.date_input("預計完工日", value=datetime.today() + timedelta(days=7))
-        
         c4, c5 = st.columns(2)
         p_author = c4.selectbox("發布人", author_options)
         p_worker = c5.selectbox("執行人", worker_options)
-        
         p_content = st.text_area("📝 執行內容")
         
         if st.form_submit_button("➕ 新增專案"):
-            if p_order.strip() and p_content.strip():
-                db_conn = sqlite3.connect('bulletin.db')
-                try:
-                    db_conn.execute("""
-                        INSERT INTO project_tasks 
-                        (order_no, assign_date, author_name, worker_name, expected_date, task_content, finish_date, is_finished, is_deleted) 
-                        VALUES (?, ?, ?, ?, ?, ?, '', 0, 0)
-                    """, (p_order, str(p_assign), p_author, p_worker, str(p_expect), p_content))
-                    db_conn.commit()
-                finally:
-                    db_conn.close()
-                try:
-                    sync_to_github("Add Project Task")
-                except:
-                    pass
-                st.success("✅ 專案已成功新增！")
-                st.rerun()
-            else:
-                st.error("⚠️ 「製令編號」與「執行內容」為必填項目，請確認後再送出！")
-                
-    st.markdown("---")
+            db_conn = sqlite3.connect('bulletin.db')
+            db_conn.execute("INSERT INTO project_tasks (order_no, assign_date, author_name, worker_name, expected_date, task_content) VALUES (?,?,?,?,?,?)",
+                          (p_order, str(p_assign), p_author, p_worker, str(p_expect), p_content))
+            db_conn.commit(); db_conn.close()
+            st.rerun()
 
-    # =========================================================
-    # 🟡 進行中專案清單 (編輯與刪除免密碼)
-    # =========================================================
     st.markdown("### 🟡 進行中專案清單")
     
     db_conn = sqlite3.connect('bulletin.db')
-    try:
-        df_active = pd.read_sql("SELECT * FROM project_tasks WHERE is_finished = 0 AND is_deleted = 0 ORDER BY id DESC", db_conn)
-    finally:
-        db_conn.close()
+    df_active = pd.read_sql("SELECT * FROM project_tasks WHERE is_finished = 0 AND is_deleted = 0 ORDER BY id DESC", db_conn)
+    db_conn.close()
     
-    if df_active.empty:
-        st.info("目前沒有進行中的專案任務。")
-    else:
-        for _, row in df_active.iterrows():
-            m1, m2, m3, m4 = st.columns([5, 1.5, 1.5, 1.5])
+    for _, row in df_active.iterrows():
+        m1, m2, m3, m4 = st.columns([5, 1.5, 1.5, 1.5])
+        m1.info(f"**製令：** {row['order_no']} | **指派：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}\n\n**📝 內容：** {row['task_content']}")
+        
+        if m2.button("🟢 點我完工", key=f"f_{row['id']}"):
+            db_conn = sqlite3.connect('bulletin.db')
+            db_conn.execute("UPDATE project_tasks SET is_finished = 1 WHERE id = ?", (row['id'],))
+            db_conn.commit(); db_conn.close(); st.rerun()
             
-            task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "未填寫執行內容"
-            m1.info(f"**製令：** {row['order_no']} | **指派日：** {row['assign_date']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}\n\n**📝 執行內容：** {task_desc}")
-            
-            if m2.button("🟢 點我完工", key=f"f_btn_{row['id']}"):
-                f_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
+        with m3.popover("📝 編輯"):
+            e_order = st.text_input("修改製令", value=row['order_no'])
+            # ✅ 這裡幫您加入下拉選單
+            e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row['author_name'] in author_options else 0)
+            e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row['worker_name'] in worker_options else 0)
+            e_content = st.text_area("修改執行內容", value=row['task_content'])
+            if st.button("💾 儲存修改", key=f"s_{row['id']}"):
                 db_conn = sqlite3.connect('bulletin.db')
-                try:
-                    db_conn.execute("UPDATE project_tasks SET is_finished = 1, finish_date = ? WHERE id = ?", (f_time, row['id']))
-                    db_conn.commit()
-                finally:
-                    db_conn.close()
-                sync_to_github("Finish Project Task"); st.rerun()
-                
-            with m3.popover("📝 編輯"):
-                # ✅ 已移除密碼驗證，直接顯示編輯欄位
-                e_order = st.text_input("修改製令", value=row['order_no'], key=f"eo_{row['id']}")
-                
-                try: def_auth_idx = author_options.index(row['author_name'])
-                except: def_auth_idx = 0
-                try: def_work_idx = worker_options.index(row['worker_name'])
-                except: def_work_idx = 0
-                
-                e_author = st.selectbox("修改發布人", author_options, index=def_auth_idx, key=f"ea_{row['id']}")
-                e_worker = st.selectbox("修改執行人", worker_options, index=def_work_idx, key=f"ew_{row['id']}")
-                e_exp = st.date_input("修改預計完工日", value=datetime.strptime(row['expected_date'], "%Y-%m-%d"), key=f"ex_{row['id']}")
-                
-                curr_content = row['task_content'] if ('task_content' in row and row['task_content']) else ""
-                e_content = st.text_area("修改執行內容", value=curr_content, key=f"ec_{row['id']}")
-                
-                if st.button("💾 儲存修改", key=f"save_e_{row['id']}"):
-                    db_conn = sqlite3.connect('bulletin.db')
-                    try:
-                        db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, expected_date=?, task_content=? WHERE id=?", 
-                                     (e_order, e_author, e_worker, str(e_exp), e_content, row['id']))
-                        db_conn.commit()
-                    finally:
-                        db_conn.close()
-                    sync_to_github("Edit Project Task"); st.rerun()
+                db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", 
+                             (e_order, e_author, e_worker, e_content, row['id']))
+                db_conn.commit(); db_conn.close(); st.rerun()
 
-            with m4.popover("🗑️ 刪除"):
-                # ✅ 已移除密碼驗證，點擊後直接顯示刪除按鈕
-                st.warning("確定要刪除這筆專案任務嗎？")
-                if st.button("🚨 確定刪除", key=f"d_btn_{row['id']}"):
-                    db_conn = sqlite3.connect('bulletin.db')
-                    try:
-                        db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
-                        db_conn.commit()
-                    finally:
-                        db_conn.close()
-                    sync_to_github("Delete Project Task"); st.rerun()
-
+        with m4.popover("🗑️ 刪除"):
+            if st.button("🚨 確定刪除", key=f"d_{row['id']}"):
+                db_conn = sqlite3.connect('bulletin.db')
+                db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
+                db_conn.commit(); db_conn.close(); st.rerun()
     # =========================================================
     # 🟢 已完工歷史專案清單顯示於頁面下方
     # =========================================================
