@@ -746,11 +746,25 @@ if menu == "🔴 專案管理首頁":
             db_conn.commit(); db_conn.close(); st.rerun()
             
         with m3.popover("📝 編輯"):
-            e_order = st.text_input("修改製令", value=row['order_no'])
-            # ✅ 這裡幫您加入下拉選單
-            e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row['author_name'] in author_options else 0)
-            e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row['worker_name'] in worker_options else 0)
-            e_content = st.text_area("修改執行內容", value=row['task_content'])
+            e_order = st.text_input("修改製令", value=row['order_no'], key=f"e_order_{row['id']}")
+            
+            # ✅ 這裡加入了 key=f"e_author_{row['id']}" 和 key=f"e_worker_{row['id']}"
+            e_author = st.selectbox(
+                "修改發布人", 
+                author_options, 
+                index=author_options.index(row['author_name']) if row['author_name'] in author_options else 0,
+                key=f"e_author_{row['id']}"
+            )
+            
+            e_worker = st.selectbox(
+                "修改執行人", 
+                worker_options, 
+                index=worker_options.index(row['worker_name']) if row['worker_name'] in worker_options else 0,
+                key=f"e_worker_{row['id']}"
+            )
+            
+            e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"e_content_{row['id']}")
+            
             if st.button("💾 儲存修改", key=f"s_{row['id']}"):
                 db_conn = sqlite3.connect('bulletin.db')
                 db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", 
