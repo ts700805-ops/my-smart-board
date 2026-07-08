@@ -734,6 +734,48 @@ if menu == "🔴 專案管理首頁":
     if not author_options: author_options = ["請先到下方設定對照表"]
     if not worker_options: worker_options = ["請先到下方設定對照表"]
 
+    # =========================================================
+    # ✅ 幫您補回的：「新增專案進度」表單區塊
+    # =========================================================
+    st.markdown("### ✍️ 新增專案任務")
+    with st.form("add_project_form", clear_on_submit=True):
+        c1, c2, c3 = st.columns(3)
+        p_order = c1.text_input("製令編號")
+        p_assign = c2.date_input("指派日", value=datetime.today())
+        p_expect = c3.date_input("預計完工日", value=datetime.today() + timedelta(days=7))
+        
+        c4, c5 = st.columns(2)
+        p_author = c4.selectbox("發布人", author_options)
+        p_worker = c5.selectbox("執行人", worker_options)
+        
+        p_content = st.text_area("📝 執行內容")
+        
+        if st.form_submit_button("➕ 新增專案"):
+            if p_order.strip() and p_content.strip():
+                db_conn = sqlite3.connect('bulletin.db')
+                try:
+                    db_conn.execute("""
+                        INSERT INTO project_tasks 
+                        (order_no, assign_date, author_name, worker_name, expected_date, task_content, finish_date, is_finished, is_deleted) 
+                        VALUES (?, ?, ?, ?, ?, ?, '', 0, 0)
+                    """, (p_order, str(p_assign), p_author, p_worker, str(p_expect), p_content))
+                    db_conn.commit()
+                finally:
+                    db_conn.close()
+                try:
+                    sync_to_github("Add Project Task")
+                except:
+                    pass
+                st.success("✅ 專案已成功新增！")
+                st.rerun()
+            else:
+                st.error("⚠️ 「製令編號」與「執行內容」為必填項目，請確認後再送出！")
+                
+    st.markdown("---")
+
+    # =========================================================
+    # 🟡 進行中專案清單 (編輯與刪除免密碼)
+    # =========================================================
     st.markdown("### 🟡 進行中專案清單")
     
     db_conn = sqlite3.connect('bulletin.db')
@@ -759,7 +801,7 @@ if menu == "🔴 專案管理首頁":
                     db_conn.commit()
                 finally:
                     db_conn.close()
-                sync_to_github("Finish Project Task - 20260705013"); st.rerun()
+                sync_to_github("Finish Project Task"); st.rerun()
                 
             with m3.popover("📝 編輯"):
                 # ✅ 已移除密碼驗證，直接顯示編輯欄位
@@ -785,7 +827,7 @@ if menu == "🔴 專案管理首頁":
                         db_conn.commit()
                     finally:
                         db_conn.close()
-                    sync_to_github("Edit Project Task - 20260705013"); st.rerun()
+                    sync_to_github("Edit Project Task"); st.rerun()
 
             with m4.popover("🗑️ 刪除"):
                 # ✅ 已移除密碼驗證，點擊後直接顯示刪除按鈕
@@ -797,10 +839,10 @@ if menu == "🔴 專案管理首頁":
                         db_conn.commit()
                     finally:
                         db_conn.close()
-                    sync_to_github("Delete Project Task - 20260705013"); st.rerun()
+                    sync_to_github("Delete Project Task"); st.rerun()
 
     # =========================================================
-    # 完整保留：🟢 已完工歷史專案清單顯示於頁面下方
+    # 🟢 已完工歷史專案清單顯示於頁面下方
     # =========================================================
     st.markdown("---")
     st.markdown("### 🟢 已完工歷史專案清單")
