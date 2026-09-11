@@ -154,7 +154,7 @@ def init_db():
                     status TEXT DEFAULT '待處理',
                     complete_date TEXT)''')
     
-    # 🎀 助理績效考核資料表 (結構升級：包含考核指標與考核紀錄)
+    # 🎀 助理績效考核資料表
     c.execute('''CREATE TABLE IF NOT EXISTS assistant_evaluations (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     eval_date TEXT,
@@ -163,11 +163,33 @@ def init_db():
                     eval_target TEXT DEFAULT '',
                     eval_content TEXT DEFAULT '',
                     is_deleted INTEGER DEFAULT 0)''')
+
+    # 🔴 專案管理相關資料表 (確保完整建立，防止資料遺失或讀取不到)
+    c.execute('''CREATE TABLE IF NOT EXISTS project_tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                    order_no TEXT, 
+                    assign_date TEXT,
+                    author_name TEXT, 
+                    worker_name TEXT, 
+                    expected_date TEXT,
+                    task_content TEXT DEFAULT '', 
+                    finish_date TEXT DEFAULT '',
+                    is_finished INTEGER DEFAULT 0, 
+                    is_deleted INTEGER DEFAULT 0)''')
+    
+    c.execute('''CREATE TABLE IF NOT EXISTS project_settings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    config_key TEXT UNIQUE,
+                    config_value TEXT)''')
     
     # 檢查並補齊可能遺漏的欄位
     try:
         c.execute("ALTER TABLE assistant_evaluations ADD COLUMN eval_target TEXT DEFAULT ''")
     except: pass
+    try:
+        c.execute("ALTER TABLE project_tasks ADD COLUMN task_content TEXT DEFAULT ''")
+    except: pass
+    
     conn.commit()
     conn.close()
 
@@ -643,8 +665,6 @@ elif menu == "⚙️ 管理後台":
                     conn.commit(); conn.close(); sync_to_github("Finish Task - 20260705013"); st.rerun()
 
 
-
-
 # --- 🔴 專案管理首頁 (獨立功能活頁) ---
 if menu == "🔴 專案管理首頁":
     st.subheader("📋 專案進度追蹤看板")
@@ -654,18 +674,26 @@ if menu == "🔴 專案管理首頁":
         
     st.session_state.project_font_scale = st.slider(
         "🔍 現場看板字體大小微調 (%)", min_value=100, max_value=200, 
-        value=st.session_state.project_font_scale, step=10, key="project_font_slider"
+        value=st.session_state.project_font_scale, step=10, key="project_font_slider_unique_proj"
     )
     
-    # 資料庫初始化與設定讀取
+    p_font_scale = st.session_state.project_font_scale
+    
+    st.markdown(f"""
+        <style>
+        div[data-testid="stNotification"] *, 
+        div[data-testid="stNotificationContent"], 
+        div[data-testid="stNotificationContent"] p, 
+        div[data-testid="stNotificationContent"] span {{
+            font-size: {int(16 * (p_font_scale / 100))}px !important;
+            line-height: 1.6 !important;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+    
+    # 讀取人員對照表設定
     db_conn = sqlite3.connect('bulletin.db')
     try:
-        db_conn.execute('''CREATE TABLE IF NOT EXISTS project_tasks (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT, order_no TEXT, assign_date TEXT,
-                        author_name TEXT, worker_name TEXT, expected_date TEXT,
-                        task_content TEXT DEFAULT '', finish_date TEXT DEFAULT '',
-                        is_finished INTEGER DEFAULT 0, is_deleted INTEGER DEFAULT 0)''')
-        
         cursor = db_conn.cursor()
         cursor.execute("SELECT config_value FROM project_settings WHERE config_key = 'team_mapping'")
         row_mapping = cursor.fetchone()
@@ -683,9 +711,12 @@ if menu == "🔴 專案管理首頁":
     finally:
         db_conn.close()
 
-    # --- 新增專案表單 ---
+    if not author_options: author_options = ["請先到下方設定對照表"]
+    if not worker_options: worker_options = ["請先到下方設定對照表"]
+
+    # --- ✍️ 新增專案任務表單 ---
     st.markdown("### ✍️ 新增專案任務")
-    with st.form("add_project_form", clear_on_submit=True):
+    with st.form("add_project_form_unique", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
         p_order = c1.text_input("製令編號")
         p_assign = c2.date_input("指派日", value=datetime.today())
@@ -695,84 +726,96 @@ if menu == "🔴 專案管理首頁":
         p_worker = c5.selectbox("執行人", worker_options)
         p_content = st.text_area("📝 執行內容")
         if st.form_submit_button("➕ 新增專案"):
-            db_conn = sqlite3.connect('bulletin.db')
-            db_conn.execute("INSERT INTO project_tasks (order_no, assign_date, author_name, worker_name, expected_date, task_content) VALUES (?,?,?,?,?,?)",
-                          (p_order, str(p_assign), p_author, p_worker, str(p_expect), p_content))
-            db_conn.commit(); db_conn.close(); st.rerun()
+            if p_order.strip() and p_content.strip():
+                db_conn = sqlite3.connect('bulletin.db')
+                db_conn.execute("INSERT INTO project_tasks (order_no, assign_date, author_name, worker_name, expected_date, task_content) VALUES (?,?,?,?,?,?)",
+                              (p_order, str(p_assign), p_author, p_worker, str(p_expect), p_content))
+                db_conn.commit(); db_conn.close()
+                try: sync_to_github("Add Project Task")
+                except: pass
+                st.success("✅ 專案已成功新增！")
+                st.rerun()
+            else:
+                st.error("⚠️ 「製令編號」與「執行內容」為必填項目！")
 
-    # --- 進行中清單 ---
+    # --- 🟡 進行中清單 ---
     st.markdown("---")
     st.markdown("### 🟡 進行中專案清單")
     db_conn = sqlite3.connect('bulletin.db')
     df_active = pd.read_sql("SELECT * FROM project_tasks WHERE is_finished = 0 AND is_deleted = 0 ORDER BY id DESC", db_conn)
     db_conn.close()
     
-    for _, row in df_active.iterrows():
-        m1, m2, m3, m4 = st.columns([5, 1.5, 1.5, 1.5])
-        m1.info(f"**製令：** {row['order_no']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}\n\n**📝 內容：** {row['task_content']}")
-        if m2.button("🟢 點我完工", key=f"f_{row['id']}"):
-            db_conn = sqlite3.connect('bulletin.db')
-            db_conn.execute("UPDATE project_tasks SET is_finished = 1, finish_date = ? WHERE id = ?", (datetime.today().strftime("%Y-%m-%d"), row['id']))
-            db_conn.commit(); db_conn.close(); st.rerun()
+    if df_active.empty:
+        st.info("目前沒有進行中的專案任務。")
+    else:
+        for _, row in df_active.iterrows():
+            m1, m2, m3, m4 = st.columns([5, 1.5, 1.5, 1.5])
+            task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "未填寫執行內容"
+            m1.info(f"**製令：** {row['order_no']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}\n\n**📝 內容：** {task_desc}")
             
-        with m3.popover("📝 編輯"):
-            pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_e_{row['id']}")
-            if pwd == "0000":
-                e_order = st.text_input("修改製令", value=row['order_no'], key=f"e_ord_{row['id']}")
-                e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row['author_name'] in author_options else 0, key=f"e_auth_{row['id']}")
-                e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row['worker_name'] in worker_options else 0, key=f"e_work_{row['id']}")
-                e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"e_cont_{row['id']}")
-                if st.button("💾 儲存修改", key=f"save_{row['id']}"):
-                    db_conn = sqlite3.connect('bulletin.db')
-                    db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", (e_order, e_author, e_worker, e_content, row['id']))
-                    db_conn.commit(); db_conn.close(); st.rerun()
-            else: st.warning("密碼錯誤，請重新輸入")
+            if m2.button("🟢 點我完工", key=f"f_{row['id']}"):
+                db_conn = sqlite3.connect('bulletin.db')
+                db_conn.execute("UPDATE project_tasks SET is_finished = 1, finish_date = ? WHERE id = ?", (datetime.today().strftime("%Y-%m-%d"), row['id']))
+                db_conn.commit(); db_conn.close(); st.rerun()
+                
+            with m3.popover("📝 編輯"):
+                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_e_{row['id']}")
+                if pwd == "0000":
+                    e_order = st.text_input("修改製令", value=row['order_no'], key=f"e_ord_{row['id']}")
+                    e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row['author_name'] in author_options else 0, key=f"e_auth_{row['id']}")
+                    e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row['worker_name'] in worker_options else 0, key=f"e_work_{row['id']}")
+                    e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"e_cont_{row['id']}")
+                    if st.button("💾 儲存修改", key=f"save_{row['id']}"):
+                        db_conn = sqlite3.connect('bulletin.db')
+                        db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", (e_order, e_author, e_worker, e_content, row['id']))
+                        db_conn.commit(); db_conn.close(); st.rerun()
+                elif pwd: st.warning("密碼錯誤")
 
-        with m4.popover("🗑️ 刪除"):
-            pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_d_{row['id']}")
-            if pwd == "0000":
-                if st.button("🚨 確定刪除", key=f"del_{row['id']}"):
-                    db_conn = sqlite3.connect('bulletin.db')
-                    db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
-                    db_conn.commit(); db_conn.close(); st.rerun()
-            else: st.warning("密碼錯誤，請重新輸入")
+            with m4.popover("🗑️ 刪除"):
+                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_d_{row['id']}")
+                if pwd == "0000":
+                    if st.button("🚨 確定刪除", key=f"del_{row['id']}"):
+                        db_conn = sqlite3.connect('bulletin.db')
+                        db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
+                        db_conn.commit(); db_conn.close(); st.rerun()
+                elif pwd: st.warning("密碼錯誤")
 
-   # --- 已完工清單 ---
+    # --- 🟢 已完工歷史專案清單 ---
+    st.markdown("---")
     st.markdown("### 🟢 已完工歷史專案清單")
     db_conn = sqlite3.connect('bulletin.db')
     df_finished = pd.read_sql("SELECT * FROM project_tasks WHERE is_finished = 1 AND is_deleted = 0 ORDER BY id DESC", db_conn)
     db_conn.close()
     
-    for _, row in df_finished.iterrows():
-        # 調整欄位比例：內容(5), 編輯(1.5), 刪除(1.5)
-        m1, m2, m3 = st.columns([8, 1.5, 1.5])
-        
-        # 顯示格式與進行中清單一致
-        m1.info(f"✅ **製令：** {row['order_no']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **實際完工：** {row['finish_date']}\n\n**📝 內容：** {row['task_content']}")
-        
-        # 編輯按鈕
-        with m2.popover("📝 編輯"):
-            pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_fe_{row['id']}")
-            if pwd == "0000":
-                e_order = st.text_input("修改製令", value=row['order_no'], key=f"f_ord_{row['id']}")
-                e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row['author_name'] in author_options else 0, key=f"f_auth_{row['id']}")
-                e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row['worker_name'] in worker_options else 0, key=f"f_work_{row['id']}")
-                e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"f_cont_{row['id']}")
-                if st.button("💾 儲存修改", key=f"fsave_{row['id']}"):
-                    db_conn = sqlite3.connect('bulletin.db')
-                    db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", (e_order, e_author, e_worker, e_content, row['id']))
-                    db_conn.commit(); db_conn.close(); st.rerun()
-            elif pwd: st.warning("密碼錯誤")
+    if df_finished.empty:
+        st.caption("目前尚無已完工的歷史專案。")
+    else:
+        for _, row in df_finished.iterrows():
+            m1, m2, m3 = st.columns([8, 1.5, 1.5])
+            task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "無執行內容"
+            m1.info(f"✅ **製令：** {row['order_no']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **實際完工：** {row['finish_date']}\n\n**📝 內容：** {task_desc}")
+            
+            with m2.popover("📝 編輯"):
+                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_fe_{row['id']}")
+                if pwd == "0000":
+                    e_order = st.text_input("修改製令", value=row['order_no'], key=f"f_ord_{row['id']}")
+                    e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row['author_name'] in author_options else 0, key=f"f_auth_{row['id']}")
+                    e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row['worker_name'] in worker_options else 0, key=f"f_work_{row['id']}")
+                    e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"f_cont_{row['id']}")
+                    if st.button("💾 儲存修改", key=f"fsave_{row['id']}"):
+                        db_conn = sqlite3.connect('bulletin.db')
+                        db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", (e_order, e_author, e_worker, e_content, row['id']))
+                        db_conn.commit(); db_conn.close(); st.rerun()
+                elif pwd: st.warning("密碼錯誤")
 
-        # 刪除按鈕
-        with m3.popover("🗑️ 刪除"):
-            pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_fd_{row['id']}")
-            if pwd == "0000":
-                if st.button("🚨 確定刪除", key=f"fdel_{row['id']}"):
-                    db_conn = sqlite3.connect('bulletin.db')
-                    db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
-                    db_conn.commit(); db_conn.close(); st.rerun()
-            elif pwd: st.warning("密碼錯誤")
+            with m3.popover("🗑️ 刪除"):
+                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_fd_{row['id']}")
+                if pwd == "0000":
+                    if st.button("🚨 確定刪除", key=f"fdel_{row['id']}"):
+                        db_conn = sqlite3.connect('bulletin.db')
+                        db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
+                        db_conn.commit(); db_conn.close(); st.rerun()
+                elif pwd: st.warning("密碼錯誤")
 
 # =========================================================
 # 🎀 助理績效考核區 (共用 ⚙️管理後台 → 👥人員名單管理)
@@ -933,19 +976,15 @@ if menu == "🎀 助理績效考核區":
         )
 
         st.markdown("---")
-        # 💡 教學提示：告訴使用者現在可以直接點兩下編輯了
         st.info("💡 **操作提示**：在下方表格格子內「**點選兩下**」即可直接修改文字！若要刪除資料，請將右側的「🗑️ 刪除」打勾。修改完畢後請點擊最下方的「💾 儲存表格所有修改」按鈕。")
 
-        # 準備丟給表格編輯器的 DataFrame，並新增一個用來勾選刪除的欄位
         display_df = eval_df[['id', 'eval_date', 'assistant_name', 'eval_item', 'eval_target', 'eval_content']].copy()
         display_df['🗑️ 刪除'] = False 
 
-        # 顯示可編輯的資料表格 (st.data_editor)
-        # 🔧 在標題前後加上隱形空格，減少被畫布邊緣裁切的機率
         edited_df = st.data_editor(
             display_df,
             column_config={
-                "id": None,  # 隱藏內部系統用的 ID 欄位
+                "id": None, 
                 "eval_date": st.column_config.TextColumn(" 📅 日期 "),
                 "assistant_name": st.column_config.SelectboxColumn(" 👤 姓名 ", options=staff_list), 
                 "eval_item": st.column_config.TextColumn(" 📊 考核項目 "),
@@ -953,22 +992,18 @@ if menu == "🎀 助理績效考核區":
                 "eval_content": st.column_config.TextColumn(" ✨ 考核紀錄 "),
                 "🗑️ 刪除": st.column_config.CheckboxColumn(" 🗑️ 刪除 ", default=False) 
             },
-            hide_index=True,          # 隱藏最左邊的 0,1,2,3 序號
-            use_container_width=True, # 讓表格自動延展填滿畫面寬度
+            hide_index=True,          
+            use_container_width=True, 
             key="eval_grid_editor"
         )
 
-        # 新增一個單一儲存按鈕，一次性把表格的更動存進資料庫
         if st.button("💾 儲存表格所有修改", type="primary"):
             db_conn = sqlite3.connect("bulletin.db")
             
-            # 迴圈檢查表格內的每一行資料
             for index, row in edited_df.iterrows():
                 if row['🗑️ 刪除'] == True:
-                    # 如果使用者勾選了刪除，就把 is_deleted 設為 1
                     db_conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row["id"],))
                 else:
-                    # 如果沒有勾選刪除，就更新所有欄位的內容
                     db_conn.execute("""
                         UPDATE assistant_evaluations 
                         SET eval_date=?, assistant_name=?, eval_item=?, eval_target=?, eval_content=? 
@@ -984,5 +1019,5 @@ if menu == "🎀 助理績效考核區":
                 pass
                 
             st.success("✅ 所有修改與刪除已成功儲存！")
-            time.sleep(1) # 暫停 1 秒讓使用者看到成功訊息
-            st.rerun()    # 重新整理畫面載入最新資料
+            time.sleep(1) 
+            st.rerun()
