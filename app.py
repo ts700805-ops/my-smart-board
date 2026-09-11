@@ -691,7 +691,54 @@ if menu == "🔴 專案管理首頁":
         </style>
     """, unsafe_allow_html=True)
     
-    # 讀取人員對照表設定
+    # =====================================================
+    # 💾 專案資料備份與還原功能區塊
+    # =====================================================
+    with st.expander("💾 專案資料安全備份與還原工具 (點擊展開)"):
+        b_col1, b_col2 = st.columns(2)
+        
+        # 1. 導出備份 (下載 CSV)
+        with b_col1:
+            st.markdown("##### 📥 導出專案備份檔")
+            db_conn = sqlite3.connect('bulletin.db')
+            backup_df = pd.read_sql("SELECT * FROM project_tasks", db_conn)
+            db_conn.close()
+            
+            if not backup_df.empty:
+                csv_backup = backup_df.to_csv(index=False).encode('utf-8-sig')
+                st.download_button(
+                    label="💾 下載專案備份檔 (.csv)",
+                    data=csv_backup,
+                    file_name=f"project_tasks_backup_{datetime.today().strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    key="download_project_backup"
+                )
+            else:
+                st.info("目前尚無專案資料可供備份。")
+                
+        # 2. 導入還原 (上傳 CSV)
+        with b_col2:
+            st.markdown("##### 📤 還原專案資料")
+            uploaded_backup = st.file_uploader("上傳先前備份的 CSV 檔來還原資料", type=['csv'], key="upload_project_backup")
+            if uploaded_backup is not None:
+                if st.button("🔄 確認執行還原覆蓋", key="confirm_restore_btn"):
+                    try:
+                        restore_df = pd.read_csv(uploaded_backup)
+                        db_conn = sqlite3.connect('bulletin.db')
+                        # 將備份檔內容寫回資料庫 (取代原本的資料)
+                        restore_df.to_sql('project_tasks', db_conn, if_exists='replace', index=False)
+                        db_conn.close()
+                        try: sync_to_github("Restore Project Backup")
+                        except: pass
+                        st.success("✅ 專案資料已成功還原！")
+                        time.sleep(1)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"⚠️ 還原失敗，檔案格式不符：{e}")
+
+    st.markdown("---")
+
+    # 讀取人員對照表設定[cite: 1]
     db_conn = sqlite3.connect('bulletin.db')
     try:
         cursor = db_conn.cursor()
@@ -714,7 +761,7 @@ if menu == "🔴 專案管理首頁":
     if not author_options: author_options = ["請先到下方設定對照表"]
     if not worker_options: worker_options = ["請先到下方設定對照表"]
 
-    # --- ✍️ 新增專案任務表單 ---
+    # --- ✍️ 新增專案任務表單 ---[cite: 1]
     st.markdown("### ✍️ 新增專案任務")
     with st.form("add_project_form_unique", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
@@ -738,7 +785,7 @@ if menu == "🔴 專案管理首頁":
             else:
                 st.error("⚠️ 「製令編號」與「執行內容」為必填項目！")
 
-    # --- 🟡 進行中清單 ---
+    # --- 🟡 進行中清單 ---[cite: 1]
     st.markdown("---")
     st.markdown("### 🟡 進行中專案清單")
     db_conn = sqlite3.connect('bulletin.db')
@@ -780,7 +827,7 @@ if menu == "🔴 專案管理首頁":
                         db_conn.commit(); db_conn.close(); st.rerun()
                 elif pwd: st.warning("密碼錯誤")
 
-    # --- 🟢 已完工歷史專案清單 ---
+    # --- 🟢 已完工歷史專案清單 ---[cite: 1]
     st.markdown("---")
     st.markdown("### 🟢 已完工歷史專案清單")
     db_conn = sqlite3.connect('bulletin.db')
@@ -816,7 +863,6 @@ if menu == "🔴 專案管理首頁":
                         db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
                         db_conn.commit(); db_conn.close(); st.rerun()
                 elif pwd: st.warning("密碼錯誤")
-
 # =========================================================
 # 🎀 助理績效考核區 (共用 ⚙️管理後台 → 👥人員名單管理)
 # =========================================================
