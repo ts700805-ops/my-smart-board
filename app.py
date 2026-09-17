@@ -724,7 +724,7 @@ if menu == "🔴 專案管理首頁":
 
     st.markdown("---")
 
-    # 讀取人員對照表設定[cite: 1]
+    # 讀取人員對照表設定
     db_conn = sqlite3.connect('bulletin.db')
     try:
         cursor = db_conn.cursor()
@@ -747,7 +747,7 @@ if menu == "🔴 專案管理首頁":
     if not author_options: author_options = ["請先到下方設定對照表"]
     if not worker_options: worker_options = ["請先到下方設定對照表"]
 
-    # --- ✍️ 新增專案任務表單 ---[cite: 1]
+    # --- ✍️ 新增專案任務表單 ---
     st.markdown("### ✍️ 新增專案任務")
     with st.form("add_project_form_unique", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
@@ -761,7 +761,6 @@ if menu == "🔴 專案管理首頁":
         if st.form_submit_button("➕ 新增專案"):
             if p_order.strip() and p_content.strip():
                 db_conn = sqlite3.connect('bulletin.db')
-                # 修正：明確寫入 is_finished=0 與 is_deleted=0，確保新增後一定抓得到
                 db_conn.execute("INSERT INTO project_tasks (order_no, assign_date, author_name, worker_name, expected_date, task_content, is_finished, is_deleted) VALUES (?,?,?,?,?,?,0,0)",
                               (p_order, str(p_assign), p_author, p_worker, str(p_expect), p_content))
                 db_conn.commit(); db_conn.close()
@@ -772,7 +771,7 @@ if menu == "🔴 專案管理首頁":
             else:
                 st.error("⚠️ 「製令編號」與「執行內容」為必填項目！")
 
-    # --- 🟡 進行中清單 ---[cite: 1]
+    # --- 🟡 進行中清單 ---
     st.markdown("---")
     st.markdown("### 🟡 進行中專案清單")
     db_conn = sqlite3.connect('bulletin.db')
@@ -787,10 +786,17 @@ if menu == "🔴 專案管理首頁":
             task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "未填寫執行內容"
             m1.info(f"**製令：** {row['order_no']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}\n\n**📝 內容：** {task_desc}")
             
+            # 修正處：點擊完工後正確更新 is_finished = 1 與寫入 finish_date
             if m2.button("🟢 點我完工", key=f"f_{row['id']}"):
                 db_conn = sqlite3.connect('bulletin.db')
                 db_conn.execute("UPDATE project_tasks SET is_finished = 1, finish_date = ? WHERE id = ?", (datetime.today().strftime("%Y-%m-%d"), row['id']))
-                db_conn.commit(); db_conn.close(); st.rerun()
+                db_conn.commit()
+                db_conn.close()
+                try: sync_to_github("Finish Project Task")
+                except: pass
+                st.success("✅ 專案已完工並移至歷史清單！")
+                time.sleep(0.5)
+                st.rerun()
                 
             with m3.popover("📝 編輯"):
                 pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_e_{row['id']}")
@@ -814,7 +820,7 @@ if menu == "🔴 專案管理首頁":
                         db_conn.commit(); db_conn.close(); st.rerun()
                 elif pwd: st.warning("密碼錯誤")
 
-    # --- 🟢 已完工歷史專案清單 ---[cite: 1]
+    # --- 🟢 已完工歷史專案清單 ---
     st.markdown("---")
     st.markdown("### 🟢 已完工歷史專案清單")
     db_conn = sqlite3.connect('bulletin.db')
