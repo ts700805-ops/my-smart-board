@@ -70,8 +70,8 @@ st.markdown("""
 # 🏠 側邊欄配置：中秋佳節新氣象
 # =========================================================
 with st.sidebar:
-    # 📌 流水碼更新為 20260705026
-    st.markdown("<h4 style='color: #F1C40F; margin-bottom: 5px;'>系統版本：20260705026</h4>", unsafe_allow_html=True)
+    # 📌 流水碼更新為 20260705027
+    st.markdown("<h4 style='color: #F1C40F; margin-bottom: 5px;'>系統版本：20260705027</h4>", unsafe_allow_html=True)
     
     # 渲染照片區
     try:
@@ -154,7 +154,7 @@ def init_db():
                     status TEXT DEFAULT '待處理',
                     complete_date TEXT)''')
 
-    # 🔴 專案管理相關資料表 (確保完整建立，防止資料遺失或讀取不到)
+    # 🔴 專案管理相關資料表
     c.execute('''CREATE TABLE IF NOT EXISTS project_tasks (
                     id INTEGER PRIMARY KEY AUTOINCREMENT, 
                     order_no TEXT, 
@@ -262,7 +262,7 @@ if menu == "🏠 公佈欄首頁":
             st.markdown(f"<div class='home-info-label'>📅 {r['date']} ｜ 👤 發布人：{r['author']}</div>", unsafe_allow_html=True)
             st.markdown(f"<div class='home-info-content'>{r['content']}</div>", unsafe_allow_html=True)
             if r['image_path'] and os.path.exists(r['image_path']):
-                with st.popover("🖼️ 檢視照片"):
+                with st.popover("🖼️ 檢視照片", key=f"img_pop_post_{r['id']}"):
                     st.image(r['image_path'], use_container_width=True)
          
     st.markdown("---")
@@ -327,7 +327,7 @@ elif menu == "⚠️ 品質異常首頁":
             st.markdown(f"<div class='quality-staff'>👤 <b>相關人員：</b> {r['staff_name']}</div>", unsafe_allow_html=True)
             st.markdown(f"<div class='quality-error-content'>🚨 <b>異常內容：</b> {r['content']}</div>", unsafe_allow_html=True)
             if r['image_path'] and os.path.exists(r['image_path']):
-                with st.popover("🖼️ 檢視異常照片"):
+                with st.popover("🖼️ 檢視異常照片", key=f"img_pop_q_{r['id']}"):
                     st.image(r['image_path'], width=800)
 
 # 3. 製造部待處理事項清單
@@ -527,7 +527,7 @@ elif menu == "⚙️ 管理後台":
             for _, r in df.iterrows():
                 c1, c2, c3 = st.columns([6, 2, 2])
                 c1.write(f"[{r['date']}] {r['content'][:20]}...")
-                with c2.popover("📝 編輯"):
+                with c2.popover("📝 編輯", key=f"pop_edit_post_{r['id']}"):
                     try:
                         curr_date_val = datetime.strptime(r['date'].split(" ")[0], '%Y-%m-%d').date()
                     except:
@@ -555,7 +555,7 @@ elif menu == "⚙️ 管理後台":
             for _, r in df_q.iterrows():
                 qc1, qc2, qc3 = st.columns([6, 2, 2])
                 qc1.write(f"[{r['date']}] 製令:{r['order_no']} | 人員:{r['staff_name']}")
-                with qc2.popover("📝 編輯"):
+                with qc2.popover("📝 編輯", key=f"pop_edit_q_{r['id']}"):
                     try:
                         curr_q_date_val = datetime.strptime(r['date'].split(" ")[0], '%Y-%m-%d').date()
                     except:
@@ -629,7 +629,7 @@ elif menu == "⚙️ 管理後台":
                 tc1, tc2, tc3 = st.columns([6, 2, 2])
                 tc1.warning(f"📅 {task['date']} | 製令: {task['order_no']} \n\n內容: {task['task_content']}")
                 
-                with tc2.popover("📝 編輯"):
+                with tc2.popover("📝 編輯", key=f"pop_edit_task_{task['id']}"):
                     try: curr_d = datetime.strptime(task['date'], '%Y-%m-%d')
                     except: curr_d = datetime.now()
                     
@@ -786,8 +786,8 @@ if menu == "🔴 專案管理首頁":
             task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "未填寫執行內容"
             m1.info(f"**製令：** {row['order_no']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}\n\n**📝 內容：** {task_desc}")
             
-            # 🟢 點我完工按鈕 (加上 _m2 確保 Key 絕對唯一，不與其他按鈕衝突)
-            if m2.button("🟢 點我完工", key=f"finish_btn_{row['id']}_m2"):
+            # 🟢 點我完工按鈕 (確保 Key 絕對唯一)
+            if m2.button("🟢 點我完工", key=f"active_finish_btn_{row['id']}"):
                 db_conn = sqlite3.connect('bulletin.db')
                 db_conn.execute("UPDATE project_tasks SET is_finished = 1, finish_date = ? WHERE id = ?", (datetime.today().strftime("%Y-%m-%d"), row['id']))
                 db_conn.commit()
@@ -798,24 +798,24 @@ if menu == "🔴 專案管理首頁":
                 time.sleep(0.5)
                 st.rerun()
                 
-            # 📝 編輯 Popover (完整修正以確保順利更新與儲存)
-            with m3.popover("📝 編輯", key=f"edit_pop_{row['id']}"):
-                e_order = st.text_input("修改製令", value=row['order_no'], key=f"e_ord_{row['id']}")
+            # 📝 編輯 Popover (使用絕對唯一的 key 前綴)
+            with m3.popover("📝 編輯", key=f"active_edit_pop_{row['id']}"):
+                e_order = st.text_input("修改製令", value=row['order_no'], key=f"active_e_ord_{row['id']}")
                 try:
                     auth_idx = author_options.index(row['author_name'])
                 except:
                     auth_idx = 0
-                e_author = st.selectbox("修改發布人", author_options, index=auth_idx, key=f"e_auth_{row['id']}")
+                e_author = st.selectbox("修改發布人", author_options, index=auth_idx, key=f"active_e_auth_{row['id']}")
                 
                 try:
                     work_idx = worker_options.index(row['worker_name'])
                 except:
                     work_idx = 0
-                e_worker = st.selectbox("修改執行人", worker_options, index=work_idx, key=f"e_work_{row['id']}")
+                e_worker = st.selectbox("修改執行人", worker_options, index=work_idx, key=f"active_e_work_{row['id']}")
                 
-                e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"e_cont_{row['id']}")
+                e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"active_e_cont_{row['id']}")
                 
-                if st.button("💾 儲存修改", key=f"save_active_{row['id']}"):
+                if st.button("💾 儲存修改", key=f"active_save_{row['id']}"):
                     db_conn = sqlite3.connect('bulletin.db')
                     db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", 
                                     (e_order, e_author, e_worker, e_content, row['id']))
@@ -827,10 +827,10 @@ if menu == "🔴 專案管理首頁":
                     time.sleep(0.5)
                     st.rerun()
 
-            # 🗑️ 刪除 Popover (直接點擊確定刪除即可生效)
-            with m4.popover("🗑️ 刪除", key=f"del_pop_{row['id']}"):
+            # 🗑️ 刪除 Popover (使用絕對唯一的 key 前綴)
+            with m4.popover("🗑️ 刪除", key=f"active_del_pop_{row['id']}"):
                 st.warning(f"確定要刪除製令：{row['order_no']} 嗎？")
-                if st.button("🚨 確定刪除", key=f"del_confirm_{row['id']}"):
+                if st.button("🚨 確定刪除", key=f"active_del_confirm_{row['id']}"):
                     db_conn = sqlite3.connect('bulletin.db')
                     db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
                     db_conn.commit()
@@ -856,23 +856,23 @@ if menu == "🔴 專案管理首頁":
             task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "無執行內容"
             m1.info(f"✅ **製令：** {row['order_no']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **實際完工：** {row['finish_date']}\n\n**📝 內容：** {task_desc}")
             
-            with m2.popover("📝 編輯", key=f"f_edit_pop_{row['id']}"):
-                e_order = st.text_input("修改製令", value=row['order_no'], key=f"f_ord_{row['id']}")
+            with m2.popover("📝 編輯", key=f"finished_edit_pop_{row['id']}"):
+                e_order = st.text_input("修改製令", value=row['order_no'], key=f"finished_ord_{row['id']}")
                 try:
                     auth_idx = author_options.index(row['author_name'])
                 except:
                     auth_idx = 0
-                e_author = st.selectbox("修改發布人", author_options, index=auth_idx, key=f"f_auth_{row['id']}")
+                e_author = st.selectbox("修改發布人", author_options, index=auth_idx, key=f"finished_auth_{row['id']}")
                 
                 try:
                     work_idx = worker_options.index(row['worker_name'])
                 except:
                     work_idx = 0
-                e_worker = st.selectbox("修改執行人", worker_options, index=work_idx, key=f"f_work_{row['id']}")
+                e_worker = st.selectbox("修改執行人", worker_options, index=work_idx, key=f"finished_work_{row['id']}")
                 
-                e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"f_cont_{row['id']}")
+                e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"finished_cont_{row['id']}")
                 
-                if st.button("💾 儲存修改", key=f"fsave_{row['id']}"):
+                if st.button("💾 儲存修改", key=f"finished_save_{row['id']}"):
                     db_conn = sqlite3.connect('bulletin.db')
                     db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", 
                                     (e_order, e_author, e_worker, e_content, row['id']))
@@ -884,9 +884,9 @@ if menu == "🔴 專案管理首頁":
                     time.sleep(0.5)
                     st.rerun()
 
-            with m3.popover("🗑️ 刪除", key=f"f_del_pop_{row['id']}"):
+            with m3.popover("🗑️ 刪除", key=f"finished_del_pop_{row['id']}"):
                 st.warning(f"確定要刪除歷史製令：{row['order_no']} 嗎？")
-                if st.button("🚨 確定刪除", key=f"fdel_{row['id']}"):
+                if st.button("🚨 確定刪除", key=f"finished_del_{row['id']}"):
                     db_conn = sqlite3.connect('bulletin.db')
                     db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
                     db_conn.commit()
