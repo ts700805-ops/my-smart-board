@@ -70,8 +70,8 @@ st.markdown("""
 # 🏠 側邊欄配置：中秋佳節新氣象
 # =========================================================
 with st.sidebar:
-    # 📌 流水碼更新為 20260705027
-    st.markdown("<h4 style='color: #F1C40F; margin-bottom: 5px;'>系統版本：20260705027</h4>", unsafe_allow_html=True)
+    # 📌 流水碼更新為 20260705025
+    st.markdown("<h4 style='color: #F1C40F; margin-bottom: 5px;'>系統版本：20260705025</h4>", unsafe_allow_html=True)
     
     # 渲染照片區
     try:
@@ -153,8 +153,18 @@ def init_db():
                     task_content TEXT,
                     status TEXT DEFAULT '待處理',
                     complete_date TEXT)''')
+    
+    # 🎀 助理績效考核資料表
+    c.execute('''CREATE TABLE IF NOT EXISTS assistant_evaluations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    eval_date TEXT,
+                    assistant_name TEXT,
+                    eval_item TEXT,
+                    eval_target TEXT DEFAULT '',
+                    eval_content TEXT DEFAULT '',
+                    is_deleted INTEGER DEFAULT 0)''')
 
-    # 🔴 專案管理相關資料表
+    # 🔴 專案管理相關資料表 (確保完整建立，防止資料遺失或讀取不到)
     c.execute('''CREATE TABLE IF NOT EXISTS project_tasks (
                     id INTEGER PRIMARY KEY AUTOINCREMENT, 
                     order_no TEXT, 
@@ -172,6 +182,10 @@ def init_db():
                     config_key TEXT UNIQUE,
                     config_value TEXT)''')
     
+    # 檢查並補齊可能遺漏的欄位
+    try:
+        c.execute("ALTER TABLE assistant_evaluations ADD COLUMN eval_target TEXT DEFAULT ''")
+    except: pass
     try:
         c.execute("ALTER TABLE project_tasks ADD COLUMN task_content TEXT DEFAULT ''")
     except: pass
@@ -181,7 +195,7 @@ def init_db():
 
 init_db()
 
-# --- 側邊選單 ---
+# --- 側邊選單 (完整保留所有導航) ---
 with st.sidebar:
     st.markdown("### 👤 目前登入\n## 管理員")
     st.markdown("---")
@@ -194,6 +208,7 @@ with st.sidebar:
             "⚠️ 品質異常首頁",
             "🛠️ 製造部待處理清單",
             "🔴 專案管理首頁",
+            "🎀 助理績效考核區",
             "--------------------", 
             "✍️ 撰寫新公告", 
             "📝 撰寫品質",
@@ -262,7 +277,7 @@ if menu == "🏠 公佈欄首頁":
             st.markdown(f"<div class='home-info-label'>📅 {r['date']} ｜ 👤 發布人：{r['author']}</div>", unsafe_allow_html=True)
             st.markdown(f"<div class='home-info-content'>{r['content']}</div>", unsafe_allow_html=True)
             if r['image_path'] and os.path.exists(r['image_path']):
-                with st.popover("🖼️ 檢視照片", key=f"img_pop_post_{r['id']}"):
+                with st.popover("🖼️ 檢視照片"):
                     st.image(r['image_path'], use_container_width=True)
          
     st.markdown("---")
@@ -327,7 +342,7 @@ elif menu == "⚠️ 品質異常首頁":
             st.markdown(f"<div class='quality-staff'>👤 <b>相關人員：</b> {r['staff_name']}</div>", unsafe_allow_html=True)
             st.markdown(f"<div class='quality-error-content'>🚨 <b>異常內容：</b> {r['content']}</div>", unsafe_allow_html=True)
             if r['image_path'] and os.path.exists(r['image_path']):
-                with st.popover("🖼️ 檢視異常照片", key=f"img_pop_q_{r['id']}"):
+                with st.popover("🖼️ 檢視異常照片"):
                     st.image(r['image_path'], width=800)
 
 # 3. 製造部待處理事項清單
@@ -527,7 +542,7 @@ elif menu == "⚙️ 管理後台":
             for _, r in df.iterrows():
                 c1, c2, c3 = st.columns([6, 2, 2])
                 c1.write(f"[{r['date']}] {r['content'][:20]}...")
-                with c2.popover("📝 編輯", key=f"pop_edit_post_{r['id']}"):
+                with c2.popover("📝 編輯"):
                     try:
                         curr_date_val = datetime.strptime(r['date'].split(" ")[0], '%Y-%m-%d').date()
                     except:
@@ -555,7 +570,7 @@ elif menu == "⚙️ 管理後台":
             for _, r in df_q.iterrows():
                 qc1, qc2, qc3 = st.columns([6, 2, 2])
                 qc1.write(f"[{r['date']}] 製令:{r['order_no']} | 人員:{r['staff_name']}")
-                with qc2.popover("📝 編輯", key=f"pop_edit_q_{r['id']}"):
+                with qc2.popover("📝 編輯"):
                     try:
                         curr_q_date_val = datetime.strptime(r['date'].split(" ")[0], '%Y-%m-%d').date()
                     except:
@@ -629,7 +644,7 @@ elif menu == "⚙️ 管理後台":
                 tc1, tc2, tc3 = st.columns([6, 2, 2])
                 tc1.warning(f"📅 {task['date']} | 製令: {task['order_no']} \n\n內容: {task['task_content']}")
                 
-                with tc2.popover("📝 編輯", key=f"pop_edit_task_{task['id']}"):
+                with tc2.popover("📝 編輯"):
                     try: curr_d = datetime.strptime(task['date'], '%Y-%m-%d')
                     except: curr_d = datetime.now()
                     
@@ -679,8 +694,7 @@ if menu == "🔴 專案管理首頁":
     # =====================================================
     # 💾 專案資料備份與還原功能區塊
     # =====================================================
-    with st.container(border=True):
-        st.markdown("#### 💾 專案資料安全備份與還原工具")
+    with st.expander("💾 專案資料安全備份與還原工具 (點擊展開)"):
         b_col1, b_col2 = st.columns(2)
         
         # 1. 導出備份 (下載 CSV)
@@ -711,7 +725,6 @@ if menu == "🔴 專案管理首頁":
                     try:
                         restore_df = pd.read_csv(uploaded_backup)
                         db_conn = sqlite3.connect('bulletin.db')
-                        # 將備份檔內容寫回資料庫 (取代原本的資料)
                         restore_df.to_sql('project_tasks', db_conn, if_exists='replace', index=False)
                         db_conn.close()
                         try: sync_to_github("Restore Project Backup")
@@ -724,7 +737,7 @@ if menu == "🔴 專案管理首頁":
 
     st.markdown("---")
 
-    # 讀取人員對照表設定
+    # 讀取人員對照表設定[cite: 1]
     db_conn = sqlite3.connect('bulletin.db')
     try:
         cursor = db_conn.cursor()
@@ -747,7 +760,7 @@ if menu == "🔴 專案管理首頁":
     if not author_options: author_options = ["請先到下方設定對照表"]
     if not worker_options: worker_options = ["請先到下方設定對照表"]
 
-    # --- ✍️ 新增專案任務表單 ---
+    # --- ✍️ 新增專案任務表單 ---[cite: 1]
     st.markdown("### ✍️ 新增專案任務")
     with st.form("add_project_form_unique", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
@@ -761,7 +774,7 @@ if menu == "🔴 專案管理首頁":
         if st.form_submit_button("➕ 新增專案"):
             if p_order.strip() and p_content.strip():
                 db_conn = sqlite3.connect('bulletin.db')
-                db_conn.execute("INSERT INTO project_tasks (order_no, assign_date, author_name, worker_name, expected_date, task_content, is_finished, is_deleted) VALUES (?,?,?,?,?,?,0,0)",
+                db_conn.execute("INSERT INTO project_tasks (order_no, assign_date, author_name, worker_name, expected_date, task_content) VALUES (?,?,?,?,?,?)",
                               (p_order, str(p_assign), p_author, p_worker, str(p_expect), p_content))
                 db_conn.commit(); db_conn.close()
                 try: sync_to_github("Add Project Task")
@@ -771,7 +784,7 @@ if menu == "🔴 專案管理首頁":
             else:
                 st.error("⚠️ 「製令編號」與「執行內容」為必填項目！")
 
-    # --- 🟡 進行中清單 ---
+    # --- 🟡 進行中清單 ---[cite: 1]
     st.markdown("---")
     st.markdown("### 🟡 進行中專案清單")
     db_conn = sqlite3.connect('bulletin.db')
@@ -786,62 +799,34 @@ if menu == "🔴 專案管理首頁":
             task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "未填寫執行內容"
             m1.info(f"**製令：** {row['order_no']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}\n\n**📝 內容：** {task_desc}")
             
-            # 🟢 點我完工按鈕 (確保 Key 絕對唯一)
-            if m2.button("🟢 點我完工", key=f"active_finish_btn_{row['id']}"):
+            if m2.button("🟢 點我完工", key=f"f_{row['id']}"):
                 db_conn = sqlite3.connect('bulletin.db')
                 db_conn.execute("UPDATE project_tasks SET is_finished = 1, finish_date = ? WHERE id = ?", (datetime.today().strftime("%Y-%m-%d"), row['id']))
-                db_conn.commit()
-                db_conn.close()
-                try: sync_to_github("Finish Project Task")
-                except: pass
-                st.success("✅ 專案已完工並移至歷史清單！")
-                time.sleep(0.5)
-                st.rerun()
+                db_conn.commit(); db_conn.close(); st.rerun()
                 
-            # 📝 編輯 Popover (使用絕對唯一的 key 前綴)
-            with m3.popover("📝 編輯", key=f"active_edit_pop_{row['id']}"):
-                e_order = st.text_input("修改製令", value=row['order_no'], key=f"active_e_ord_{row['id']}")
-                try:
-                    auth_idx = author_options.index(row['author_name'])
-                except:
-                    auth_idx = 0
-                e_author = st.selectbox("修改發布人", author_options, index=auth_idx, key=f"active_e_auth_{row['id']}")
-                
-                try:
-                    work_idx = worker_options.index(row['worker_name'])
-                except:
-                    work_idx = 0
-                e_worker = st.selectbox("修改執行人", worker_options, index=work_idx, key=f"active_e_work_{row['id']}")
-                
-                e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"active_e_cont_{row['id']}")
-                
-                if st.button("💾 儲存修改", key=f"active_save_{row['id']}"):
-                    db_conn = sqlite3.connect('bulletin.db')
-                    db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", 
-                                    (e_order, e_author, e_worker, e_content, row['id']))
-                    db_conn.commit()
-                    db_conn.close()
-                    try: sync_to_github("Edit Active Project Task")
-                    except: pass
-                    st.success("✅ 專案修改成功！")
-                    time.sleep(0.5)
-                    st.rerun()
+            with m3.popover("📝 編輯"):
+                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_e_{row['id']}")
+                if pwd == "0000":
+                    e_order = st.text_input("修改製令", value=row['order_no'], key=f"e_ord_{row['id']}")
+                    e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row['author_name'] in author_options else 0, key=f"e_auth_{row['id']}")
+                    e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row['worker_name'] in worker_options else 0, key=f"e_work_{row['id']}")
+                    e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"e_cont_{row['id']}")
+                    if st.button("💾 儲存修改", key=f"save_{row['id']}"):
+                        db_conn = sqlite3.connect('bulletin.db')
+                        db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", (e_order, e_author, e_worker, e_content, row['id']))
+                        db_conn.commit(); db_conn.close(); st.rerun()
+                elif pwd: st.warning("密碼錯誤")
 
-            # 🗑️ 刪除 Popover (使用絕對唯一的 key 前綴)
-            with m4.popover("🗑️ 刪除", key=f"active_del_pop_{row['id']}"):
-                st.warning(f"確定要刪除製令：{row['order_no']} 嗎？")
-                if st.button("🚨 確定刪除", key=f"active_del_confirm_{row['id']}"):
-                    db_conn = sqlite3.connect('bulletin.db')
-                    db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
-                    db_conn.commit()
-                    db_conn.close()
-                    try: sync_to_github("Delete Active Project Task")
-                    except: pass
-                    st.success("✅ 專案已刪除！")
-                    time.sleep(0.5)
-                    st.rerun()
+            with m4.popover("🗑️ 刪除"):
+                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_d_{row['id']}")
+                if pwd == "0000":
+                    if st.button("🚨 確定刪除", key=f"del_{row['id']}"):
+                        db_conn = sqlite3.connect('bulletin.db')
+                        db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
+                        db_conn.commit(); db_conn.close(); st.rerun()
+                elif pwd: st.warning("密碼錯誤")
 
-    # --- 🟢 已完工歷史專案清單 ---
+    # --- 🟢 已完工歷史專案清單 ---[cite: 1]
     st.markdown("---")
     st.markdown("### 🟢 已完工歷史專案清單")
     db_conn = sqlite3.connect('bulletin.db')
@@ -856,43 +841,196 @@ if menu == "🔴 專案管理首頁":
             task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "無執行內容"
             m1.info(f"✅ **製令：** {row['order_no']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **實際完工：** {row['finish_date']}\n\n**📝 內容：** {task_desc}")
             
-            with m2.popover("📝 編輯", key=f"finished_edit_pop_{row['id']}"):
-                e_order = st.text_input("修改製令", value=row['order_no'], key=f"finished_ord_{row['id']}")
-                try:
-                    auth_idx = author_options.index(row['author_name'])
-                except:
-                    auth_idx = 0
-                e_author = st.selectbox("修改發布人", author_options, index=auth_idx, key=f"finished_auth_{row['id']}")
-                
-                try:
-                    work_idx = worker_options.index(row['worker_name'])
-                except:
-                    work_idx = 0
-                e_worker = st.selectbox("修改執行人", worker_options, index=work_idx, key=f"finished_work_{row['id']}")
-                
-                e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"finished_cont_{row['id']}")
-                
-                if st.button("💾 儲存修改", key=f"finished_save_{row['id']}"):
-                    db_conn = sqlite3.connect('bulletin.db')
-                    db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", 
-                                    (e_order, e_author, e_worker, e_content, row['id']))
-                    db_conn.commit()
-                    db_conn.close()
-                    try: sync_to_github("Edit Finished Project Task")
-                    except: pass
-                    st.success("✅ 歷史專案修改成功！")
-                    time.sleep(0.5)
-                    st.rerun()
+            with m2.popover("📝 編輯"):
+                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_fe_{row['id']}")
+                if pwd == "0000":
+                    e_order = st.text_input("修改製令", value=row['order_no'], key=f"f_ord_{row['id']}")
+                    e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row['author_name'] in author_options else 0, key=f"f_auth_{row['id']}")
+                    e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row['worker_name'] in worker_options else 0, key=f"f_work_{row['id']}")
+                    e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"f_cont_{row['id']}")
+                    if st.button("💾 儲存修改", key=f"fsave_{row['id']}"):
+                        db_conn = sqlite3.connect('bulletin.db')
+                        db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", (e_order, e_author, e_worker, e_content, row['id']))
+                        db_conn.commit(); db_conn.close(); st.rerun()
+                elif pwd: st.warning("密碼錯誤")
 
-            with m3.popover("🗑️ 刪除", key=f"finished_del_pop_{row['id']}"):
-                st.warning(f"確定要刪除歷史製令：{row['order_no']} 嗎？")
-                if st.button("🚨 確定刪除", key=f"finished_del_{row['id']}"):
-                    db_conn = sqlite3.connect('bulletin.db')
-                    db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
-                    db_conn.commit()
-                    db_conn.close()
-                    try: sync_to_github("Delete Finished Project Task")
-                    except: pass
-                    st.success("✅ 專案已刪除！")
-                    time.sleep(0.5)
-                    st.rerun()
+            with m3.popover("🗑️ 刪除"):
+                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_fd_{row['id']}")
+                if pwd == "0000":
+                    if st.button("🚨 確定刪除", key=f"fdel_{row['id']}"):
+                        db_conn = sqlite3.connect('bulletin.db')
+                        db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
+                        db_conn.commit(); db_conn.close(); st.rerun()
+                elif pwd: st.warning("密碼錯誤")
+
+# =========================================================
+# 🎀 助理績效考核區
+# =========================================================
+if menu == "🎀 助理績效考核區":
+
+    if 'eval_auth' not in st.session_state:
+        st.session_state.eval_auth = False
+
+    if not st.session_state.eval_auth:
+        pwd = st.text_input("🔑 請輸入密碼", type="password")
+        if pwd == "0000":
+            st.session_state.eval_auth = True
+            st.rerun()
+        st.stop()
+
+    st.subheader("🎀 助理績效考核管理系統")
+
+    font_ratio = st.slider("調整字體大小 (%)", 50, 200, 100)
+    base_size = 25
+    current_size = int(base_size * (font_ratio / 100))
+    label_size = current_size * 2
+    
+    st.markdown(f"""
+        <style>
+        .custom-header {{ font-size: {label_size}px !important; font-weight: bold !important; }}
+        div[data-testid="stForm"] label p {{
+            font-size: {label_size}px !important;
+            font-weight: bold !important;
+        }}
+        div[data-baseweb="select"] * {{
+            font-size: {current_size}px !important;
+        }}
+        div[data-baseweb="textarea"] textarea {{
+            font-size: {current_size}px !important;
+        }}
+        button p {{
+            font-size: 22px !important;
+            font-weight: bold !important;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+
+    db_conn = sqlite3.connect("bulletin.db")
+    db_conn.execute("""
+        CREATE TABLE IF NOT EXISTS assistant_evaluations(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            eval_date TEXT,
+            assistant_name TEXT,
+            eval_item TEXT,
+            eval_target TEXT,
+            eval_content TEXT,
+            is_deleted INTEGER DEFAULT 0
+        )
+    """)
+
+    staff_df = pd.read_sql("SELECT name FROM staff ORDER BY name", db_conn)
+    staff_list = staff_df["name"].tolist()
+
+    eval_df = pd.read_sql("""
+        SELECT *
+        FROM assistant_evaluations
+        WHERE is_deleted = 0
+        ORDER BY assistant_name ASC, eval_date DESC, id DESC
+    """, db_conn)
+
+    db_conn.close()
+
+    st.markdown("<div class='custom-header'>✍️ 新增績效考核紀錄</div>", unsafe_allow_html=True)
+
+    with st.form("add_eval_form", clear_on_submit=True):
+        top_c1, top_c2 = st.columns(2)
+        sel_assistant = top_c1.selectbox(
+            "🎀 選擇助理姓名",
+            staff_list if staff_list else ["⚠️ 請先到【⚙️管理後台 → 👥人員名單管理】新增人員"]
+        )
+        sel_date = top_c2.date_input("📅 完成日期", value=datetime.today())
+
+        c1, c2, c3 = st.columns(3)
+        txt_item = c1.text_area("📊 考核項目")
+        txt_target = c2.text_area("🎯 考核指標")
+        txt_content = c3.text_area("✨ 考核紀錄")
+
+        if st.form_submit_button("💝 立即存檔紀錄"):
+            if not staff_list:
+                st.error("請先至【⚙️管理後台 → 👥人員名單管理】新增人員")
+            else:
+                db_conn = sqlite3.connect("bulletin.db")
+                db_conn.execute("""
+                    INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (sel_date.strftime("%Y-%m-%d"), sel_assistant, txt_item, txt_target, txt_content))
+                db_conn.commit()
+                db_conn.close()
+                try:
+                    sync_to_github("Add Evaluation")
+                except:
+                    pass
+                st.success("✅ 存檔成功")
+                st.rerun()
+
+    st.markdown("<div class='custom-header'>📜 績效考核項目</div>", unsafe_allow_html=True)
+
+    filter_staff = st.selectbox("🔍 篩選人員", ["全部"] + staff_list)
+    if filter_staff != "全部":
+        eval_df = eval_df[eval_df['assistant_name'] == filter_staff]
+
+    if eval_df.empty:
+        st.info("目前尚無任何考核紀錄")
+    else:
+        export_df = eval_df[['eval_date', 'assistant_name', 'eval_item', 'eval_target', 'eval_content']].rename(columns={
+            'eval_date': '日期',
+            'assistant_name': '姓名',
+            'eval_item': '考核項目',
+            'eval_target': '考核指標',
+            'eval_content': '考核紀錄'
+        })
+        csv_data = export_df.to_csv(index=False).encode('utf-8-sig')
+        
+        st.download_button(
+            label="📥 下載篩選結果 (CSV)",
+            data=csv_data,
+            file_name=f"績效考核紀錄_{filter_staff}.csv",
+            mime="text/csv"
+        )
+
+        st.markdown("---")
+        st.info("💡 **操作提示**：在下方表格格子內「**點選兩下**」即可直接修改文字！若要刪除資料，請將右側的「🗑️ 刪除」打勾。修改完畢後請點擊最下方的「💾 儲存表格所有修改」按鈕。")
+
+        display_df = eval_df[['id', 'eval_date', 'assistant_name', 'eval_item', 'eval_target', 'eval_content']].copy()
+        display_df['🗑️ 刪除'] = False 
+
+        edited_df = st.data_editor(
+            display_df,
+            column_config={
+                "id": None, 
+                "eval_date": st.column_config.TextColumn(" 📅 日期 "),
+                "assistant_name": st.column_config.SelectboxColumn(" 👤 姓名 ", options=staff_list), 
+                "eval_item": st.column_config.TextColumn(" 📊 考核項目 "),
+                "eval_target": st.column_config.TextColumn(" 🎯 考核指標 "),
+                "eval_content": st.column_config.TextColumn(" ✨ 考核紀錄 "),
+                "🗑️ 刪除": st.column_config.CheckboxColumn(" 🗑️ 刪除 ", default=False) 
+            },
+            hide_index=True,          
+            use_container_width=True, 
+            key="eval_grid_editor"
+        )
+
+        if st.button("💾 儲存表格所有修改", type="primary"):
+            db_conn = sqlite3.connect("bulletin.db")
+            
+            for index, row in edited_df.iterrows():
+                if row['🗑️ 刪除'] == True:
+                    db_conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row["id"],))
+                else:
+                    db_conn.execute("""
+                        UPDATE assistant_evaluations 
+                        SET eval_date=?, assistant_name=?, eval_item=?, eval_target=?, eval_content=? 
+                        WHERE id=?
+                    """, (row['eval_date'], row['assistant_name'], row['eval_item'], row['eval_target'], row['eval_content'], row['id']))
+            
+            db_conn.commit()
+            db_conn.close()
+            
+            try:
+                sync_to_github("Update Evaluation via Grid")
+            except:
+                pass
+                
+            st.success("✅ 所有修改與刪除已成功儲存！")
+            time.sleep(1) 
+            st.rerun()
