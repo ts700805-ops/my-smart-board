@@ -786,8 +786,8 @@ if menu == "🔴 專案管理首頁":
             task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "未填寫執行內容"
             m1.info(f"**製令：** {row['order_no']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}\n\n**📝 內容：** {task_desc}")
             
-            # 修正處：點擊完工後正確更新 is_finished = 1 與寫入 finish_date
-            if m2.button("🟢 點我完工", key=f"f_{row['id']}"):
+            # 🟢 點我完工按鈕 (確保帶有唯一 key)
+            if m2.button("🟢 點我完工", key=f"finish_btn_{row['id']}"):
                 db_conn = sqlite3.connect('bulletin.db')
                 db_conn.execute("UPDATE project_tasks SET is_finished = 1, finish_date = ? WHERE id = ?", (datetime.today().strftime("%Y-%m-%d"), row['id']))
                 db_conn.commit()
@@ -798,27 +798,48 @@ if menu == "🔴 專案管理首頁":
                 time.sleep(0.5)
                 st.rerun()
                 
-            with m3.popover("📝 編輯"):
-                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_e_{row['id']}")
-                if pwd == "0000":
-                    e_order = st.text_input("修改製令", value=row['order_no'], key=f"e_ord_{row['id']}")
-                    e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row['author_name'] in author_options else 0, key=f"e_auth_{row['id']}")
-                    e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row['worker_name'] in worker_options else 0, key=f"e_work_{row['id']}")
-                    e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"e_cont_{row['id']}")
-                    if st.button("💾 儲存修改", key=f"save_{row['id']}"):
-                        db_conn = sqlite3.connect('bulletin.db')
-                        db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", (e_order, e_author, e_worker, e_content, row['id']))
-                        db_conn.commit(); db_conn.close(); st.rerun()
-                elif pwd: st.warning("密碼錯誤")
+            # 📝 編輯 Popover (完整修正以確保順利更新與儲存)
+            with m3.popover("📝 編輯", key=f"edit_pop_{row['id']}"):
+                e_order = st.text_input("修改製令", value=row['order_no'], key=f"e_ord_{row['id']}")
+                try:
+                    auth_idx = author_options.index(row['author_name'])
+                except:
+                    auth_idx = 0
+                e_author = st.selectbox("修改發布人", author_options, index=auth_idx, key=f"e_auth_{row['id']}")
+                
+                try:
+                    work_idx = worker_options.index(row['worker_name'])
+                except:
+                    work_idx = 0
+                e_worker = st.selectbox("修改執行人", worker_options, index=work_idx, key=f"e_work_{row['id']}")
+                
+                e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"e_cont_{row['id']}")
+                
+                if st.button("💾 儲存修改", key=f"save_active_{row['id']}"):
+                    db_conn = sqlite3.connect('bulletin.db')
+                    db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", 
+                                    (e_order, e_author, e_worker, e_content, row['id']))
+                    db_conn.commit()
+                    db_conn.close()
+                    try: sync_to_github("Edit Active Project Task")
+                    except: pass
+                    st.success("✅ 專案修改成功！")
+                    time.sleep(0.5)
+                    st.rerun()
 
-            with m4.popover("🗑️ 刪除"):
-                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_d_{row['id']}")
-                if pwd == "0000":
-                    if st.button("🚨 確定刪除", key=f"del_{row['id']}"):
-                        db_conn = sqlite3.connect('bulletin.db')
-                        db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
-                        db_conn.commit(); db_conn.close(); st.rerun()
-                elif pwd: st.warning("密碼錯誤")
+            # 🗑️ 刪除 Popover (直接點擊確定刪除即可生效)
+            with m4.popover("🗑️ 刪除", key=f"del_pop_{row['id']}"):
+                st.warning(f"確定要刪除製令：{row['order_no']} 嗎？")
+                if st.button("🚨 確定刪除", key=f"del_confirm_{row['id']}"):
+                    db_conn = sqlite3.connect('bulletin.db')
+                    db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
+                    db_conn.commit()
+                    db_conn.close()
+                    try: sync_to_github("Delete Active Project Task")
+                    except: pass
+                    st.success("✅ 專案已刪除！")
+                    time.sleep(0.5)
+                    st.rerun()
 
     # --- 🟢 已完工歷史專案清單 ---
     st.markdown("---")
@@ -835,24 +856,43 @@ if menu == "🔴 專案管理首頁":
             task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "無執行內容"
             m1.info(f"✅ **製令：** {row['order_no']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **實際完工：** {row['finish_date']}\n\n**📝 內容：** {task_desc}")
             
-            with m2.popover("📝 編輯"):
-                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_fe_{row['id']}")
-                if pwd == "0000":
-                    e_order = st.text_input("修改製令", value=row['order_no'], key=f"f_ord_{row['id']}")
-                    e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row['author_name'] in author_options else 0, key=f"f_auth_{row['id']}")
-                    e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row['worker_name'] in worker_options else 0, key=f"f_work_{row['id']}")
-                    e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"f_cont_{row['id']}")
-                    if st.button("💾 儲存修改", key=f"fsave_{row['id']}"):
-                        db_conn = sqlite3.connect('bulletin.db')
-                        db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", (e_order, e_author, e_worker, e_content, row['id']))
-                        db_conn.commit(); db_conn.close(); st.rerun()
-                elif pwd: st.warning("密碼錯誤")
+            with m2.popover("📝 編輯", key=f"f_edit_pop_{row['id']}"):
+                e_order = st.text_input("修改製令", value=row['order_no'], key=f"f_ord_{row['id']}")
+                try:
+                    auth_idx = author_options.index(row['author_name'])
+                except:
+                    auth_idx = 0
+                e_author = st.selectbox("修改發布人", author_options, index=auth_idx, key=f"f_auth_{row['id']}")
+                
+                try:
+                    work_idx = worker_options.index(row['worker_name'])
+                except:
+                    work_idx = 0
+                e_worker = st.selectbox("修改執行人", worker_options, index=work_idx, key=f"f_work_{row['id']}")
+                
+                e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"f_cont_{row['id']}")
+                
+                if st.button("💾 儲存修改", key=f"fsave_{row['id']}"):
+                    db_conn = sqlite3.connect('bulletin.db')
+                    db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", 
+                                    (e_order, e_author, e_worker, e_content, row['id']))
+                    db_conn.commit()
+                    db_conn.close()
+                    try: sync_to_github("Edit Finished Project Task")
+                    except: pass
+                    st.success("✅ 歷史專案修改成功！")
+                    time.sleep(0.5)
+                    st.rerun()
 
-            with m3.popover("🗑️ 刪除"):
-                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_fd_{row['id']}")
-                if pwd == "0000":
-                    if st.button("🚨 確定刪除", key=f"fdel_{row['id']}"):
-                        db_conn = sqlite3.connect('bulletin.db')
-                        db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
-                        db_conn.commit(); db_conn.close(); st.rerun()
-                elif pwd: st.warning("密碼錯誤")
+            with m3.popover("🗑️ 刪除", key=f"f_del_pop_{row['id']}"):
+                st.warning(f"確定要刪除歷史製令：{row['order_no']} 嗎？")
+                if st.button("🚨 確定刪除", key=f"fdel_{row['id']}"):
+                    db_conn = sqlite3.connect('bulletin.db')
+                    db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
+                    db_conn.commit()
+                    db_conn.close()
+                    try: sync_to_github("Delete Finished Project Task")
+                    except: pass
+                    st.success("✅ 專案已刪除！")
+                    time.sleep(0.5)
+                    st.rerun()
