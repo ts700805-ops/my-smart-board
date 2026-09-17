@@ -70,8 +70,8 @@ st.markdown("""
 # 🏠 側邊欄配置：中秋佳節新氣象
 # =========================================================
 with st.sidebar:
-    # 📌 流水碼更新為 20260705025
-    st.markdown("<h4 style='color: #F1C40F; margin-bottom: 5px;'>系統版本：20260705025</h4>", unsafe_allow_html=True)
+    # 📌 流水碼更新為 20260705026
+    st.markdown("<h4 style='color: #F1C40F; margin-bottom: 5px;'>系統版本：20260705026</h4>", unsafe_allow_html=True)
     
     # 渲染照片區
     try:
@@ -153,16 +153,6 @@ def init_db():
                     task_content TEXT,
                     status TEXT DEFAULT '待處理',
                     complete_date TEXT)''')
-    
-    # 🎀 助理績效考核資料表
-    c.execute('''CREATE TABLE IF NOT EXISTS assistant_evaluations (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    eval_date TEXT,
-                    assistant_name TEXT,
-                    eval_item TEXT,
-                    eval_target TEXT DEFAULT '',
-                    eval_content TEXT DEFAULT '',
-                    is_deleted INTEGER DEFAULT 0)''')
 
     # 🔴 專案管理相關資料表 (確保完整建立，防止資料遺失或讀取不到)
     c.execute('''CREATE TABLE IF NOT EXISTS project_tasks (
@@ -182,10 +172,6 @@ def init_db():
                     config_key TEXT UNIQUE,
                     config_value TEXT)''')
     
-    # 檢查並補齊可能遺漏的欄位
-    try:
-        c.execute("ALTER TABLE assistant_evaluations ADD COLUMN eval_target TEXT DEFAULT ''")
-    except: pass
     try:
         c.execute("ALTER TABLE project_tasks ADD COLUMN task_content TEXT DEFAULT ''")
     except: pass
@@ -208,7 +194,6 @@ with st.sidebar:
             "⚠️ 品質異常首頁",
             "🛠️ 製造部待處理清單",
             "🔴 專案管理首頁",
-            "🎀 助理績效考核區",
             "--------------------", 
             "✍️ 撰寫新公告", 
             "📝 撰寫品質",
@@ -694,7 +679,8 @@ if menu == "🔴 專案管理首頁":
     # =====================================================
     # 💾 專案資料備份與還原功能區塊
     # =====================================================
-    with st.expander("💾 專案資料安全備份與還原工具 (點擊展開)"):
+    with st.container(border=True):
+        st.markdown("#### 💾 專案資料安全備份與還原工具")
         b_col1, b_col2 = st.columns(2)
         
         # 1. 導出備份 (下載 CSV)
@@ -775,7 +761,8 @@ if menu == "🔴 專案管理首頁":
         if st.form_submit_button("➕ 新增專案"):
             if p_order.strip() and p_content.strip():
                 db_conn = sqlite3.connect('bulletin.db')
-                db_conn.execute("INSERT INTO project_tasks (order_no, assign_date, author_name, worker_name, expected_date, task_content) VALUES (?,?,?,?,?,?)",
+                # 修正：明確寫入 is_finished=0 與 is_deleted=0，確保新增後一定抓得到
+                db_conn.execute("INSERT INTO project_tasks (order_no, assign_date, author_name, worker_name, expected_date, task_content, is_finished, is_deleted) VALUES (?,?,?,?,?,?,0,0)",
                               (p_order, str(p_assign), p_author, p_worker, str(p_expect), p_content))
                 db_conn.commit(); db_conn.close()
                 try: sync_to_github("Add Project Task")
@@ -863,207 +850,3 @@ if menu == "🔴 專案管理首頁":
                         db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
                         db_conn.commit(); db_conn.close(); st.rerun()
                 elif pwd: st.warning("密碼錯誤")
-# =========================================================
-# 🎀 助理績效考核區 (共用 ⚙️管理後台 → 👥人員名單管理)
-# =========================================================
-if menu == "🎀 助理績效考核區":
-
-    # -------------------------------
-    # 密碼保護 (已隱藏密碼提示，密碼為 0000)
-    # -------------------------------
-    if 'eval_auth' not in st.session_state:
-        st.session_state.eval_auth = False
-
-    if not st.session_state.eval_auth:
-        pwd = st.text_input("🔑 請輸入密碼", type="password")
-        if pwd == "0000":
-            st.session_state.eval_auth = True
-            st.rerun()
-        st.stop()
-
-    st.subheader("🎀 助理績效考核管理系統")
-
-    # --- 字體大小微調功能 ---
-    font_ratio = st.slider("調整字體大小 (%)", 50, 200, 100)
-    base_size = 25
-    current_size = int(base_size * (font_ratio / 100))
-    label_size = current_size * 2  # 欄位標籤放大兩倍
-    
-    # =====================================================
-    # CSS 樣式注入 (包含字體放大、標題加粗、按鈕控制)
-    # =====================================================
-    st.markdown(f"""
-        <style>
-        /* 區塊主標題加大加粗 */
-        .custom-header {{ font-size: {label_size}px !important; font-weight: bold !important; }}
-        
-        /* 表單內紅框四個欄位標籤 (字體放大兩倍、粗體) */
-        div[data-testid="stForm"] label p {{
-            font-size: {label_size}px !important;
-            font-weight: bold !important;
-        }}
-        
-        /* 下拉選單文字放大 */
-        div[data-baseweb="select"] * {{
-            font-size: {current_size}px !important;
-        }}
-        
-        /* TextArea 文字放大 */
-        div[data-baseweb="textarea"] textarea {{
-            font-size: {current_size}px !important;
-        }}
-        
-        /* 放大網頁中所有按鈕的文字 (包含儲存、下載、存檔等) */
-        button p {{
-            font-size: 22px !important;
-            font-weight: bold !important;
-        }}
-        </style>
-    """, unsafe_allow_html=True)
-
-    # =====================================================
-    # 讀取 bulletin.db
-    # =====================================================
-    db_conn = sqlite3.connect("bulletin.db")
-
-    # 考核資料表
-    db_conn.execute("""
-        CREATE TABLE IF NOT EXISTS assistant_evaluations(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            eval_date TEXT,
-            assistant_name TEXT,
-            eval_item TEXT,
-            eval_target TEXT,
-            eval_content TEXT,
-            is_deleted INTEGER DEFAULT 0
-        )
-    """)
-
-    # 直接讀取【管理後台】的人員名單
-    staff_df = pd.read_sql("SELECT name FROM staff ORDER BY name", db_conn)
-    staff_list = staff_df["name"].tolist()
-
-    # 已將 ORDER BY 修改為優先依 assistant_name 排序，讓相同人員姓名擺在一起
-    eval_df = pd.read_sql("""
-        SELECT *
-        FROM assistant_evaluations
-        WHERE is_deleted = 0
-        ORDER BY assistant_name ASC, eval_date DESC, id DESC
-    """, db_conn)
-
-    db_conn.close()
-
-    # =====================================================
-    # 新增考核
-    # =====================================================
-    st.markdown("<div class='custom-header'>✍️ 新增績效考核紀錄</div>", unsafe_allow_html=True)
-
-    with st.form("add_eval_form", clear_on_submit=True):
-        
-        # 將姓名與完成日期並排
-        top_c1, top_c2 = st.columns(2)
-        sel_assistant = top_c1.selectbox(
-            "🎀 選擇助理姓名",
-            staff_list if staff_list else ["⚠️ 請先到【⚙️管理後台 → 👥人員名單管理】新增人員"]
-        )
-        sel_date = top_c2.date_input("📅 完成日期", value=datetime.today())
-
-        c1, c2, c3 = st.columns(3)
-        txt_item = c1.text_area("📊 考核項目")
-        txt_target = c2.text_area("🎯 考核指標")
-        txt_content = c3.text_area("✨ 考核紀錄")
-
-        if st.form_submit_button("💝 立即存檔紀錄"):
-            if not staff_list:
-                st.error("請先至【⚙️管理後台 → 👥人員名單管理】新增人員")
-            else:
-                db_conn = sqlite3.connect("bulletin.db")
-                db_conn.execute("""
-                    INSERT INTO assistant_evaluations (eval_date, assistant_name, eval_item, eval_target, eval_content)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (sel_date.strftime("%Y-%m-%d"), sel_assistant, txt_item, txt_target, txt_content))
-                db_conn.commit()
-                db_conn.close()
-                try:
-                    sync_to_github("Add Evaluation")
-                except:
-                    pass
-                st.success("✅ 存檔成功")
-                st.rerun()
-
-    # =====================================================
-    # 紀錄總覽 (互動式格子表格)
-    # =====================================================
-    st.markdown("<div class='custom-header'>📜 績效考核項目</div>", unsafe_allow_html=True)
-
-    # 1. 新增人員篩選功能
-    filter_staff = st.selectbox("🔍 篩選人員", ["全部"] + staff_list)
-    if filter_staff != "全部":
-        eval_df = eval_df[eval_df['assistant_name'] == filter_staff]
-
-    if eval_df.empty:
-        st.info("目前尚無任何考核紀錄")
-    else:
-        # 下載 CSV 功能保留
-        export_df = eval_df[['eval_date', 'assistant_name', 'eval_item', 'eval_target', 'eval_content']].rename(columns={
-            'eval_date': '日期',
-            'assistant_name': '姓名',
-            'eval_item': '考核項目',
-            'eval_target': '考核指標',
-            'eval_content': '考核紀錄'
-        })
-        csv_data = export_df.to_csv(index=False).encode('utf-8-sig')
-        
-        st.download_button(
-            label="📥 下載篩選結果 (CSV)",
-            data=csv_data,
-            file_name=f"績效考核紀錄_{filter_staff}.csv",
-            mime="text/csv"
-        )
-
-        st.markdown("---")
-        st.info("💡 **操作提示**：在下方表格格子內「**點選兩下**」即可直接修改文字！若要刪除資料，請將右側的「🗑️ 刪除」打勾。修改完畢後請點擊最下方的「💾 儲存表格所有修改」按鈕。")
-
-        display_df = eval_df[['id', 'eval_date', 'assistant_name', 'eval_item', 'eval_target', 'eval_content']].copy()
-        display_df['🗑️ 刪除'] = False 
-
-        edited_df = st.data_editor(
-            display_df,
-            column_config={
-                "id": None, 
-                "eval_date": st.column_config.TextColumn(" 📅 日期 "),
-                "assistant_name": st.column_config.SelectboxColumn(" 👤 姓名 ", options=staff_list), 
-                "eval_item": st.column_config.TextColumn(" 📊 考核項目 "),
-                "eval_target": st.column_config.TextColumn(" 🎯 考核指標 "),
-                "eval_content": st.column_config.TextColumn(" ✨ 考核紀錄 "),
-                "🗑️ 刪除": st.column_config.CheckboxColumn(" 🗑️ 刪除 ", default=False) 
-            },
-            hide_index=True,          
-            use_container_width=True, 
-            key="eval_grid_editor"
-        )
-
-        if st.button("💾 儲存表格所有修改", type="primary"):
-            db_conn = sqlite3.connect("bulletin.db")
-            
-            for index, row in edited_df.iterrows():
-                if row['🗑️ 刪除'] == True:
-                    db_conn.execute("UPDATE assistant_evaluations SET is_deleted = 1 WHERE id = ?", (row["id"],))
-                else:
-                    db_conn.execute("""
-                        UPDATE assistant_evaluations 
-                        SET eval_date=?, assistant_name=?, eval_item=?, eval_target=?, eval_content=? 
-                        WHERE id=?
-                    """, (row['eval_date'], row['assistant_name'], row['eval_item'], row['eval_target'], row['eval_content'], row['id']))
-            
-            db_conn.commit()
-            db_conn.close()
-            
-            try:
-                sync_to_github("Update Evaluation via Grid")
-            except:
-                pass
-                
-            st.success("✅ 所有修改與刪除已成功儲存！")
-            time.sleep(1) 
-            st.rerun()
