@@ -195,7 +195,7 @@ def init_db():
 
 init_db()
 
-# --- 側邊選單 ---
+# --- 側邊選單 (完整保留所有導航) ---
 with st.sidebar:
     st.markdown("### 👤 目前登入\n## 管理員")
     st.markdown("---")
@@ -725,7 +725,6 @@ if menu == "🔴 專案管理首頁":
                     try:
                         restore_df = pd.read_csv(uploaded_backup)
                         db_conn = sqlite3.connect('bulletin.db')
-                        # 將備份檔內容寫回資料庫 (取代原本的資料)
                         restore_df.to_sql('project_tasks', db_conn, if_exists='replace', index=False)
                         db_conn.close()
                         try: sync_to_github("Restore Project Backup")
@@ -863,14 +862,12 @@ if menu == "🔴 專案管理首頁":
                         db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
                         db_conn.commit(); db_conn.close(); st.rerun()
                 elif pwd: st.warning("密碼錯誤")
+
 # =========================================================
-# 🎀 助理績效考核區 (共用 ⚙️管理後台 → 👥人員名單管理)
+# 🎀 助理績效考核區
 # =========================================================
 if menu == "🎀 助理績效考核區":
 
-    # -------------------------------
-    # 密碼保護 (已隱藏密碼提示，密碼為 0000)
-    # -------------------------------
     if 'eval_auth' not in st.session_state:
         st.session_state.eval_auth = False
 
@@ -883,37 +880,24 @@ if menu == "🎀 助理績效考核區":
 
     st.subheader("🎀 助理績效考核管理系統")
 
-    # --- 字體大小微調功能 ---
     font_ratio = st.slider("調整字體大小 (%)", 50, 200, 100)
     base_size = 25
     current_size = int(base_size * (font_ratio / 100))
-    label_size = current_size * 2  # 欄位標籤放大兩倍
+    label_size = current_size * 2
     
-    # =====================================================
-    # CSS 樣式注入 (包含字體放大、標題加粗、按鈕控制)
-    # =====================================================
     st.markdown(f"""
         <style>
-        /* 區塊主標題加大加粗 */
         .custom-header {{ font-size: {label_size}px !important; font-weight: bold !important; }}
-        
-        /* 表單內紅框四個欄位標籤 (字體放大兩倍、粗體) */
         div[data-testid="stForm"] label p {{
             font-size: {label_size}px !important;
             font-weight: bold !important;
         }}
-        
-        /* 下拉選單文字放大 */
         div[data-baseweb="select"] * {{
             font-size: {current_size}px !important;
         }}
-        
-        /* TextArea 文字放大 */
         div[data-baseweb="textarea"] textarea {{
             font-size: {current_size}px !important;
         }}
-        
-        /* 放大網頁中所有按鈕的文字 (包含儲存、下載、存檔等) */
         button p {{
             font-size: 22px !important;
             font-weight: bold !important;
@@ -921,12 +905,7 @@ if menu == "🎀 助理績效考核區":
         </style>
     """, unsafe_allow_html=True)
 
-    # =====================================================
-    # 讀取 bulletin.db
-    # =====================================================
     db_conn = sqlite3.connect("bulletin.db")
-
-    # 考核資料表
     db_conn.execute("""
         CREATE TABLE IF NOT EXISTS assistant_evaluations(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -939,11 +918,9 @@ if menu == "🎀 助理績效考核區":
         )
     """)
 
-    # 直接讀取【管理後台】的人員名單
     staff_df = pd.read_sql("SELECT name FROM staff ORDER BY name", db_conn)
     staff_list = staff_df["name"].tolist()
 
-    # 已將 ORDER BY 修改為優先依 assistant_name 排序，讓相同人員姓名擺在一起
     eval_df = pd.read_sql("""
         SELECT *
         FROM assistant_evaluations
@@ -953,14 +930,9 @@ if menu == "🎀 助理績效考核區":
 
     db_conn.close()
 
-    # =====================================================
-    # 新增考核
-    # =====================================================
     st.markdown("<div class='custom-header'>✍️ 新增績效考核紀錄</div>", unsafe_allow_html=True)
 
     with st.form("add_eval_form", clear_on_submit=True):
-        
-        # 將姓名與完成日期並排
         top_c1, top_c2 = st.columns(2)
         sel_assistant = top_c1.selectbox(
             "🎀 選擇助理姓名",
@@ -991,12 +963,8 @@ if menu == "🎀 助理績效考核區":
                 st.success("✅ 存檔成功")
                 st.rerun()
 
-    # =====================================================
-    # 紀錄總覽 (互動式格子表格)
-    # =====================================================
     st.markdown("<div class='custom-header'>📜 績效考核項目</div>", unsafe_allow_html=True)
 
-    # 1. 新增人員篩選功能
     filter_staff = st.selectbox("🔍 篩選人員", ["全部"] + staff_list)
     if filter_staff != "全部":
         eval_df = eval_df[eval_df['assistant_name'] == filter_staff]
@@ -1004,7 +972,6 @@ if menu == "🎀 助理績效考核區":
     if eval_df.empty:
         st.info("目前尚無任何考核紀錄")
     else:
-        # 下載 CSV 功能保留
         export_df = eval_df[['eval_date', 'assistant_name', 'eval_item', 'eval_target', 'eval_content']].rename(columns={
             'eval_date': '日期',
             'assistant_name': '姓名',
