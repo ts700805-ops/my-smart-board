@@ -786,8 +786,8 @@ if menu == "🔴 專案管理首頁":
             task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "未填寫執行內容"
             m1.info(f"**製令：** {row['order_no']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}\n\n**📝 內容：** {task_desc}")
             
-            # 🟢 點我完工按鈕 (確保帶有唯一 key)
-            if m2.button("🟢 點我完工", key=f"finish_btn_{row['id']}"):
+            # 🟢 點我完工按鈕 (加上 _m2 確保 Key 絕對唯一，不與其他按鈕衝突)
+            if m2.button("🟢 點我完工", key=f"finish_btn_{row['id']}_m2"):
                 db_conn = sqlite3.connect('bulletin.db')
                 db_conn.execute("UPDATE project_tasks SET is_finished = 1, finish_date = ? WHERE id = ?", (datetime.today().strftime("%Y-%m-%d"), row['id']))
                 db_conn.commit()
