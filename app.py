@@ -110,6 +110,15 @@ GITHUB_REPO = f"https://{MY_TOKEN}@github.com/ts700805-ops/my-smart-board.git"
 IMAGE_FOLDER = "images"
 if not os.path.exists(IMAGE_FOLDER): os.makedirs(IMAGE_FOLDER)
 
+# --- 安全整數轉型函式 (防範 ValueError) ---
+def safe_int(val, default=0):
+    try:
+        if pd.isna(val):
+            return default
+        return int(val)
+    except Exception:
+        return default
+
 # --- 同步功能 (加入非同步保護避免卡死) ---
 def sync_to_github(msg="Update"):
     if not MY_TOKEN: return
@@ -474,7 +483,7 @@ elif menu == "🛠️ 製造部待處理清單":
                 st.markdown(f"<div class='large-text-content'><b>📋 任務內容：</b>\n{t_content}</div>", unsafe_allow_html=True)
 
 # =========================================================
-# 🔴 專案管理首頁 (已修復按鈕觸發與響應)
+# 🔴 專案管理首頁 (已修復按鈕觸發與響應，增加 id 安全轉換)
 # =========================================================
 elif menu == "🔴 專案管理首頁":
     st.subheader("📋 專案進度追蹤看板")
@@ -602,7 +611,9 @@ elif menu == "🔴 專案管理首頁":
         st.info("目前沒有進行中的專案任務。")
     else:
         for _, row in df_active.iterrows():
-            tid = int(row['id'])
+            tid = safe_int(row.get('id'))
+            if tid == 0:
+                continue
             desc = row.get('task_content') or "未填寫執行內容"
             m1, m2, m3, m4 = st.columns([5, 1.5, 1.5, 1.5])
             m1.info(f"**製令：** {row.get('order_no','')} | **發布：** {row.get('author_name','')} | **執行：** {row.get('worker_name','')} | **預計完工：** {row.get('expected_date','')}\n\n**📝 內容：** {desc}")
@@ -661,7 +672,9 @@ elif menu == "🔴 專案管理首頁":
         st.caption("目前尚無已完工的歷史專案。")
     else:
         for _, row in df_finished.iterrows():
-            tid = int(row['id'])
+            tid = safe_int(row.get('id'))
+            if tid == 0:
+                continue
             desc = row.get('task_content') or "無執行內容"
             m1, m2, m3 = st.columns([8, 1.5, 1.5])
             m1.info(f"✅ **製令：** {row.get('order_no','')} | **發布：** {row.get('author_name','')} | **執行：** {row.get('worker_name','')} | **實際完工：** {row.get('finish_date','')}\n\n**📝 內容：** {desc}")
