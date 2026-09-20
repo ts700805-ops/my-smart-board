@@ -222,7 +222,7 @@ with st.sidebar:
             "🛠️ 製造部待處理清單",
             "🔴 專案管理首頁",
             "🟢 二課專案管理首頁",
-
+            "🎀 助理績效考核區",
             "--------------------", 
             "✍️ 撰寫新公告", 
             "📝 撰寫品質",
@@ -728,8 +728,32 @@ elif menu == "🟢 二課專案管理首頁":
                 col_left, col_right = st.columns([7.5, 2.5])
                 
                 with col_left:
-                    st.markdown(f"🟡 **製令：** `{row.get('order_no','')}` ｜ **指派日：** {row.get('assign_date','')} ｜ **發布：** {row.get('author_name','')} ｜ **執行：** {row.get('worker_name','')}")
+                    # 讓製令、指派日、發布、執行也能直接在卡片中編輯
+                    ec1, ec2, ec3, ec4 = st.columns([2, 2, 2, 2])
                     
+                    saved_order = row.get('order_no') or ""
+                    e_order = ec1.text_input("🔢 製令編號", value=saved_order, key=f"p2_act_ord_{tid}")
+                    
+                    try:
+                        saved_assign_date = datetime.strptime(str(row.get('assign_date', '')).split(" ")[0], '%Y-%m-%d').date()
+                    except:
+                        saved_assign_date = datetime.today().date()
+                    e_assign = ec2.date_input("📅 指派日", value=saved_assign_date, key=f"p2_act_assign_{tid}")
+                    
+                    curr_author = row.get('author_name') or ""
+                    try:
+                        author_idx = staff_options.index(curr_author)
+                    except:
+                        author_idx = 0
+                    e_author = ec3.selectbox("👤 發布", staff_options, index=author_idx, key=f"p2_act_auth_{tid}")
+                    
+                    curr_worker = row.get('worker_name') or ""
+                    try:
+                        worker_idx = staff_options.index(curr_worker)
+                    except:
+                        worker_idx = 0
+                    e_worker = ec4.selectbox("👤 執行", staff_options, index=worker_idx, key=f"p2_act_work_{tid}")
+
                     # 計算文字行數以自動調整高度，避免使用卷軸拖拉
                     saved_content = row.get('task_content') or ""
                     line_count = max(3, saved_content.count('\n') + len(saved_content) // 40 + 1)
@@ -745,7 +769,10 @@ elif menu == "🟢 二課專案管理首頁":
                     if st.button("💾 儲存內容修改", key=f"p2_act_save_{tid}", type="primary"):
                         try:
                             conn = get_conn()
-                            conn.execute("UPDATE project2_tasks SET task_content=? WHERE id=?", (e_content, tid))
+                            conn.execute(
+                                "UPDATE project2_tasks SET order_no=?, assign_date=?, author_name=?, worker_name=?, task_content=? WHERE id=?", 
+                                (e_order, str(e_assign), e_author, e_worker, e_content, tid)
+                            )
                             conn.commit()
                             conn.close()
                             sync_to_github("Edit Project 2 Task Content Direct")
@@ -810,8 +837,32 @@ elif menu == "🟢 二課專案管理首頁":
                 col_left, col_right = st.columns([8, 2])
                 
                 with col_left:
-                    st.markdown(f"✅ **製令：** `{row.get('order_no','')}` ｜ **發布：** {row.get('author_name','')} ｜ **執行：** {row.get('worker_name','')} ｜ **完工日：** {row.get('finish_date','')}")
+                    # 已完工區同樣開放製令、指派日、發布、執行直接修改
+                    ec1, ec2, ec3, ec4 = st.columns([2, 2, 2, 2])
                     
+                    saved_order = row.get('order_no') or ""
+                    e_order = ec1.text_input("🔢 製令編號", value=saved_order, key=f"p2_fin_ord_{tid}")
+                    
+                    try:
+                        saved_assign_date = datetime.strptime(str(row.get('assign_date', '')).split(" ")[0], '%Y-%m-%d').date()
+                    except:
+                        saved_assign_date = datetime.today().date()
+                    e_assign = ec2.date_input("📅 指派日", value=saved_assign_date, key=f"p2_fin_assign_{tid}")
+                    
+                    curr_author = row.get('author_name') or ""
+                    try:
+                        author_idx = staff_options.index(curr_author)
+                    except:
+                        author_idx = 0
+                    e_author = ec3.selectbox("👤 發布", staff_options, index=author_idx, key=f"p2_fin_auth_{tid}")
+                    
+                    curr_worker = row.get('worker_name') or ""
+                    try:
+                        worker_idx = staff_options.index(curr_worker)
+                    except:
+                        worker_idx = 0
+                    e_worker = ec4.selectbox("👤 執行", staff_options, index=worker_idx, key=f"p2_fin_work_{tid}")
+
                     # 計算文字行數以自動調整高度，避免使用卷軸拖拉
                     saved_content = row.get('task_content') or ""
                     line_count = max(3, saved_content.count('\n') + len(saved_content) // 40 + 1)
@@ -827,7 +878,10 @@ elif menu == "🟢 二課專案管理首頁":
                     if st.button("💾 儲存內容修改", key=f"p2_fin_save_{tid}", type="primary"):
                         try:
                             conn = get_conn()
-                            conn.execute("UPDATE project2_tasks SET task_content=? WHERE id=?", (e_content, tid))
+                            conn.execute(
+                                "UPDATE project2_tasks SET order_no=?, assign_date=?, author_name=?, worker_name=?, task_content=? WHERE id=?", 
+                                (e_order, str(e_assign), e_author, e_worker, e_content, tid)
+                            )
                             conn.commit()
                             conn.close()
                             sync_to_github("Edit Finished Project 2 Task Content Direct")
