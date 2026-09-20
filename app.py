@@ -483,7 +483,7 @@ elif menu == "🛠️ 製造部待處理清單":
                 st.markdown(f"<div class='large-text-content'><b>📋 任務內容：</b>\n{t_content}</div>", unsafe_allow_html=True)
 
 # =========================================================
-# 🔴 專案管理首頁 (已修復按鈕觸發與響應，增加 id 安全轉換)
+# 🔴 專案管理首頁 (修正新增任務即時顯示與資料庫寫入)
 # =========================================================
 elif menu == "🔴 專案管理首頁":
     st.subheader("📋 專案進度追蹤看板")
@@ -515,9 +515,8 @@ elif menu == "🔴 專案管理首頁":
         b_col1, b_col2 = st.columns(2)
         with b_col1:
             st.markdown("##### 📥 導出專案備份檔")
-            db_conn = sqlite3.connect('bulletin.db')
-            backup_df = pd.read_sql("SELECT * FROM project_tasks", db_conn)
-            db_conn.close()
+            with sqlite3.connect('bulletin.db') as db_conn:
+                backup_df = pd.read_sql("SELECT * FROM project_tasks", db_conn)
             
             if not backup_df.empty:
                 csv_backup = backup_df.to_csv(index=False).encode('utf-8-sig')
@@ -538,9 +537,8 @@ elif menu == "🔴 專案管理首頁":
                 if st.button("🔄 確認執行還原覆蓋", key="confirm_restore_btn"):
                     try:
                         restore_df = pd.read_csv(uploaded_backup)
-                        db_conn = sqlite3.connect('bulletin.db')
-                        restore_df.to_sql('project_tasks', db_conn, if_exists='replace', index=False)
-                        db_conn.close()
+                        with sqlite3.connect('bulletin.db') as db_conn:
+                            restore_df.to_sql('project_tasks', db_conn, if_exists='replace', index=False)
                         sync_to_github("Restore Project Backup")
                         st.success("✅ 專案資料已成功還原！")
                         time.sleep(1)
@@ -551,8 +549,7 @@ elif menu == "🔴 專案管理首頁":
     st.markdown("---")
 
     # 讀取人員對照表設定
-    db_conn = sqlite3.connect('bulletin.db')
-    try:
+    with sqlite3.connect('bulletin.db') as db_conn:
         cursor = db_conn.cursor()
         cursor.execute("SELECT config_value FROM project_settings WHERE config_key = 'team_mapping'")
         row_mapping = cursor.fetchone()
@@ -567,8 +564,6 @@ elif menu == "🔴 專案管理首頁":
                 if leader not in worker_options: worker_options.append(leader)
                 for m in members.split(","):
                     if m.strip(): worker_options.append(m.strip())
-    finally:
-        db_conn.close()
 
     if not author_options: author_options = ["請先到下方設定對照表"]
     if not worker_options: worker_options = ["請先到下方設定對照表"]
@@ -586,14 +581,13 @@ elif menu == "🔴 專案管理首頁":
         p_content = st.text_area("📝 執行內容")
         if st.form_submit_button("➕ 新增專案"):
             if p_order.strip() and p_content.strip():
-                db_conn = sqlite3.connect('bulletin.db')
-                db_conn.execute("""
-                    INSERT INTO project_tasks 
-                    (order_no, assign_date, author_name, worker_name, expected_date, task_content, is_finished, is_deleted) 
-                    VALUES (?, ?, ?, ?, ?, ?, 0, 0)
-                """, (p_order, str(p_assign), p_author, p_worker, str(p_expect), p_content))
-                db_conn.commit()
-                db_conn.close()
+                with sqlite3.connect('bulletin.db') as db_conn:
+                    db_conn.execute("""
+                        INSERT INTO project_tasks 
+                        (order_no, assign_date, author_name, worker_name, expected_date, task_content, is_finished, is_deleted) 
+                        VALUES (?, ?, ?, ?, ?, ?, 0, 0)
+                    """, (p_order.strip(), str(p_assign), p_author, p_worker, str(p_expect), p_content.strip()))
+                    db_conn.commit()
                 sync_to_github("Add Project Task")
                 st.success("✅ 專案已成功新增！")
                 time.sleep(0.3)
@@ -625,6 +619,7 @@ elif menu == "🔴 專案管理首頁":
                     try:
                         with sqlite3.connect('bulletin.db') as conn:
                             conn.execute("UPDATE project_tasks SET is_finished=1, finish_date=? WHERE id=?", (datetime.now().strftime("%Y-%m-%d"), tid))
+                            conn.commit()
                         sync_to_github("Finish Project Task")
                         st.rerun()
                     except Exception as e:
@@ -641,6 +636,7 @@ elif menu == "🔴 專案管理首頁":
                         try:
                             with sqlite3.connect('bulletin.db') as conn:
                                 conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", (e_order, e_author, e_worker, e_content, tid))
+                                conn.commit()
                             sync_to_github("Edit Project Task")
                             st.rerun()
                         except Exception as e:
@@ -655,6 +651,7 @@ elif menu == "🔴 專案管理首頁":
                         try:
                             with sqlite3.connect('bulletin.db') as conn:
                                 conn.execute("UPDATE project_tasks SET is_deleted=1 WHERE id=?", (tid,))
+                                conn.commit()
                             sync_to_github("Delete Project Task")
                             st.rerun()
                         except Exception as e:
@@ -689,6 +686,7 @@ elif menu == "🔴 專案管理首頁":
                         try:
                             with sqlite3.connect('bulletin.db') as conn:
                                 conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", (e_order, e_author, e_worker, e_content, tid))
+                                conn.commit()
                             sync_to_github("Edit Finished Project Task")
                             st.rerun()
                         except Exception as e:
@@ -702,6 +700,7 @@ elif menu == "🔴 專案管理首頁":
                         try:
                             with sqlite3.connect('bulletin.db') as conn:
                                 conn.execute("UPDATE project_tasks SET is_deleted=1 WHERE id=?", (tid,))
+                                conn.commit()
                             sync_to_github("Delete Finished Project Task")
                             st.rerun()
                         except Exception as e:
