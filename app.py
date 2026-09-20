@@ -225,6 +225,7 @@ with st.sidebar:
             "⚠️ 品質異常首頁",
             "🛠️ 製造部待處理清單",
             "🔴 專案管理首頁",
+            "🟢 專案2管理首頁",  # 🆕 重新建立之專案2導航選單
             "🎀 助理績效考核區",
             "--------------------", 
             "✍️ 撰寫新公告", 
@@ -472,7 +473,7 @@ elif menu == "🛠️ 製造部待處理清單":
                 st.markdown(f"<div class='large-text-content'><b>📋 任務內容：</b>\n{t_content}</div>", unsafe_allow_html=True)
 
 # =========================================================
-# 🔴 專案管理首頁 (重構優化版：保留 🟡進行中 與 🟢已完工 清單)
+# 🔴 專案管理首頁
 # =========================================================
 elif menu == "🔴 專案管理首頁":
     st.subheader("📋 專案進度追蹤看板")
@@ -665,6 +666,103 @@ elif menu == "🔴 專案管理首頁":
                         st.rerun()
                     except Exception as e:
                         st.error(f"刪除失敗：{e}")
+
+# =========================================================
+# 🟢 專案2管理首頁 (全新建立導航頁面)
+# =========================================================
+elif menu == "🟢 專案2管理首頁":
+    st.subheader("🟢 專案2管理首頁 - 資料建立與測試區")
+    
+    conn = get_conn()
+    s_df = pd.read_sql("SELECT name FROM staff", conn)
+    staff_options = s_df['name'].tolist() if not s_df.empty else ["無人員資料"]
+    conn.close()
+
+    # --- ✍️ 新增專案2任務 ---
+    with st.expander("✍️ 新增專案2任務", expanded=True):
+        c1, c2, c3 = st.columns(3)
+        p2_order = c1.text_input("專案2-製令編號", key="add_p2_order")
+        p2_assign = c2.date_input("指派日期", value=datetime.today(), key="add_p2_assign")
+        p2_expect = c3.date_input("預計完工日", value=datetime.today() + timedelta(days=7), key="add_p2_expect")
+        
+        c4, c5 = st.columns(2)
+        p2_author = c4.selectbox("發布人員", staff_options, key="add_p2_author")
+        p2_worker = c5.selectbox("執行人員", staff_options, key="add_p2_worker")
+        
+        p2_content = st.text_area("📝 專案2詳細執行內容", key="add_p2_content")
+        
+        if st.button("🚀 確定建立專案2任務", type="primary", use_container_width=True, key="btn_add_p2"):
+            if p2_order.strip() and p2_content.strip():
+                conn_add = get_conn()
+                c_add = conn_add.cursor()
+                c_add.execute("""
+                    INSERT INTO project_tasks 
+                    (order_no, assign_date, author_name, worker_name, expected_date, task_content, finish_date, is_finished, is_deleted) 
+                    VALUES (?, ?, ?, ?, ?, ?, '', 0, 0)
+                """, (f"[專案2] {p2_order.strip()}", str(p2_assign), p2_author, p2_worker, str(p2_expect), p2_content.strip()))
+                conn_add.commit()
+                conn_add.close()
+                sync_to_github("Add Project 2 Task")
+                st.success("✅ 專案2任務已成功建立並存入資料庫！")
+                time.sleep(0.5)
+                st.rerun()
+            else:
+                st.error("⚠️ 請填寫「製令編號」與「執行內容」！")
+
+    # --- 📋 專案2資料顯示與確認區域 ---
+    st.markdown("---")
+    st.markdown("### 📋 專案2目前進行中資料列表")
+    
+    conn_read = get_conn()
+    df_p2 = pd.read_sql("""
+        SELECT * FROM project_tasks 
+        WHERE order_no LIKE '[專案2]%' 
+          AND COALESCE(is_finished, 0) = 0 
+          AND COALESCE(is_deleted, 0) = 0 
+        ORDER BY id DESC
+    """, conn_read)
+    conn_read.close()
+
+    if df_p2.empty:
+        st.info("💡 目前專案2尚無進行中的資料，請點擊上方「新增專案2任務」進行測試建立！")
+    else:
+        for _, row in df_p2.iterrows():
+            tid = safe_int(row.get('id'))
+            if tid == 0: continue
+            desc = row.get('task_content') or "無內容"
+            
+            m1, m2 = st.columns([8, 2])
+            m1.info(f"🟢 **製令編號：** {row.get('order_no','')} | **指派日：** {row.get('assign_date','')} | **發布：** {row.get('author_name','')} | **執行：** {row.get('worker_name','')}\n\n**📝 任務說明：** {desc}")
+            
+            with m2:
+                if st.button("✅ 標示為完工", key=f"p2_fin_{tid}", use_container_width=True):
+                    conn = get_conn()
+                    conn.execute("UPDATE project_tasks SET is_finished=1, finish_date=? WHERE id=?", (datetime.now().strftime("%Y-%m-%d"), tid))
+                    conn.commit()
+                    conn.close()
+                    sync_to_github("Finish Project 2 Task")
+                    st.success("專案2任務已完工！")
+                    time.sleep(0.5)
+                    st.rerun()
+
+    # --- 🟢 專案2已完工列表 ---
+    st.markdown("---")
+    st.markdown("### 🟢 專案2已完工歷史紀錄")
+    conn_fin = get_conn()
+    df_p2_fin = pd.read_sql("""
+        SELECT * FROM project_tasks 
+        WHERE order_no LIKE '[專案2]%' 
+          AND COALESCE(is_finished, 0) = 1 
+          AND COALESCE(is_deleted, 0) = 0 
+        ORDER BY id DESC
+    """, conn_fin)
+    conn_fin.close()
+
+    if df_p2_fin.empty:
+        st.caption("尚無完工紀錄。")
+    else:
+        for _, row in df_p2_fin.iterrows():
+            st.success(f"✅ **製令：** {row.get('order_no','')} | **發布：** {row.get('author_name','')} | **執行：** {row.get('worker_name','')} | **完工日：** {row.get('finish_date','')}\n\n**📝 內容：** {row.get('task_content','')}")
 
 # 4. 撰寫一般公告
 elif menu == "✍️ 撰寫新公告":
