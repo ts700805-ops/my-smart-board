@@ -70,7 +70,6 @@ st.markdown("""
 # 🏠 側邊欄配置：中秋佳節新氣象
 # =========================================================
 with st.sidebar:
-    # 📌 流水碼更新為 20260705028
     st.markdown("<h4 style='color: #F1C40F; margin-bottom: 5px;'>系統版本：20260705028</h4>", unsafe_allow_html=True)
     
     # 渲染照片區
@@ -191,7 +190,7 @@ def init_db():
         c.execute("ALTER TABLE assistant_evaluations ADD COLUMN eval_target TEXT DEFAULT ''")
     except: pass
     
-    # 補齊舊資料庫可能缺少的專案欄位
+    # 補齊專案表欄位
     c.execute("PRAGMA table_info(project_tasks)")
     existing = {col[1] for col in c.fetchall()}
     required = {
@@ -472,199 +471,155 @@ elif menu == "🛠️ 製造部待處理清單":
                 st.markdown(f"<div class='large-text-content'><b>📋 任務內容：</b>\n{t_content}</div>", unsafe_allow_html=True)
 
 # =========================================================
-# 🔴 專案管理首頁 (重構優化版：保留 🟡進行中 與 🟢已完工 清單)
+# 🔴 專案管理首頁 (完全依據標準寫法重構，解決新增不顯示問題)
 # =========================================================
 elif menu == "🔴 專案管理首頁":
     st.subheader("📋 專案進度追蹤看板")
     
-    if "project_font_scale" not in st.session_state:
-        st.session_state.project_font_scale = 130
-        
-    st.session_state.project_font_scale = st.slider(
-        "🔍 現場看板字體大小微調 (%)", min_value=100, max_value=200, 
-        value=st.session_state.project_font_scale, step=10, key="project_font_slider_unique_proj"
-    )
-    
-    p_font_scale = st.session_state.project_font_scale
-    
-    st.markdown(f"""
-        <style>
-        div[data-testid="stNotification"] *, 
-        div[data-testid="stNotificationContent"], 
-        div[data-testid="stNotificationContent"] p, 
-        div[data-testid="stNotificationContent"] span {{
-            font-size: {int(16 * (p_font_scale / 100))}px !important;
-            line-height: 1.6 !important;
-        }}
-        </style>
-    """, unsafe_allow_html=True)
-
-    # 讀取人員與對應關係選單
+    # 讀取人員選單
     conn = get_conn()
     s_df = pd.read_sql("SELECT name FROM staff", conn)
-    staff_options = s_df['name'].tolist() if not s_df.empty else ["無人員資料"]
-    
-    cursor = conn.cursor()
-    cursor.execute("SELECT config_value FROM project_settings WHERE config_key = 'team_mapping'")
-    row_mapping = cursor.fetchone()
+    staff_options = s_df['name'].tolist() if not s_df.empty else ["系統管理員"]
     conn.close()
-    
-    mapping_text = row_mapping[0] if row_mapping else "林威呈:陳文山,李俊霖,陳育信,陳凱彥,蘇雍盛,鄭至賢\n組長B:成員3,成員4"
-    
-    author_options, worker_options = [], []
-    for line in mapping_text.split("\n"):
-        if ":" in line:
-            leader, members = line.split(":", 1)
-            leader = leader.strip()
-            if leader and leader not in author_options: author_options.append(leader)
-            if leader not in worker_options: worker_options.append(leader)
-            for m in members.split(","):
-                if m.strip(): worker_options.append(m.strip())
 
-    if not author_options: author_options = staff_options
-    if not worker_options: worker_options = staff_options
-
-    # --- ✍️ 新增專案任務 ---
+    # --- 1. 新增專案區塊 ---
     with st.expander("✍️ 新增專案任務", expanded=True):
-        c1, c2, c3 = st.columns(3)
-        p_order = c1.text_input("製令編號", key="add_p_order")
-        p_assign = c2.date_input("指派日", value=datetime.today(), key="add_p_assign")
-        p_expect = c3.date_input("預計完工日", value=datetime.today() + timedelta(days=7), key="add_p_expect")
-        c4, c5 = st.columns(2)
-        p_author = c4.selectbox("發布人", author_options, key="add_p_author")
-        p_worker = c5.selectbox("執行人", worker_options, key="add_p_worker")
-        p_content = st.text_area("📝 執行內容", key="add_p_content")
-        
-        if st.button("➕ 確定新增專案", type="primary", use_container_width=True, key="btn_add_project_direct"):
-            if p_order.strip() and p_content.strip():
-                conn_add = get_conn()
-                c_add = conn_add.cursor()
-                c_add.execute("""
-                    INSERT INTO project_tasks 
-                    (order_no, assign_date, author_name, worker_name, expected_date, task_content, finish_date, is_finished, is_deleted) 
-                    VALUES (?, ?, ?, ?, ?, ?, '', 0, 0)
-                """, (p_order.strip(), str(p_assign), p_author, p_worker, str(p_expect), p_content.strip()))
-                conn_add.commit()
-                conn_add.close()
-                sync_to_github("Add Project Task")
-                st.success("✅ 專案任務已成功新增並寫入資料庫！")
-                time.sleep(0.5)
-                st.rerun()
-            else:
-                st.error("⚠️ 「製令編號」與「執行內容」為必填項目！")
+        with st.form("new_project_form", clear_on_submit=True):
+            col1, col2, col3 = st.columns(3)
+            p_order = col1.text_input("製令編號 / 專案名稱")
+            p_assign = col2.date_input("指派日期", value=datetime.today())
+            p_expect = col3.date_input("預計完工日", value=datetime.today() + timedelta(days=7))
+            
+            col4, col5 = st.columns(2)
+            p_author = col4.selectbox("發布人", staff_options, key="p_author_select")
+            p_worker = col5.selectbox("執行人", staff_options, key="p_worker_select")
+            
+            p_content = st.text_area("📝 專案詳細內容 / 執行事項")
+            
+            submit_btn = st.form_submit_button("➕ 確定新增專案", type="primary", use_container_width=True)
+            
+            if submit_btn:
+                if p_order.strip() and p_content.strip():
+                    conn = get_conn()
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO project_tasks 
+                        (order_no, assign_date, author_name, worker_name, expected_date, task_content, finish_date, is_finished, is_deleted)
+                        VALUES (?, ?, ?, ?, ?, ?, '', 0, 0)
+                    """, (p_order.strip(), str(p_assign), p_author, p_worker, str(p_expect), p_content.strip()))
+                    conn.commit()
+                    conn.close()
+                    
+                    sync_to_github("Add New Project")
+                    st.success("✅ 專案已成功新增！")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error("⚠️ 請填寫「製令編號 / 專案名稱」與「專案詳細內容」！")
 
-    # --- 🟡 進行中專案清單 ---
     st.markdown("---")
+
+    # --- 2. 🟡 進行中專案清單 ---
     st.markdown("### 🟡 進行中專案清單")
-    
-    conn_read = get_conn()
-    df_active = pd.read_sql("""
-        SELECT * FROM project_tasks 
-        WHERE COALESCE(is_finished, 0) = 0 
-          AND COALESCE(is_deleted, 0) = 0 
-        ORDER BY id DESC
-    """, conn_read)
-    conn_read.close()
-
-    if df_active.empty:
-        st.info("目前沒有進行中的專案任務。")
-    else:
-        for _, row in df_active.iterrows():
-            tid = safe_int(row.get('id'))
-            if tid == 0: continue
-            desc = row.get('task_content') or "未填寫執行內容"
-            m1, m2, m3, m4 = st.columns([5, 1.5, 1.5, 1.5])
-            m1.info(f"**製令：** {row.get('order_no','')} | **指派日：** {row.get('assign_date','')} | **發布：** {row.get('author_name','')} | **執行：** {row.get('worker_name','')} | **預計完工：** {row.get('expected_date','')}\n\n**📝 內容：** {desc}")
-
-            with m2:
-                if st.button("🟢 點我完工", key=f"finish_btn_{tid}", use_container_width=True):
-                    try:
-                        conn = get_conn()
-                        conn.execute("UPDATE project_tasks SET is_finished=1, finish_date=? WHERE id=?", (datetime.now().strftime("%Y-%m-%d"), tid))
-                        conn.commit()
-                        conn.close()
-                        sync_to_github("Finish Project Task")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"完工更新失敗：{e}")
-
-            with m3.popover("📝 編輯", use_container_width=True):
-                e_order = st.text_input("修改製令", value=row.get('order_no') or "", key=f"e_ord_{tid}")
-                e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row.get('author_name') in author_options else 0, key=f"e_auth_{tid}")
-                e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row.get('worker_name') in worker_options else 0, key=f"e_work_{tid}")
-                e_content = st.text_area("修改執行內容", value=row.get('task_content') or "", key=f"e_cont_{tid}")
-                if st.button("💾 儲存修改", key=f"save_{tid}", use_container_width=True):
-                    try:
-                        conn = get_conn()
-                        conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", (e_order, e_author, e_worker, e_content, tid))
-                        conn.commit()
-                        conn.close()
-                        sync_to_github("Edit Project Task")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"儲存修改失敗：{e}")
-
-            with m4.popover("🗑️ 刪除", use_container_width=True):
-                if st.button("🚨 確定刪除", key=f"del_{tid}", use_container_width=True):
-                    try:
-                        conn = get_conn()
-                        conn.execute("UPDATE project_tasks SET is_deleted=1 WHERE id=?", (tid,))
-                        conn.commit()
-                        conn.close()
-                        sync_to_github("Delete Project Task")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"刪除失敗：{e}")
-
-    # --- 🟢 已完工歷史專案清單 ---
-    st.markdown("---")
-    st.markdown("### 🟢 已完工歷史專案清單")
     conn = get_conn()
-    df_finished = pd.read_sql("""
+    active_projects = pd.read_sql("""
         SELECT * FROM project_tasks 
-        WHERE COALESCE(is_finished, 0) = 1 
-          AND COALESCE(is_deleted, 0) = 0 
+        WHERE is_finished = 0 AND is_deleted = 0 
         ORDER BY id DESC
     """, conn)
     conn.close()
 
-    if df_finished.empty:
-        st.caption("目前尚無已完工的歷史專案。")
+    if active_projects.empty:
+        st.info("目前尚無進行中的專案任務。")
     else:
-        for _, row in df_finished.iterrows():
-            tid = safe_int(row.get('id'))
-            if tid == 0: continue
-            desc = row.get('task_content') or "無執行內容"
-            m1, m2, m3 = st.columns([8, 1.5, 1.5])
-            m1.success(f"✅ **製令：** {row.get('order_no','')} | **發布：** {row.get('author_name','')} | **執行：** {row.get('worker_name','')} | **實際完工：** {row.get('finish_date','')}\n\n**📝 內容：** {desc}")
-            
-            with m2.popover("📝 編輯", use_container_width=True):
-                e_order = st.text_input("修改製令", value=row.get('order_no') or "", key=f"f_ord_{tid}")
-                e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row.get('author_name') in author_options else 0, key=f"f_auth_{tid}")
-                e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row.get('worker_name') in worker_options else 0, key=f"f_work_{tid}")
-                e_content = st.text_area("修改執行內容", value=row.get('task_content') or "", key=f"f_cont_{tid}")
-                if st.button("💾 儲存修改", key=f"fsave_{tid}", use_container_width=True):
-                    try:
+        for _, proj in active_projects.iterrows():
+            pid = proj['id']
+            with st.container(border=True):
+                c1, c2, c3 = st.columns([6, 2, 2])
+                with c1:
+                    st.markdown(f"#### 📌 製令：{proj['order_no']}")
+                    st.markdown(f"👤 **發布人**：{proj['author_name']} ｜ 👷 **執行人**：{proj['worker_name']}")
+                    st.markdown(f"📅 **指派日**：{proj['assign_date']} ｜ ⏱️ **預計完工**：{proj['expected_date']}")
+                    st.markdown(f"📝 **專案內容**：\n{proj['task_content']}")
+                
+                with c2:
+                    if st.button("🟢 點我完工", key=f"p_finish_{pid}", use_container_width=True):
+                        now_str = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
                         conn = get_conn()
-                        conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", (e_order, e_author, e_worker, e_content, tid))
+                        conn.execute("UPDATE project_tasks SET is_finished = 1, finish_date = ? WHERE id = ?", (now_str, pid))
                         conn.commit()
                         conn.close()
-                        sync_to_github("Edit Finished Project Task")
+                        sync_to_github(f"Finish Project {pid}")
+                        st.success("專案已標記完工！")
+                        time.sleep(0.5)
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"儲存修改失敗：{e}")
+
+                with c3:
+                    with st.popover("📝 編輯", use_container_width=True):
+                        edit_ord = st.text_input("修改製令", value=proj['order_no'], key=f"e_ord_{pid}")
+                        edit_aut = st.selectbox("修改發布人", staff_options, index=staff_options.index(proj['author_name']) if proj['author_name'] in staff_options else 0, key=f"e_aut_{pid}")
+                        edit_wor = st.selectbox("修改執行人", staff_options, index=staff_options.index(proj['worker_name']) if proj['worker_name'] in staff_options else 0, key=f"e_wor_{pid}")
+                        edit_cnt = st.text_area("修改內容", value=proj['task_content'], key=f"e_cnt_{pid}")
                         
-            with m3.popover("🗑️ 刪除", use_container_width=True):
-                if st.button("🚨 確定刪除", key=f"fdel_{tid}", use_container_width=True):
-                    try:
+                        if st.button("💾 儲存修改", key=f"e_save_{pid}"):
+                            conn = get_conn()
+                            conn.execute("""
+                                UPDATE project_tasks 
+                                SET order_no = ?, author_name = ?, worker_name = ?, task_content = ? 
+                                WHERE id = ?
+                            """, (edit_ord, edit_aut, edit_wor, edit_cnt, pid))
+                            conn.commit()
+                            conn.close()
+                            sync_to_github(f"Edit Project {pid}")
+                            st.rerun()
+
+                    if st.button("🗑️ 刪除", key=f"p_del_{pid}", use_container_width=True):
                         conn = get_conn()
-                        conn.execute("UPDATE project_tasks SET is_deleted=1 WHERE id=?", (tid,))
+                        conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (pid,))
                         conn.commit()
                         conn.close()
-                        sync_to_github("Delete Finished Project Task")
+                        sync_to_github(f"Delete Project {pid}")
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"刪除失敗：{e}")
+
+    st.markdown("---")
+
+    # --- 3. 🟢 已完工歷史專案清單 ---
+    st.markdown("### 🟢 已完工歷史專案清單")
+    conn = get_conn()
+    finished_projects = pd.read_sql("""
+        SELECT * FROM project_tasks 
+        WHERE is_finished = 1 AND is_deleted = 0 
+        ORDER BY id DESC
+    """, conn)
+    conn.close()
+
+    if finished_projects.empty:
+        st.caption("目前尚無已完工的歷史專案紀錄。")
+    else:
+        for _, proj in finished_projects.iterrows():
+            pid = proj['id']
+            with st.expander(f"✅ [{proj['finish_date']}] 製令：{proj['order_no']} (執行人：{proj['worker_name']})"):
+                st.write(f"📅 **指派日期**：{proj['assign_date']} ｜ **預計完工**：{proj['expected_date']}")
+                st.write(f"👤 **發布人**：{proj['author_name']}")
+                st.write(f"📝 **詳細內容**：\n{proj['task_content']}")
+                
+                col_f1, col_f2 = st.columns([1, 1])
+                with col_f1:
+                    if st.button("↩️ 恢復為進行中", key=f"p_restore_{pid}"):
+                        conn = get_conn()
+                        conn.execute("UPDATE project_tasks SET is_finished = 0, finish_date = '' WHERE id = ?", (pid,))
+                        conn.commit()
+                        conn.close()
+                        sync_to_github(f"Restore Project {pid}")
+                        st.rerun()
+                with col_f2:
+                    if st.button("🗑️ 刪除紀錄", key=f"p_fdel_{pid}"):
+                        conn = get_conn()
+                        conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (pid,))
+                        conn.commit()
+                        conn.close()
+                        sync_to_github(f"Delete Finished Project {pid}")
+                        st.rerun()
 
 # 4. 撰寫一般公告
 elif menu == "✍️ 撰寫新公告":
