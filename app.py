@@ -509,46 +509,6 @@ elif menu == "🔴 專案管理首頁":
         }}
         </style>
     """, unsafe_allow_html=True)
-    
-    # 專案資料備份與還原功能區塊
-    with st.expander("💾 專案資料安全備份與還原工具 (點擊展開)"):
-        b_col1, b_col2 = st.columns(2)
-        with b_col1:
-            st.markdown("##### 📥 導出專案備份檔")
-            conn = get_conn()
-            backup_df = pd.read_sql("SELECT * FROM project_tasks", conn)
-            conn.close()
-            
-            if not backup_df.empty:
-                csv_backup = backup_df.to_csv(index=False).encode('utf-8-sig')
-                st.download_button(
-                    label="💾 下載專案備份檔 (.csv)",
-                    data=csv_backup,
-                    file_name=f"project_tasks_backup_{datetime.today().strftime('%Y%m%d')}.csv",
-                    mime="text/csv",
-                    key="download_project_backup"
-                )
-            else:
-                st.info("目前尚無專案資料可供備份。")
-                
-        with b_col2:
-            st.markdown("##### 📤 還原專案資料")
-            uploaded_backup = st.file_uploader("上傳先前備份的 CSV 檔來還原資料", type=['csv'], key="upload_project_backup")
-            if uploaded_backup is not None:
-                if st.button("🔄 確認執行還原覆蓋", key="confirm_restore_btn"):
-                    try:
-                        restore_df = pd.read_csv(uploaded_backup)
-                        conn = get_conn()
-                        restore_df.to_sql('project_tasks', conn, if_exists='replace', index=False)
-                        conn.close()
-                        sync_to_github("Restore Project Backup")
-                        st.success("✅ 專案資料已成功還原！")
-                        time.sleep(0.5)
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"⚠️ 還原失敗，檔案格式不符：{e}")
-
-    st.markdown("---")
 
     # 讀取人員對照表設定
     conn = get_conn()
@@ -572,36 +532,34 @@ elif menu == "🔴 專案管理首頁":
     if not author_options: author_options = ["請先到下方設定對照表"]
     if not worker_options: worker_options = ["請先到下方設定對照表"]
 
-    # --- ✍️ 新增專案任務表單 ---
+    # --- ✍️ 新增專案任務區塊 ---
     st.markdown("### ✍️ 新增專案任務")
-    with st.form("add_project_form_unique", clear_on_submit=True):
-        c1, c2, c3 = st.columns(3)
-        p_order = c1.text_input("製令編號")
-        p_assign = c2.date_input("指派日", value=datetime.today())
-        p_expect = c3.date_input("預計完工日", value=datetime.today() + timedelta(days=7))
-        c4, c5 = st.columns(2)
-        p_author = c4.selectbox("發布人", author_options)
-        p_worker = c5.selectbox("執行人", worker_options)
-        p_content = st.text_area("📝 執行內容")
-        submitted = st.form_submit_button("➕ 新增專案")
-        
-        if submitted:
-            if p_order.strip() and p_content.strip():
-                conn_add = sqlite3.connect('bulletin.db', check_same_thread=False)
-                c_add = conn_add.cursor()
-                c_add.execute("""
-                    INSERT INTO project_tasks 
-                    (order_no, assign_date, author_name, worker_name, expected_date, task_content, finish_date, is_finished, is_deleted) 
-                    VALUES (?, ?, ?, ?, ?, ?, '', 0, 0)
-                """, (p_order.strip(), str(p_assign), p_author, p_worker, str(p_expect), p_content.strip()))
-                conn_add.commit()
-                conn_add.close()
-                sync_to_github("Add Project Task")
-                st.success("✅ 專案已成功新增！")
-                time.sleep(0.3)
-                st.rerun()
-            else:
-                st.error("⚠️ 「製令編號」與「執行內容」為必填項目！")
+    c1, c2, c3 = st.columns(3)
+    p_order = c1.text_input("製令編號", key="add_p_order")
+    p_assign = c2.date_input("指派日", value=datetime.today(), key="add_p_assign")
+    p_expect = c3.date_input("預計完工日", value=datetime.today() + timedelta(days=7), key="add_p_expect")
+    c4, c5 = st.columns(2)
+    p_author = c4.selectbox("發布人", author_options, key="add_p_author")
+    p_worker = c5.selectbox("執行人", worker_options, key="add_p_worker")
+    p_content = st.text_area("📝 執行內容", key="add_p_content")
+    
+    if st.button("➕ 新增專案", type="primary", use_container_width=True, key="btn_add_project_direct"):
+        if p_order.strip() and p_content.strip():
+            conn_add = sqlite3.connect('bulletin.db', check_same_thread=False)
+            c_add = conn_add.cursor()
+            c_add.execute("""
+                INSERT INTO project_tasks 
+                (order_no, assign_date, author_name, worker_name, expected_date, task_content, finish_date, is_finished, is_deleted) 
+                VALUES (?, ?, ?, ?, ?, ?, '', 0, 0)
+            """, (p_order.strip(), str(p_assign), p_author, p_worker, str(p_expect), p_content.strip()))
+            conn_add.commit()
+            conn_add.close()
+            sync_to_github("Add Project Task")
+            st.success("✅ 專案已成功新增！")
+            time.sleep(0.3)
+            st.rerun()
+        else:
+            st.error("⚠️ 「製令編號」與「執行內容」為必填項目！")
 
     # --- 🟡 進行中清單：強迫從 SQLite 讀取未完成/未刪除項目 ---
     st.markdown("---")
@@ -628,9 +586,7 @@ elif menu == "🔴 專案管理首頁":
             m1.info(f"**製令：** {row.get('order_no','')} | **發布：** {row.get('author_name','')} | **執行：** {row.get('worker_name','')} | **預計完工：** {row.get('expected_date','')}\n\n**📝 內容：** {desc}")
 
             with m2:
-                with st.form(key=f"finish_form_{tid}"):
-                    finish_clicked = st.form_submit_button("🟢 點我完工", use_container_width=True)
-                if finish_clicked:
+                if st.button("🟢 點我完工", key=f"finish_btn_{tid}", use_container_width=True):
                     try:
                         conn = get_conn()
                         conn.execute("UPDATE project_tasks SET is_finished=1, finish_date=? WHERE id=?", (datetime.now().strftime("%Y-%m-%d"), tid))
