@@ -983,139 +983,147 @@ elif menu == "📜 所有紀錄":
     st.dataframe(df_quality[['date', 'order_no', 'category', 'staff_name', 'content', '狀態']], use_container_width=True)
     conn.close()
 
-# 7. 管理後台
+# 7. 管理後台 (加入密碼 0000 驗證防護)
 elif menu == "⚙️ 管理後台":
-    st.subheader("🛠️ 管理系統")
-    t1, t2, t3, t4 = st.tabs(["公告管理", "品質紀錄管理", "人員管理", "待處理事項管理"])
- 
-    with t1:
-        conn = get_conn()
-        df = pd.read_sql("SELECT * FROM posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
-        conn.close()
-        for _, r in df.iterrows():
-            c1, c2, c3 = st.columns([6, 2, 2])
-            c1.write(f"[{r['date']}] {r['content'][:20]}...")
-            with c2.popover("📝 編輯"):
-                try:
-                    curr_date_val = datetime.strptime(r['date'].split(" ")[0], '%Y-%m-%d').date()
-                except:
-                    curr_date_val = datetime.today().date()
-                new_post_date = st.date_input("修改日期", value=curr_date_val, key=f"ep_date_{r['id']}")
-                
-                nc = st.text_area("修改內容", value=r['content'], key=f"ep_{r['id']}")
-                if st.button("💾 儲存", key=f"sp_{r['id']}"):
+    st.subheader("🛠️ 管理系統安全驗證")
+    admin_pwd = st.text_input("🔑 請輸入管理後台存取密碼", type="password", key="admin_global_pwd")
+    
+    if admin_pwd == "0000":
+        st.success("✅ 密碼正確，歡迎進入管理後台！")
+        t1, t2, t3, t4 = st.tabs(["公告管理", "品質紀錄管理", "人員管理", "待處理事項管理"])
+     
+        with t1:
+            conn = get_conn()
+            df = pd.read_sql("SELECT * FROM posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
+            conn.close()
+            for _, r in df.iterrows():
+                c1, c2, c3 = st.columns([6, 2, 2])
+                c1.write(f"[{r['date']}] {r['content'][:20]}...")
+                with c2.popover("📝 編輯"):
+                    try:
+                        curr_date_val = datetime.strptime(r['date'].split(" ")[0], '%Y-%m-%d').date()
+                    except:
+                        curr_date_val = datetime.today().date()
+                    new_post_date = st.date_input("修改日期", value=curr_date_val, key=f"ep_date_{r['id']}")
+                    
+                    nc = st.text_area("修改內容", value=r['content'], key=f"ep_{r['id']}")
+                    if st.button("💾 儲存", key=f"sp_{r['id']}"):
+                        conn = get_conn()
+                        formatted_date = new_post_date.strftime('%Y-%m-%d')
+                        if " " in r['date']: 
+                            formatted_date += " " + r['date'].split(" ", 1)[1]
+                        conn.execute("UPDATE posts SET date = ?, content = ? WHERE id = ?", (formatted_date, nc, r['id']))
+                        conn.commit(); conn.close()
+                        sync_to_github("Edit Post - 20260705030"); st.rerun()
+                if c3.button("🗑️ 刪除", key=f"dp_{r['id']}"):
+                    conn = get_conn(); conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Post - 20260705030"); st.rerun()
+
+        with t2:
+            conn = get_conn()
+            df_q = pd.read_sql("SELECT * FROM quality_posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
+            staff_list = pd.read_sql("SELECT name FROM staff", conn)['name'].tolist()
+            conn.close()
+            cat_options = ["零件異常", "外觀異常", "組裝問題", "流程問題", "其他"]
+            for _, r in df_q.iterrows():
+                qc1, qc2, qc3 = st.columns([6, 2, 2])
+                qc1.write(f"[{r['date']}] 製令:{r['order_no']} | 人員:{r['staff_name']}")
+                with qc2.popover("📝 編輯"):
+                    try:
+                        curr_q_date_val = datetime.strptime(r['date'].split(" ")[0], '%Y-%m-%d').date()
+                    except:
+                        curr_q_date_val = datetime.today().date()
+                    new_q_date = st.date_input("修改日期", value=curr_q_date_val, key=f"uq_date_{r['id']}")
+                    
+                    new_order = st.text_input("製令編號", value=r['order_no'], key=f"uo_{r['id']}")
+                    try: curr_cat_idx = cat_options.index(r['category'])
+                    except: curr_cat_idx = 0
+                    new_cat = st.selectbox("分類", cat_options, index=curr_cat_idx, key=f"uc_{r['id']}")
+                    try: curr_staff_idx = staff_list.index(r['staff_name'])
+                    except: curr_staff_idx = 0
+                    new_staff = st.selectbox("人員", staff_list, index=curr_staff_idx, key=f"us_{r['id']}") if staff_list else st.text_input("人員", value=r['staff_name'], key=f"us_{r['id']}")
+                    new_content = st.text_area("內容", value=r['content'], key=f"ucont_{r['id']}")
+                    new_img = st.file_uploader("🖼️ 更新照片 (不選則保留原圖)", type=['jpg', 'png', 'jpeg'], key=f"uimg_{r['id']}")
+                    if st.button("💾 儲存修改", key=f"save_q_{r['id']}"):
+                        p = r['image_path']
+                        if new_img:
+                            p = f"{IMAGE_FOLDER}/q_{datetime.now().strftime('%Y%m%d%H%M%S')}_{new_img.name}"
+                            with open(p, "wb") as f: f.write(new_img.getbuffer())
+                        conn = get_conn()
+                        formatted_q_date = new_q_date.strftime('%Y-%m-%d')
+                        if " " in r['date']: 
+                            formatted_q_date += " " + r['date'].split(" ", 1)[1]
+                        conn.execute("UPDATE quality_posts SET date=?, order_no=?, category=?, staff_name=?, content=?, image_path=? WHERE id=?", 
+                                     (formatted_q_date, new_order, new_cat, new_staff, new_content, p, r['id']))
+                        conn.commit(); conn.close(); sync_to_github("Edit Quality - 20260705030"); st.rerun()
+                if qc3.button("🗑️ 刪除", key=f"dq_{r['id']}"):
+                    conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality - 20260705030"); st.rerun()
+
+        with t3:
+            st.write("### 👥 人員名單管理")
+            new_n = st.text_input("輸入新人員姓名")
+            if st.button("➕ 新增人員"):
+                if new_n:
                     conn = get_conn()
-                    formatted_date = new_post_date.strftime('%Y-%m-%d')
-                    if " " in r['date']: 
-                        formatted_date += " " + r['date'].split(" ", 1)[1]
-                    conn.execute("UPDATE posts SET date = ?, content = ? WHERE id = ?", (formatted_date, nc, r['id']))
-                    conn.commit(); conn.close()
-                    sync_to_github("Edit Post - 20260705030"); st.rerun()
-            if c3.button("🗑️ 刪除", key=f"dp_{r['id']}"):
-                conn = get_conn(); conn.execute("UPDATE posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Post - 20260705030"); st.rerun()
+                    try:
+                        conn.execute("INSERT INTO staff (name) VALUES (?)", (new_n,))
+                        conn.commit(); conn.close(); sync_to_github(f"Add {new_n} - 20260705030"); st.rerun()
+                    except: conn.close(); st.error("人員已存在")
+            st.markdown("---")
+            conn = get_conn()
+            curr_df = pd.read_sql("SELECT * FROM staff", conn)
+            conn.close()
+            for _, row in curr_df.iterrows():
+                col1, col2 = st.columns([8, 2])
+                col1.write(f"👤 {row['name']}")
+                if col2.button("🗑️ 刪除人員", key=f"ds_{row['id']}"):
+                    conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff - 20260705030"); st.rerun()
 
-    with t2:
-        conn = get_conn()
-        df_q = pd.read_sql("SELECT * FROM quality_posts WHERE is_deleted = 0 ORDER BY id DESC", conn)
-        staff_list = pd.read_sql("SELECT name FROM staff", conn)['name'].tolist()
-        conn.close()
-        cat_options = ["零件異常", "外觀異常", "組裝問題", "流程問題", "其他"]
-        for _, r in df_q.iterrows():
-            qc1, qc2, qc3 = st.columns([6, 2, 2])
-            qc1.write(f"[{r['date']}] 製令:{r['order_no']} | 人員:{r['staff_name']}")
-            with qc2.popover("📝 編輯"):
-                try:
-                    curr_q_date_val = datetime.strptime(r['date'].split(" ")[0], '%Y-%m-%d').date()
-                except:
-                    curr_q_date_val = datetime.today().date()
-                new_q_date = st.date_input("修改日期", value=curr_q_date_val, key=f"uq_date_{r['id']}")
+        with t4:
+            st.write("### 📝 新增待處理事項")
+            with st.form("task_form", clear_on_submit=True):
+                col_a, col_b = st.columns(2)
+                t_date = col_a.date_input("日期")
+                t_order = col_b.text_input("製令編號")
+                t_msg = st.text_area("待處理項目內容")
+                if st.form_submit_button("➕ 新增到清單"):
+                    if t_order and t_msg:
+                        conn = get_conn()
+                        conn.execute("INSERT INTO pending_tasks (date, order_no, task_content) VALUES (?, ?, ?)", 
+                                     (str(t_date), t_order, t_msg))
+                        conn.commit(); conn.close(); sync_to_github("Add Task - 20260705030"); st.rerun()
+
+            st.markdown("---")
+            st.write("### ⏳ 目前待處理清單")
+            conn = get_conn()
+            active_tasks = pd.read_sql("SELECT * FROM pending_tasks WHERE status = '待處理' ORDER BY date ASC", conn)
+            conn.close()
+            for _, task in active_tasks.iterrows():
+                tc1, tc2, tc3 = st.columns([6, 2, 2])
+                tc1.warning(f"📅 {task['date']} | 製令: {task['order_no']} \n\n內容: {task['task_content']}")
                 
-                new_order = st.text_input("製令編號", value=r['order_no'], key=f"uo_{r['id']}")
-                try: curr_cat_idx = cat_options.index(r['category'])
-                except: curr_cat_idx = 0
-                new_cat = st.selectbox("分類", cat_options, index=curr_cat_idx, key=f"uc_{r['id']}")
-                try: curr_staff_idx = staff_list.index(r['staff_name'])
-                except: curr_staff_idx = 0
-                new_staff = st.selectbox("人員", staff_list, index=curr_staff_idx, key=f"us_{r['id']}") if staff_list else st.text_input("人員", value=r['staff_name'], key=f"us_{r['id']}")
-                new_content = st.text_area("內容", value=r['content'], key=f"ucont_{r['id']}")
-                new_img = st.file_uploader("🖼️ 更新照片 (不選則保留原圖)", type=['jpg', 'png', 'jpeg'], key=f"uimg_{r['id']}")
-                if st.button("💾 儲存修改", key=f"save_q_{r['id']}"):
-                    p = r['image_path']
-                    if new_img:
-                        p = f"{IMAGE_FOLDER}/q_{datetime.now().strftime('%Y%m%d%H%M%S')}_{new_img.name}"
-                        with open(p, "wb") as f: f.write(new_img.getbuffer())
+                with tc2.popover("📝 編輯"):
+                    try: curr_d = datetime.strptime(task['date'], '%Y-%m-%d')
+                    except: curr_d = datetime.now()
+                    
+                    e_date = st.date_input("修改日期", value=curr_d, key=f"edt_{task['id']}")
+                    e_order = st.text_input("修改製令", value=task['order_no'], key=f"eord_{task['id']}")
+                    e_task = st.text_area("修改內容", value=task['task_content'], key=f"etxt_{task['id']}")
+                    
+                    if st.button("💾 儲存修改", key=f"esv_{task['id']}"):
+                        conn = get_conn()
+                        conn.execute("UPDATE pending_tasks SET date=?, order_no=?, task_content=? WHERE id=?", 
+                                     (str(e_date), e_order, e_task, task['id']))
+                        conn.commit(); conn.close(); sync_to_github("Edit Task - 20260705030"); st.rerun()
+
+                if tc3.button("✅ 完成", key=f"finish_{task['id']}"):
+                    now_t = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
                     conn = get_conn()
-                    formatted_q_date = new_q_date.strftime('%Y-%m-%d')
-                    if " " in r['date']: 
-                        formatted_q_date += " " + r['date'].split(" ", 1)[1]
-                    conn.execute("UPDATE quality_posts SET date=?, order_no=?, category=?, staff_name=?, content=?, image_path=? WHERE id=?", 
-                                 (formatted_q_date, new_order, new_cat, new_staff, new_content, p, r['id']))
-                    conn.commit(); conn.close(); sync_to_github("Edit Quality - 20260705030"); st.rerun()
-            if qc3.button("🗑️ 刪除", key=f"dq_{r['id']}"):
-                conn = get_conn(); conn.execute("UPDATE quality_posts SET is_deleted = 1 WHERE id = ?", (r['id'],)); conn.commit(); conn.close(); sync_to_github("Del Quality - 20260705030"); st.rerun()
-
-    with t3:
-        st.write("### 👥 人員名單管理")
-        new_n = st.text_input("輸入新人員姓名")
-        if st.button("➕ 新增人員"):
-            if new_n:
-                conn = get_conn()
-                try:
-                    conn.execute("INSERT INTO staff (name) VALUES (?)", (new_n,))
-                    conn.commit(); conn.close(); sync_to_github(f"Add {new_n} - 20260705030"); st.rerun()
-                except: conn.close(); st.error("人員已存在")
-        st.markdown("---")
-        conn = get_conn()
-        curr_df = pd.read_sql("SELECT * FROM staff", conn)
-        conn.close()
-        for _, row in curr_df.iterrows():
-            col1, col2 = st.columns([8, 2])
-            col1.write(f"👤 {row['name']}")
-            if col2.button("🗑️ 刪除人員", key=f"ds_{row['id']}"):
-                conn = get_conn(); conn.execute("DELETE FROM staff WHERE id = ?", (row['id'],)); conn.commit(); conn.close(); sync_to_github("Remove Staff - 20260705030"); st.rerun()
-
-    with t4:
-        st.write("### 📝 新增待處理事項")
-        with st.form("task_form", clear_on_submit=True):
-            col_a, col_b = st.columns(2)
-            t_date = col_a.date_input("日期")
-            t_order = col_b.text_input("製令編號")
-            t_msg = st.text_area("待處理項目內容")
-            if st.form_submit_button("➕ 新增到清單"):
-                if t_order and t_msg:
-                    conn = get_conn()
-                    conn.execute("INSERT INTO pending_tasks (date, order_no, task_content) VALUES (?, ?, ?)", 
-                                 (str(t_date), t_order, t_msg))
-                    conn.commit(); conn.close(); sync_to_github("Add Task - 20260705030"); st.rerun()
-
-        st.markdown("---")
-        st.write("### ⏳ 目前待處理清單")
-        conn = get_conn()
-        active_tasks = pd.read_sql("SELECT * FROM pending_tasks WHERE status = '待處理' ORDER BY date ASC", conn)
-        conn.close()
-        for _, task in active_tasks.iterrows():
-            tc1, tc2, tc3 = st.columns([6, 2, 2])
-            tc1.warning(f"📅 {task['date']} | 製令: {task['order_no']} \n\n內容: {task['task_content']}")
-            
-            with tc2.popover("📝 編輯"):
-                try: curr_d = datetime.strptime(task['date'], '%Y-%m-%d')
-                except: curr_d = datetime.now()
-                
-                e_date = st.date_input("修改日期", value=curr_d, key=f"edt_{task['id']}")
-                e_order = st.text_input("修改製令", value=task['order_no'], key=f"eord_{task['id']}")
-                e_task = st.text_area("修改內容", value=task['task_content'], key=f"etxt_{task['id']}")
-                
-                if st.button("💾 儲存修改", key=f"esv_{task['id']}"):
-                    conn = get_conn()
-                    conn.execute("UPDATE pending_tasks SET date=?, order_no=?, task_content=? WHERE id=?", 
-                                 (str(e_date), e_order, e_task, task['id']))
-                    conn.commit(); conn.close(); sync_to_github("Edit Task - 20260705030"); st.rerun()
-
-            if tc3.button("✅ 完成", key=f"finish_{task['id']}"):
-                now_t = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M")
-                conn = get_conn()
-                conn.execute("UPDATE pending_tasks SET status='已完成', complete_date=? WHERE id=?", (now_t, task['id']))
-                conn.commit(); conn.close(); sync_to_github("Finish Task - 20260705030"); st.rerun()
+                    conn.execute("UPDATE pending_tasks SET status='已完成', complete_date=? WHERE id=?", (now_t, task['id']))
+                    conn.commit(); conn.close(); sync_to_github("Finish Task - 20260705030"); st.rerun()
+    elif admin_pwd != "":
+        st.error("❌ 密碼錯誤！請輸入正確的管理後台密碼 (0000)。")
+    else:
+        st.info("🔒 請輸入密碼以解鎖管理後台功能。")
 
 # =========================================================
 # 🎀 助理績效考核區
