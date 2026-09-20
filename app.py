@@ -472,7 +472,7 @@ elif menu == "🛠️ 製造部待處理清單":
                 st.markdown(f"<div class='large-text-content'><b>📋 任務內容：</b>\n{t_content}</div>", unsafe_allow_html=True)
 
 # =========================================================
-# 🔴 專案管理首頁 (修復：專案新增與進行中專案穩定顯示)
+# 🔴 專案管理首頁 (重構優化版：保留 🟡進行中 與 🟢已完工 清單)
 # =========================================================
 elif menu == "🔴 專案管理首頁":
     st.subheader("📋 專案進度追蹤看板")
@@ -499,7 +499,7 @@ elif menu == "🔴 專案管理首頁":
         </style>
     """, unsafe_allow_html=True)
 
-    # 讀取人員清單
+    # 讀取人員與對應關係選單
     conn = get_conn()
     s_df = pd.read_sql("SELECT name FROM staff", conn)
     staff_options = s_df['name'].tolist() if not s_df.empty else ["無人員資料"]
@@ -524,7 +524,7 @@ elif menu == "🔴 專案管理首頁":
     if not author_options: author_options = staff_options
     if not worker_options: worker_options = staff_options
 
-    # --- ✍️ 新增專案任務區塊 ---
+    # --- ✍️ 新增專案任務 ---
     with st.expander("✍️ 新增專案任務", expanded=True):
         c1, c2, c3 = st.columns(3)
         p_order = c1.text_input("製令編號", key="add_p_order")
@@ -537,7 +537,7 @@ elif menu == "🔴 專案管理首頁":
         
         if st.button("➕ 確定新增專案", type="primary", use_container_width=True, key="btn_add_project_direct"):
             if p_order.strip() and p_content.strip():
-                conn_add = sqlite3.connect('bulletin.db', check_same_thread=False)
+                conn_add = get_conn()
                 c_add = conn_add.cursor()
                 c_add.execute("""
                     INSERT INTO project_tasks 
@@ -557,7 +557,7 @@ elif menu == "🔴 專案管理首頁":
     st.markdown("---")
     st.markdown("### 🟡 進行中專案清單")
     
-    conn_read = sqlite3.connect('bulletin.db', check_same_thread=False)
+    conn_read = get_conn()
     df_active = pd.read_sql("""
         SELECT * FROM project_tasks 
         WHERE COALESCE(is_finished, 0) = 0 
@@ -571,11 +571,10 @@ elif menu == "🔴 專案管理首頁":
     else:
         for _, row in df_active.iterrows():
             tid = safe_int(row.get('id'))
-            if tid == 0:
-                continue
+            if tid == 0: continue
             desc = row.get('task_content') or "未填寫執行內容"
             m1, m2, m3, m4 = st.columns([5, 1.5, 1.5, 1.5])
-            m1.info(f"**製令：** {row.get('order_no','')} | **發布：** {row.get('author_name','')} | **執行：** {row.get('worker_name','')} | **預計完工：** {row.get('expected_date','')}\n\n**📝 內容：** {desc}")
+            m1.info(f"**製令：** {row.get('order_no','')} | **指派日：** {row.get('assign_date','')} | **發布：** {row.get('author_name','')} | **執行：** {row.get('worker_name','')} | **預計完工：** {row.get('expected_date','')}\n\n**📝 內容：** {desc}")
 
             with m2:
                 if st.button("🟢 點我完工", key=f"finish_btn_{tid}", use_container_width=True):
@@ -621,7 +620,12 @@ elif menu == "🔴 專案管理首頁":
     st.markdown("---")
     st.markdown("### 🟢 已完工歷史專案清單")
     conn = get_conn()
-    df_finished = pd.read_sql("SELECT * FROM project_tasks WHERE COALESCE(is_finished, 0) = 1 AND COALESCE(is_deleted, 0) = 0 ORDER BY id DESC", conn)
+    df_finished = pd.read_sql("""
+        SELECT * FROM project_tasks 
+        WHERE COALESCE(is_finished, 0) = 1 
+          AND COALESCE(is_deleted, 0) = 0 
+        ORDER BY id DESC
+    """, conn)
     conn.close()
 
     if df_finished.empty:
@@ -629,11 +633,11 @@ elif menu == "🔴 專案管理首頁":
     else:
         for _, row in df_finished.iterrows():
             tid = safe_int(row.get('id'))
-            if tid == 0:
-                continue
+            if tid == 0: continue
             desc = row.get('task_content') or "無執行內容"
             m1, m2, m3 = st.columns([8, 1.5, 1.5])
-            m1.info(f"✅ **製令：** {row.get('order_no','')} | **發布：** {row.get('author_name','')} | **執行：** {row.get('worker_name','')} | **實際完工：** {row.get('finish_date','')}\n\n**📝 內容：** {desc}")
+            m1.success(f"✅ **製令：** {row.get('order_no','')} | **發布：** {row.get('author_name','')} | **執行：** {row.get('worker_name','')} | **實際完工：** {row.get('finish_date','')}\n\n**📝 內容：** {desc}")
+            
             with m2.popover("📝 編輯", use_container_width=True):
                 e_order = st.text_input("修改製令", value=row.get('order_no') or "", key=f"f_ord_{tid}")
                 e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row.get('author_name') in author_options else 0, key=f"f_auth_{tid}")
@@ -649,6 +653,7 @@ elif menu == "🔴 專案管理首頁":
                         st.rerun()
                     except Exception as e:
                         st.error(f"儲存修改失敗：{e}")
+                        
             with m3.popover("🗑️ 刪除", use_container_width=True):
                 if st.button("🚨 確定刪除", key=f"fdel_{tid}", use_container_width=True):
                     try:
