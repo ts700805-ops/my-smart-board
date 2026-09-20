@@ -221,7 +221,7 @@ with st.sidebar:
             "⚠️ 品質異常首頁",
             "🛠️ 製造部待處理清單",
             "🔴 專案管理首頁",
-            "🟢 專案2管理首頁",
+            "🟢 二課專案管理首頁",
             "🎀 助理績效考核區",
             "--------------------", 
             "✍️ 撰寫新公告", 
@@ -663,20 +663,20 @@ elif menu == "🔴 專案管理首頁":
                         st.error(f"刪除失敗：{e}")
 
 # =========================================================
-# 🟢 專案2管理首頁 (卡片直接編輯 + 免視窗)
+# 🟢 二課專案管理首頁 (卡片直接編輯 + 免視窗，內容依字數自動調整大小)
 # =========================================================
-elif menu == "🟢 專案2管理首頁":
-    st.subheader("🟢 專案2管理首頁")
+elif menu == "🟢 二課專案管理首頁":
+    st.subheader("🟢 二課專案管理首頁")
     
     conn = get_conn()
     s_df = pd.read_sql("SELECT name FROM staff", conn)
     staff_options = s_df['name'].tolist() if not s_df.empty else ["無人員資料"]
     conn.close()
 
-    # --- ✍️ 新增專案2任務 ---
-    with st.expander("✍️ 新增專案2任務", expanded=True):
+    # --- ✍️ 新增二課專案任務 ---
+    with st.expander("✍️ 新增二課專案任務", expanded=True):
         c1, c2, c3 = st.columns(3)
-        p2_order = c1.text_input("專案2-製令編號", key="add_p2_order")
+        p2_order = c1.text_input("二課專案-製令編號", key="add_p2_order")
         p2_assign = c2.date_input("指派日期", value=datetime.today(), key="add_p2_assign")
         p2_expect = c3.date_input("預計完工日", value=datetime.today() + timedelta(days=7), key="add_p2_expect")
         
@@ -684,9 +684,9 @@ elif menu == "🟢 專案2管理首頁":
         p2_author = c4.selectbox("發布人員", staff_options, key="add_p2_author")
         p2_worker = c5.selectbox("執行人員", staff_options, key="add_p2_worker")
         
-        p2_content = st.text_area("📝 專案2詳細執行內容 (可在大視窗安心輸入)", height=120, key="add_p2_content")
+        p2_content = st.text_area("📝 二課專案詳細執行內容", height=120, key="add_p2_content")
         
-        if st.button("🚀 確定建立專案2任務", type="primary", use_container_width=True, key="btn_add_p2"):
+        if st.button("🚀 確定建立二課專案任務", type="primary", use_container_width=True, key="btn_add_p2"):
             if p2_order.strip() and p2_content.strip():
                 conn_add = get_conn()
                 c_add = conn_add.cursor()
@@ -698,15 +698,15 @@ elif menu == "🟢 專案2管理首頁":
                 conn_add.commit()
                 conn_add.close()
                 sync_to_github("Add Project 2 Task")
-                st.success("✅ 專案2任務已成功建立並獨立寫入專案2資料庫！")
+                st.success("✅ 二課專案任務已成功建立並獨立寫入資料庫！")
                 time.sleep(0.5)
                 st.rerun()
             else:
                 st.error("⚠️ 請填寫「製令編號」與「執行內容」！")
 
-    # --- 🟡 進行中專案2清單 ---
+    # --- 🟡 進行中二課專案清單 ---
     st.markdown("---")
-    st.markdown("### 🟡 專案2 進行中任務清單")
+    st.markdown("### 🟡 二課專案 進行中任務清單")
     
     conn_read = get_conn()
     df_p2 = pd.read_sql("""
@@ -718,7 +718,7 @@ elif menu == "🟢 專案2管理首頁":
     conn_read.close()
 
     if df_p2.empty:
-        st.info("💡 目前專案2尚無進行中的任務。")
+        st.info("💡 目前二課專案尚無進行中的任務。")
     else:
         for _, row in df_p2.iterrows():
             tid = safe_int(row.get('id'))
@@ -730,11 +730,15 @@ elif menu == "🟢 專案2管理首頁":
                 with col_left:
                     st.markdown(f"🟡 **製令：** `{row.get('order_no','')}` ｜ **指派日：** {row.get('assign_date','')} ｜ **發布：** {row.get('author_name','')} ｜ **執行：** {row.get('worker_name','')}")
                     
-                    # 直接卡片內顯示編輯文字框
+                    # 計算文字行數以自動調整高度，避免使用卷軸拖拉
+                    saved_content = row.get('task_content') or ""
+                    line_count = max(3, saved_content.count('\n') + len(saved_content) // 40 + 1)
+                    calc_height = min(max(line_count * 28, 80), 300)
+
                     e_content = st.text_area(
                         "📝 內容編輯區", 
-                        value=row.get('task_content') or "", 
-                        height=100, 
+                        value=saved_content, 
+                        height=calc_height, 
                         key=f"p2_act_cnt_{tid}"
                     )
                     
@@ -759,7 +763,7 @@ elif menu == "🟢 專案2管理首頁":
                         conn.commit()
                         conn.close()
                         sync_to_github("Finish Project 2 Task")
-                        st.success("專案2任務已完工！")
+                        st.success("二課專案任務已完工！")
                         time.sleep(0.5)
                         st.rerun()
 
@@ -783,9 +787,9 @@ elif menu == "🟢 專案2管理首頁":
                             else:
                                 st.error("❌ 密碼錯誤！請輸入 0000")
 
-    # --- 🟢 專案2已完工歷史紀錄 (直接在大文字框編輯內容 + 存檔) ---
+    # --- 🟢 二課專案已完工歷史紀錄 ---
     st.markdown("---")
-    st.markdown("### 🟢 專案2 已完工歷史紀錄")
+    st.markdown("### 🟢 二課專案 已完工歷史紀錄")
     conn_fin = get_conn()
     df_p2_fin = pd.read_sql("""
         SELECT * FROM project2_tasks 
@@ -808,11 +812,15 @@ elif menu == "🟢 專案2管理首頁":
                 with col_left:
                     st.markdown(f"✅ **製令：** `{row.get('order_no','')}` ｜ **發布：** {row.get('author_name','')} ｜ **執行：** {row.get('worker_name','')} ｜ **完工日：** {row.get('finish_date','')}")
                     
-                    # 直接卡片內顯示編輯文字框
+                    # 計算文字行數以自動調整高度，避免使用卷軸拖拉
+                    saved_content = row.get('task_content') or ""
+                    line_count = max(3, saved_content.count('\n') + len(saved_content) // 40 + 1)
+                    calc_height = min(max(line_count * 28, 80), 300)
+
                     e_content = st.text_area(
                         "📝 內容編輯區", 
-                        value=row.get('task_content') or "", 
-                        height=100, 
+                        value=saved_content, 
+                        height=calc_height, 
                         key=f"p2_fin_cnt_{tid}"
                     )
                     
