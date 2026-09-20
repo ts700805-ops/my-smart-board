@@ -181,6 +181,19 @@ def init_db():
                     finish_date TEXT DEFAULT '',
                     is_finished INTEGER DEFAULT 0, 
                     is_deleted INTEGER DEFAULT 0)''')
+
+    # 🆕 【獨立專案 2 資料表】建立專屬 project2_tasks 表，徹底與專案 1 隔開
+    c.execute('''CREATE TABLE IF NOT EXISTS project2_tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                    order_no TEXT, 
+                    assign_date TEXT,
+                    author_name TEXT, 
+                    worker_name TEXT, 
+                    expected_date TEXT,
+                    task_content TEXT DEFAULT '', 
+                    finish_date TEXT DEFAULT '',
+                    is_finished INTEGER DEFAULT 0, 
+                    is_deleted INTEGER DEFAULT 0)''')
     
     c.execute('''CREATE TABLE IF NOT EXISTS project_settings (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -225,7 +238,7 @@ with st.sidebar:
             "⚠️ 品質異常首頁",
             "🛠️ 製造部待處理清單",
             "🔴 專案管理首頁",
-            "🟢 專案2管理首頁",  # 🆕 重新建立之專案2導航選單
+            "🟢 專案2管理首頁",  # 🆕 獨立專案2導航選單
             "🎀 助理績效考核區",
             "--------------------", 
             "✍️ 撰寫新公告", 
@@ -473,7 +486,7 @@ elif menu == "🛠️ 製造部待處理清單":
                 st.markdown(f"<div class='large-text-content'><b>📋 任務內容：</b>\n{t_content}</div>", unsafe_allow_html=True)
 
 # =========================================================
-# 🔴 專案管理首頁
+# 🔴 專案管理首頁 (專案 1)
 # =========================================================
 elif menu == "🔴 專案管理首頁":
     st.subheader("📋 專案進度追蹤看板")
@@ -500,7 +513,6 @@ elif menu == "🔴 專案管理首頁":
         </style>
     """, unsafe_allow_html=True)
 
-    # 讀取人員與對應關係選單
     conn = get_conn()
     s_df = pd.read_sql("SELECT name FROM staff", conn)
     staff_options = s_df['name'].tolist() if not s_df.empty else ["無人員資料"]
@@ -668,7 +680,7 @@ elif menu == "🔴 專案管理首頁":
                         st.error(f"刪除失敗：{e}")
 
 # =========================================================
-# 🟢 專案2管理首頁 (全新建立導航頁面)
+# 🟢 專案2管理首頁 (全新完全獨立的專案 2 頁面)
 # =========================================================
 elif menu == "🟢 專案2管理首頁":
     st.subheader("🟢 專案2管理首頁 - 資料建立與測試區")
@@ -695,15 +707,16 @@ elif menu == "🟢 專案2管理首頁":
             if p2_order.strip() and p2_content.strip():
                 conn_add = get_conn()
                 c_add = conn_add.cursor()
+                # 寫入專屬的 project2_tasks 資料表
                 c_add.execute("""
-                    INSERT INTO project_tasks 
+                    INSERT INTO project2_tasks 
                     (order_no, assign_date, author_name, worker_name, expected_date, task_content, finish_date, is_finished, is_deleted) 
                     VALUES (?, ?, ?, ?, ?, ?, '', 0, 0)
-                """, (f"[專案2] {p2_order.strip()}", str(p2_assign), p2_author, p2_worker, str(p2_expect), p2_content.strip()))
+                """, (p2_order.strip(), str(p2_assign), p2_author, p2_worker, str(p2_expect), p2_content.strip()))
                 conn_add.commit()
                 conn_add.close()
                 sync_to_github("Add Project 2 Task")
-                st.success("✅ 專案2任務已成功建立並存入資料庫！")
+                st.success("✅ 專案2任務已成功建立並獨立寫入專案2資料庫！")
                 time.sleep(0.5)
                 st.rerun()
             else:
@@ -714,10 +727,10 @@ elif menu == "🟢 專案2管理首頁":
     st.markdown("### 📋 專案2目前進行中資料列表")
     
     conn_read = get_conn()
+    # 從專屬 project2_tasks 資料表讀取，完全隔離專案 1
     df_p2 = pd.read_sql("""
-        SELECT * FROM project_tasks 
-        WHERE order_no LIKE '[專案2]%' 
-          AND COALESCE(is_finished, 0) = 0 
+        SELECT * FROM project2_tasks 
+        WHERE COALESCE(is_finished, 0) = 0 
           AND COALESCE(is_deleted, 0) = 0 
         ORDER BY id DESC
     """, conn_read)
@@ -737,7 +750,7 @@ elif menu == "🟢 專案2管理首頁":
             with m2:
                 if st.button("✅ 標示為完工", key=f"p2_fin_{tid}", use_container_width=True):
                     conn = get_conn()
-                    conn.execute("UPDATE project_tasks SET is_finished=1, finish_date=? WHERE id=?", (datetime.now().strftime("%Y-%m-%d"), tid))
+                    conn.execute("UPDATE project2_tasks SET is_finished=1, finish_date=? WHERE id=?", (datetime.now().strftime("%Y-%m-%d"), tid))
                     conn.commit()
                     conn.close()
                     sync_to_github("Finish Project 2 Task")
@@ -750,9 +763,8 @@ elif menu == "🟢 專案2管理首頁":
     st.markdown("### 🟢 專案2已完工歷史紀錄")
     conn_fin = get_conn()
     df_p2_fin = pd.read_sql("""
-        SELECT * FROM project_tasks 
-        WHERE order_no LIKE '[專案2]%' 
-          AND COALESCE(is_finished, 0) = 1 
+        SELECT * FROM project2_tasks 
+        WHERE COALESCE(is_finished, 0) = 1 
           AND COALESCE(is_deleted, 0) = 0 
         ORDER BY id DESC
     """, conn_fin)
