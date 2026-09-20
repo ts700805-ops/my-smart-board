@@ -589,13 +589,13 @@ elif menu == "🔴 專案管理首頁":
     if df_active.empty:
         st.info("目前沒有進行中的專案任務。")
     else:
-        for _, row in df_active.iterrows():
+        for idx, row in df_active.iterrows():
             m1, m2, m3, m4 = st.columns([5, 1.5, 1.5, 1.5])
             task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "未填寫執行內容"
             m1.info(f"**製令：** {row['order_no']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **預計完工：** {row['expected_date']}\n\n**📝 內容：** {task_desc}")
             
-            # 🟢 完工按鈕 (直接觸發更新)
-            if m2.button("🟢 點我完工", key=f"f_{row['id']}"):
+            # 🟢 完工按鈕 (加上 idx 確保全域 key 唯一)
+            if m2.button("🟢 點我完工", key=f"f_act_{row['id']}_{idx}"):
                 db_conn = sqlite3.connect('bulletin.db')
                 db_conn.execute("UPDATE project_tasks SET is_finished = 1, finish_date = ? WHERE id = ?", (datetime.today().strftime("%Y-%m-%d"), row['id']))
                 db_conn.commit()
@@ -604,13 +604,13 @@ elif menu == "🔴 專案管理首頁":
                 
             # 📝 編輯 Popover
             with m3.popover("📝 編輯"):
-                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_e_{row['id']}")
+                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_e_{row['id']}_{idx}")
                 if pwd == "0000":
-                    e_order = st.text_input("修改製令", value=row['order_no'], key=f"e_ord_{row['id']}")
-                    e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row['author_name'] in author_options else 0, key=f"e_auth_{row['id']}")
-                    e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row['worker_name'] in worker_options else 0, key=f"e_work_{row['id']}")
-                    e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"e_cont_{row['id']}")
-                    if st.button("💾 儲存修改", key=f"save_{row['id']}"):
+                    e_order = st.text_input("修改製令", value=row['order_no'], key=f"e_ord_{row['id']}_{idx}")
+                    e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row['author_name'] in author_options else 0, key=f"e_auth_{row['id']}_{idx}")
+                    e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row['worker_name'] in worker_options else 0, key=f"e_work_{row['id']}_{idx}")
+                    e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"e_cont_{row['id']}_{idx}")
+                    if st.button("💾 儲存修改", key=f"save_{row['id']}_{idx}"):
                         db_conn = sqlite3.connect('bulletin.db')
                         db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", (e_order, e_author, e_worker, e_content, row['id']))
                         db_conn.commit()
@@ -621,9 +621,9 @@ elif menu == "🔴 專案管理首頁":
 
             # 🗑️ 刪除 Popover
             with m4.popover("🗑️ 刪除"):
-                pwd_d = st.text_input("輸入管理密碼", type="password", key=f"pw_d_{row['id']}")
+                pwd_d = st.text_input("輸入管理密碼", type="password", key=f"pw_d_{row['id']}_{idx}")
                 if pwd_d == "0000":
-                    if st.button("🚨 確定刪除", key=f"del_{row['id']}"):
+                    if st.button("🚨 確定刪除", key=f"del_{row['id']}_{idx}"):
                         db_conn = sqlite3.connect('bulletin.db')
                         db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
                         db_conn.commit()
@@ -642,19 +642,19 @@ elif menu == "🔴 專案管理首頁":
     if df_finished.empty:
         st.caption("目前尚無已完工的歷史專案。")
     else:
-        for _, row in df_finished.iterrows():
+        for idx, row in df_finished.iterrows():
             m1, m2, m3 = st.columns([8, 1.5, 1.5])
             task_desc = row['task_content'] if ('task_content' in row and row['task_content']) else "無執行內容"
             m1.info(f"✅ **製令：** {row['order_no']} | **發布：** {row['author_name']} | **執行：** {row['worker_name']} | **實際完工：** {row['finish_date']}\n\n**📝 內容：** {task_desc}")
             
             with m2.popover("📝 編輯"):
-                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_fe_{row['id']}")
+                pwd = st.text_input("輸入管理密碼", type="password", key=f"pw_fe_{row['id']}_{idx}")
                 if pwd == "0000":
-                    e_order = st.text_input("修改製令", value=row['order_no'], key=f"f_ord_{row['id']}")
-                    e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row['author_name'] in author_options else 0, key=f"f_auth_{row['id']}")
-                    e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row['worker_name'] in worker_options else 0, key=f"f_work_{row['id']}")
-                    e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"f_cont_{row['id']}")
-                    if st.button("💾 儲存修改", key=f"fsave_{row['id']}"):
+                    e_order = st.text_input("修改製令", value=row['order_no'], key=f"f_ord_{row['id']}_{idx}")
+                    e_author = st.selectbox("修改發布人", author_options, index=author_options.index(row['author_name']) if row['author_name'] in author_options else 0, key=f"f_auth_{row['id']}_{idx}")
+                    e_worker = st.selectbox("修改執行人", worker_options, index=worker_options.index(row['worker_name']) if row['worker_name'] in worker_options else 0, key=f"f_work_{row['id']}_{idx}")
+                    e_content = st.text_area("修改執行內容", value=row['task_content'], key=f"f_cont_{row['id']}_{idx}")
+                    if st.button("💾 儲存修改", key=f"fsave_{row['id']}_{idx}"):
                         db_conn = sqlite3.connect('bulletin.db')
                         db_conn.execute("UPDATE project_tasks SET order_no=?, author_name=?, worker_name=?, task_content=? WHERE id=?", (e_order, e_author, e_worker, e_content, row['id']))
                         db_conn.commit()
@@ -664,9 +664,9 @@ elif menu == "🔴 專案管理首頁":
                     st.warning("密碼錯誤")
 
             with m3.popover("🗑️ 刪除"):
-                pwd_fd = st.text_input("輸入管理密碼", type="password", key=f"pw_fd_{row['id']}")
+                pwd_fd = st.text_input("輸入管理密碼", type="password", key=f"pw_fd_{row['id']}_{idx}")
                 if pwd_fd == "0000":
-                    if st.button("🚨 確定刪除", key=f"fdel_{row['id']}"):
+                    if st.button("🚨 確定刪除", key=f"fdel_{row['id']}_{idx}"):
                         db_conn = sqlite3.connect('bulletin.db')
                         db_conn.execute("UPDATE project_tasks SET is_deleted = 1 WHERE id = ?", (row['id'],))
                         db_conn.commit()
