@@ -93,7 +93,7 @@ st.markdown("""
             🏭 &lt;超慧&gt;製造部-雲端公佈欄
         </h1>
         <p style="margin: 5px 0 0 0; color: #1B263B; font-size: 15px; font-weight: 500;">
-            🌕 <b>花好月圓 ‧ 粽去柚來</b> ｜ 專業效率如滿月，製造品質皆圓滿
+            🌕 <b>祝大家通通手氣大爆發</b> ｜ 小獎不沾手，大獎直接帶回家！明天通通笑著上工！
         </p>
     </div>
 """, unsafe_allow_html=True)
