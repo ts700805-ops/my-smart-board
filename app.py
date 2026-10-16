@@ -78,11 +78,11 @@ with st.sidebar:
         festive_img = Image.open("image_b13023.jpg")
         st.image(festive_img, use_container_width=True)
     except:
-        st.caption("🌕 歲歲年年 ‧ 月圓人安 🌕")
+        st.caption("🌕尾牙準備抽大獎囉 🌕")
     
     st.markdown("<hr style='border-color: rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
-    st.markdown("### 🥮 製造部中秋公告")
-    st.caption("告別端午，喜迎 9/25 中秋佳節 ─ 柚香傳情，事事圓滿！")
+    st.markdown("### 🥮 系統公告")
+    st.caption("尾牙日期 2027 年 1 月 16 日（星期六")
 
 # =========================================================
 # 🚀 唯一主頁標題區
